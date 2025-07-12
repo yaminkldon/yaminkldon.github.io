@@ -562,11 +562,16 @@ function initCustomVideoPlayer(videoPlayer, lessonKey) {
   addEventListenerWithCleanup(window, 'orientationchange', orientationChangeHandler);
   
   // Mouse/touch events for controls
-  let lastMouseX = 0;
-  let lastMouseY = 0;
+  let lastMouseX = -1;
+  let lastMouseY = -1;
   const mouseMoveHandler = function(e) {
-    // Only reset timeout if mouse actually moved
-    if (e.clientX !== lastMouseX || e.clientY !== lastMouseY) {
+    // Only reset timeout if mouse actually moved from initial position
+    if (lastMouseX === -1 && lastMouseY === -1) {
+      // First time, just store position
+      lastMouseX = e.clientX;
+      lastMouseY = e.clientY;
+    } else if (e.clientX !== lastMouseX || e.clientY !== lastMouseY) {
+      // Mouse actually moved, show controls
       lastMouseX = e.clientX;
       lastMouseY = e.clientY;
       resetControlsTimeout();
@@ -574,18 +579,29 @@ function initCustomVideoPlayer(videoPlayer, lessonKey) {
   };
   addEventListenerWithCleanup(videoWrapper, 'mousemove', mouseMoveHandler);
   
+  // Add mouse leave event to hide controls when cursor leaves video
+  const mouseLeaveVideoHandler = function() {
+    if (!isMouseOverControls) {
+      hideControls();
+    }
+  };
+  addEventListenerWithCleanup(videoWrapper, 'mouseleave', mouseLeaveVideoHandler);
+  
   const videoWrapperClickHandler = function(e) {
     // Only handle clicks on video itself, not on controls, and not on mobile
     const isMobile = window.innerWidth <= 768;
     if (!isMobile && (e.target === videoWrapper || e.target === videoPlayer)) {
-      if (videoPlayer.ended) {
-        // If video ended, restart from beginning
-        videoPlayer.currentTime = 0;
-        videoPlayer.play();
-      } else if (videoPlayer.paused) {
-        videoPlayer.play();
-      } else {
-        videoPlayer.pause();
+      // Check if this is a programmatic click from touch events
+      if (e.isTrusted && e.detail === 1) {
+        if (videoPlayer.ended) {
+          // If video ended, restart from beginning
+          videoPlayer.currentTime = 0;
+          videoPlayer.play();
+        } else if (videoPlayer.paused) {
+          videoPlayer.play();
+        } else {
+          videoPlayer.pause();
+        }
       }
     }
   };
@@ -720,7 +736,7 @@ function initCustomVideoPlayer(videoPlayer, lessonKey) {
           // Set timeout for single-tap action (toggle controls on mobile)
           touchTimeout = setTimeout(() => {
             console.log('Single tap - toggling controls visibility');
-            const isMobile = window.innerWidth <= 768;
+            const isMobile = window.innerWidth <= 768 || !!document.fullscreenElement;
             if (isMobile) {
               // On mobile - toggle controls visibility
               if (customControls.classList.contains('visible')) {
@@ -730,18 +746,8 @@ function initCustomVideoPlayer(videoPlayer, lessonKey) {
                 showControls();
                 resetControlsTimeout();
               }
-            } else {
-              // On desktop - keep the play/pause behavior
-              if (videoPlayer.ended) {
-                // If video ended, restart from beginning
-                videoPlayer.currentTime = 0;
-                videoPlayer.play();
-              } else if (videoPlayer.paused) {
-                videoPlayer.play();
-              } else {
-                videoPlayer.pause();
-              }
             }
+            // Remove desktop behavior from touch events completely
           }, 400);
         }
       }
@@ -752,16 +758,18 @@ function initCustomVideoPlayer(videoPlayer, lessonKey) {
   addEventListenerWithCleanup(videoWrapper, 'touchend', touchEndHandler);
   
   // Show controls initially, then hide them after a delay
-  resetControlsTimeout();
-  
-  // On mobile, hide controls after initial display
   const isMobile = window.innerWidth <= 768;
   if (isMobile) {
+    // On mobile, show controls briefly then hide
+    showControls();
     setTimeout(() => {
       if (!isMouseOverControls) {
         customControls.classList.remove('visible');
       }
-    }, 4000); // Hide after 4 seconds on mobile
+    }, 3000); // Hide after 3 seconds on mobile
+  } else {
+    // On desktop, don't show controls initially
+    customControls.classList.remove('visible');
   }
   
   // Load and set saved volume - delay to ensure video is ready
