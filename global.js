@@ -155,13 +155,14 @@ class NotificationManager {
       border-radius:4px;
       padding:16px;
       position:fixed;
-      z-index:999999;
+      z-index:9999999;
       left:50%;
       bottom:30px;
       font-size:17px;
       cursor:pointer;
       transition:visibility 0s, opacity 0.5s linear;
       opacity:0;
+      pointer-events:auto;
     `;
     document.body.appendChild(toast);
   }

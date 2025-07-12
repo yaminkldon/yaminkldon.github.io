@@ -289,21 +289,34 @@ function initCustomVideoPlayer(videoPlayer, lessonKey) {
   });
   
   // Volume controls
+  let previousVolume = 1.0; // Store previous volume level
+  
   volumeBtn.addEventListener('click', function() {
-    if (videoPlayer.muted) {
+    if (videoPlayer.muted || videoPlayer.volume === 0) {
       videoPlayer.muted = false;
+      videoPlayer.volume = previousVolume;
       volumeBtn.querySelector('.material-icons').textContent = 'volume_up';
-      volumeSlider.value = videoPlayer.volume * 100;
+      volumeSlider.value = previousVolume * 100;
     } else {
+      previousVolume = videoPlayer.volume;
       videoPlayer.muted = true;
+      videoPlayer.volume = 0;
       volumeBtn.querySelector('.material-icons').textContent = 'volume_off';
+      volumeSlider.value = 0;
     }
   });
   
   volumeSlider.addEventListener('input', function() {
-    videoPlayer.volume = this.value / 100;
+    const newVolume = this.value / 100;
+    videoPlayer.volume = newVolume;
     videoPlayer.muted = false;
-    volumeBtn.querySelector('.material-icons').textContent = this.value > 0 ? 'volume_up' : 'volume_off';
+    
+    if (newVolume > 0) {
+      previousVolume = newVolume;
+      volumeBtn.querySelector('.material-icons').textContent = 'volume_up';
+    } else {
+      volumeBtn.querySelector('.material-icons').textContent = 'volume_off';
+    }
   });
   
   // Speed control
@@ -329,7 +342,6 @@ function initCustomVideoPlayer(videoPlayer, lessonKey) {
     
     // Apply quality setting (basic implementation)
     if (newQuality === '720p') {
-      // For a real implementation, you'd switch video sources here
       NotificationManager.showToast('Quality set to 720p');
     } else if (newQuality === '480p') {
       NotificationManager.showToast('Quality set to 480p');
@@ -340,10 +352,6 @@ function initCustomVideoPlayer(videoPlayer, lessonKey) {
     }
     
     // Restore playback position
-    videoPlayer.currentTime = currentTime;
-    if (!isPaused) {
-      videoPlayer.play();
-    }
   });
   
   // Load saved quality
