@@ -214,7 +214,6 @@ function initCustomVideoPlayer(videoPlayer, lessonKey) {
   const durationSpan = document.getElementById('duration');
   const speedSelect = document.getElementById('speed-select');
   const qualitySelect = document.getElementById('quality-select');
-  const captionsSelect = document.getElementById('captions-select');
   const settingsBtn = document.getElementById('settings-btn');
   const settingsMenu = document.getElementById('settings-menu');
   const fullscreenBtn = document.getElementById('fullscreen-btn');
@@ -328,9 +327,6 @@ function initCustomVideoPlayer(videoPlayer, lessonKey) {
   // Load saved quality
   const savedQuality = localStorage.getItem('videoQuality') || 'auto';
   qualitySelect.value = savedQuality;
-  
-  // Captions control
-  initCaptionsControl(videoPlayer, captionsSelect);
   
   // Settings menu toggle
   settingsBtn.addEventListener('click', function() {
@@ -462,57 +458,8 @@ function formatTime(seconds) {
   return `${minutes}:${secs.toString().padStart(2, '0')}`;
 }
 
-// Captions functionality
-function initCaptionsControl(videoPlayer, captionsSelect) {
-  const captionsDisplay = document.getElementById('custom-captions');
-  let captionsData = null;
-  
-  // Load saved captions preference
-  const savedCaptions = localStorage.getItem('captionsLanguage') || 'off';
-  captionsSelect.value = savedCaptions;
-  
-  captionsSelect.addEventListener('change', function() {
-    const language = this.value;
-    localStorage.setItem('captionsLanguage', language);
-    
-    if (language === 'off') {
-      captionsDisplay.style.display = 'none';
-      captionsData = null;
-      NotificationManager.showToast('Captions: Off');
-    } else {
-      loadCaptions(language);
-      NotificationManager.showToast(`Captions: ${getLanguageName(language)}`);
-    }
-  });
-  
-  // Update captions during video playback
-  videoPlayer.addEventListener('timeupdate', function() {
-    if (captionsData && captionsSelect.value !== 'off') {
-      updateCaptions(videoPlayer.currentTime);
-    }
-  });
-  
-  function loadCaptions(language) {
-    // Generate sample captions for demonstration
-    captionsData = generateSampleCaptions(language);
-  }
-  
-  function updateCaptions(currentTime) {
-    if (!captionsData) return;
-    
-    const currentCaption = captionsData.find(caption => 
-      currentTime >= caption.start && currentTime <= caption.end
-    );
-    
-    if (currentCaption) {
-      captionsDisplay.textContent = currentCaption.text;
-      captionsDisplay.style.display = 'block';
-    } else {
-      captionsDisplay.style.display = 'none';
-    }
-  }
-  
-  function getLanguageName(code) {
+
+function getLanguageName(code) {
     const languages = {
       'en': 'English',
       'ar': 'Arabic',
@@ -520,29 +467,3 @@ function initCaptionsControl(videoPlayer, captionsSelect) {
     };
     return languages[code] || code;
   }
-  
-  function generateSampleCaptions(language = 'en') {
-    if (language === 'ar') {
-      return [
-        { start: 0, end: 5, text: 'مرحبا بكم في هذا الدرس' },
-        { start: 5, end: 10, text: 'سنتعلم اليوم موضوعا جديدا' },
-        { start: 10, end: 15, text: 'دعونا نبدأ بالأساسيات' },
-        { start: 15, end: 20, text: 'هذا مثال على الترجمة العربية' }
-      ];
-    } else {
-      return [
-        { start: 0, end: 5, text: 'Welcome to this lesson' },
-        { start: 5, end: 10, text: 'Today we will learn something new' },
-        { start: 10, end: 15, text: 'Let\'s start with the basics' },
-        { start: 15, end: 20, text: 'This is an example of English captions' },
-        { start: 20, end: 25, text: 'Captions help with accessibility' },
-        { start: 25, end: 30, text: 'Thank you for watching' }
-      ];
-    }
-  }
-  
-  // Initialize captions if previously enabled
-  if (savedCaptions !== 'off') {
-    loadCaptions(savedCaptions);
-  }
-}
