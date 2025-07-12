@@ -1,4 +1,4 @@
-// Advanced Settings JavaScript - V2.0
+// Advanced Settings JavaScript - V2.1.0
 // Handles all advanced features settings and UI interactions
 
 class AdvancedSettingsManager {
@@ -137,7 +137,8 @@ class AdvancedSettingsManager {
 
       // Check if this day has study activity
       const dateKey = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-      const hasActivity = this.advancedFeatures.hasStudyActivity(dateKey);
+      const dateString = new Date(currentYear, currentMonth, day).toDateString();
+      const hasActivity = this.advancedFeatures.hasStudyActivity(dateString);
       
       if (hasActivity) {
         dayElement.classList.add('has-activity');
@@ -229,13 +230,14 @@ class AdvancedSettingsManager {
     // Add some demo analytics data if none exists
     const analytics = this.advancedFeatures.getAnalytics();
     if (analytics.totalTime === 0) {
-      // Add demo session data
+      // Add demo session data with recent dates
+      const today = new Date();
       const demoSessions = [
-        { date: '2024-01-15', duration: 25, lessonsCompleted: 3 },
-        { date: '2024-01-16', duration: 30, lessonsCompleted: 4 },
-        { date: '2024-01-17', duration: 20, lessonsCompleted: 2 },
-        { date: '2024-01-18', duration: 35, lessonsCompleted: 5 },
-        { date: '2024-01-19', duration: 40, lessonsCompleted: 6 }
+        { date: new Date(today.getTime() - 4 * 24 * 60 * 60 * 1000).toDateString(), duration: 25, lessonsCompleted: 3 },
+        { date: new Date(today.getTime() - 3 * 24 * 60 * 60 * 1000).toDateString(), duration: 30, lessonsCompleted: 4 },
+        { date: new Date(today.getTime() - 2 * 24 * 60 * 60 * 1000).toDateString(), duration: 20, lessonsCompleted: 2 },
+        { date: new Date(today.getTime() - 1 * 24 * 60 * 60 * 1000).toDateString(), duration: 35, lessonsCompleted: 5 },
+        { date: today.toDateString(), duration: 40, lessonsCompleted: 6 }
       ];
 
       demoSessions.forEach(session => {
@@ -246,6 +248,10 @@ class AdvancedSettingsManager {
       this.updateAnalytics();
       this.updateGoalProgress();
       this.generateCalendar();
+      
+      console.log('Demo data added successfully!');
+    } else {
+      console.log('Analytics data already exists, skipping demo data generation');
     }
   }
 }
@@ -256,75 +262,152 @@ function goBack() {
 }
 
 function setLanguage(lang) {
-  // Remove active class from all language buttons
-  document.querySelectorAll('[id^="lang-"]').forEach(btn => btn.classList.remove('active'));
-  
-  // Add active class to selected language
-  document.getElementById(`lang-${lang}`).classList.add('active');
-  
-  // Update language in advanced features
-  window.settingsManager.advancedFeatures.setLanguage(lang);
-  
-  // Update display
-  window.settingsManager.updateLanguageDisplay();
+  try {
+    if (!window.settingsManager) {
+      console.error('Settings manager not initialized');
+      return;
+    }
+    
+    // Remove active class from all language buttons
+    document.querySelectorAll('[id^="lang-"]').forEach(btn => btn.classList.remove('active'));
+    
+    // Add active class to selected language
+    document.getElementById(`lang-${lang}`).classList.add('active');
+    
+    // Update language in advanced features
+    window.settingsManager.advancedFeatures.setLanguage(lang);
+    
+    // Update display
+    window.settingsManager.updateLanguageDisplay();
+    
+    console.log(`Language set to: ${lang}`);
+  } catch (error) {
+    console.error('Error setting language:', error);
+  }
 }
 
 function setTheme(theme) {
-  // Remove active class from all theme buttons
-  document.querySelectorAll('[id^="theme-"]').forEach(btn => btn.classList.remove('active'));
-  
-  // Add active class to selected theme
-  document.getElementById(`theme-${theme}`).classList.add('active');
-  
-  // Apply theme
-  window.settingsManager.advancedFeatures.setTheme(theme);
-  
-  // Update body class for dark mode
-  if (theme === 'dark') {
-    document.body.classList.add('dark-mode');
-  } else {
-    document.body.classList.remove('dark-mode');
+  try {
+    if (!window.settingsManager) {
+      console.error('Settings manager not initialized');
+      return;
+    }
+    
+    // Remove active class from all theme buttons
+    document.querySelectorAll('[id^="theme-"]').forEach(btn => btn.classList.remove('active'));
+    
+    // Add active class to selected theme
+    document.getElementById(`theme-${theme}`).classList.add('active');
+    
+    // Apply theme
+    window.settingsManager.advancedFeatures.setTheme(theme);
+    
+    // Update body class for dark mode
+    if (theme === 'dark') {
+      document.body.classList.add('dark-mode');
+    } else {
+      document.body.classList.remove('dark-mode');
+    }
+    
+    console.log(`Theme set to: ${theme}`);
+  } catch (error) {
+    console.error('Error setting theme:', error);
   }
 }
 
 function setFontSize(size) {
-  // Remove active class from all font size buttons
-  document.querySelectorAll('[id^="font-"]').forEach(btn => btn.classList.remove('active'));
-  
-  // Add active class to selected font size
-  document.getElementById(`font-${size}`).classList.add('active');
-  
-  // Apply font size
-  window.settingsManager.advancedFeatures.setFontSize(size);
-  window.settingsManager.applyFontSize(size);
+  try {
+    if (!window.settingsManager) {
+      console.error('Settings manager not initialized');
+      return;
+    }
+    
+    // Remove active class from all font size buttons
+    document.querySelectorAll('[id^="font-"]').forEach(btn => btn.classList.remove('active'));
+    
+    // Add active class to selected font size
+    document.getElementById(`font-${size}`).classList.add('active');
+    
+    // Apply font size
+    window.settingsManager.advancedFeatures.setFontSize(size);
+    window.settingsManager.applyFontSize(size);
+    
+    console.log(`Font size set to: ${size}`);
+  } catch (error) {
+    console.error('Error setting font size:', error);
+  }
 }
 
 function setLayout(layout) {
-  // Remove active class from all layout buttons
-  document.querySelectorAll('[id^="layout-"]').forEach(btn => btn.classList.remove('active'));
-  
-  // Add active class to selected layout
-  document.getElementById(`layout-${layout}`).classList.add('active');
-  
-  // Apply layout
-  window.settingsManager.advancedFeatures.setLayout(layout);
+  try {
+    if (!window.settingsManager) {
+      console.error('Settings manager not initialized');
+      return;
+    }
+    
+    // Remove active class from all layout buttons
+    document.querySelectorAll('[id^="layout-"]').forEach(btn => btn.classList.remove('active'));
+    
+    // Add active class to selected layout
+    document.getElementById(`layout-${layout}`).classList.add('active');
+    
+    // Apply layout
+    window.settingsManager.advancedFeatures.setLayout(layout);
+    
+    console.log(`Layout set to: ${layout}`);
+  } catch (error) {
+    console.error('Error setting layout:', error);
+  }
 }
 
 // Initialize when page loads
 document.addEventListener('DOMContentLoaded', () => {
-  window.settingsManager = new AdvancedSettingsManager();
-  
-  // Show success message
-  setTimeout(() => {
-    if (window.showToast) {
-      window.showToast('Advanced settings loaded successfully!', 'success');
-    } else {
-      console.log('Advanced Settings initialized successfully!');
+  try {
+    console.log('Initializing Advanced Settings...');
+    
+    // Check if AdvancedFeatures class is available
+    if (typeof AdvancedFeatures === 'undefined') {
+      console.error('AdvancedFeatures class is not available. Make sure advanced-features.js is loaded.');
+      return;
     }
     
-    // Add demo data if none exists
-    window.settingsManager.addDemoData();
-  }, 500);
+    window.settingsManager = new AdvancedSettingsManager();
+    console.log('Advanced Settings Manager initialized successfully');
+    
+    // Show success message
+    setTimeout(() => {
+      if (window.showToast) {
+        window.showToast('Advanced settings loaded successfully!', 'success');
+      } else {
+        console.log('Advanced Settings initialized successfully!');
+      }
+      
+      // Add demo data if none exists
+      window.settingsManager.addDemoData();
+    }, 500);
+    
+  } catch (error) {
+    console.error('Error initializing Advanced Settings:', error);
+    
+    // Show error message to user
+    const errorMsg = document.createElement('div');
+    errorMsg.style.cssText = `
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      background: #ff4444;
+      color: white;
+      padding: 10px 20px;
+      border-radius: 4px;
+      z-index: 9999;
+    `;
+    errorMsg.textContent = 'Error loading advanced settings. Please refresh the page.';
+    document.body.appendChild(errorMsg);
+    
+    setTimeout(() => {
+      document.body.removeChild(errorMsg);
+    }, 5000);
+  }
 });
 
 // Export for use in other files

@@ -21,7 +21,8 @@ class AdvancedFeatures {
 
   // 1. Advanced Search Filters
   initSearchFilters() {
-    this.searchFilters = {
+    const savedFilters = localStorage.getItem('searchFilters');
+    this.searchFilters = savedFilters ? JSON.parse(savedFilters) : {
       difficulty: 'all', // all, beginner, intermediate, advanced
       duration: 'all',   // all, short, medium, long
       topic: 'all',      // all, or specific topics
@@ -129,6 +130,14 @@ class AdvancedFeatures {
     this.currentLanguage = language;
     localStorage.setItem('preferredLanguage', language);
     this.updateUITexts();
+  }
+
+  updateUITexts() {
+    // Update all UI elements with new language
+    document.querySelectorAll('[data-translate]').forEach(element => {
+      const key = element.getAttribute('data-translate');
+      element.textContent = this.translate(key);
+    });
   }
 
   updateUITexts() {
@@ -526,7 +535,162 @@ class AdvancedFeatures {
   formatDate(date) {
     return new Date(date).toLocaleDateString(this.currentLanguage === 'ar' ? 'ar-SA' : 'en-US');
   }
+
+  // Getter methods for current settings
+  getCurrentLanguage() {
+    return this.currentLanguage;
+  }
+
+  getCurrentTheme() {
+    return this.currentTheme;
+  }
+
+  getCurrentFontSize() {
+    return this.currentFontSize;
+  }
+
+  getCurrentLayout() {
+    return this.currentLayout;
+  }
+
+  getGoals() {
+    return this.goals;
+  }
+
+  getSearchFilters() {
+    return this.searchFilters;
+  }
+
+  // Setter methods
+  setLanguage(language) {
+    this.currentLanguage = language;
+    localStorage.setItem('preferredLanguage', language);
+    this.updateLanguageDisplay();
+  }
+
+  setTheme(theme) {
+    this.applyPlayerTheme(theme);
+  }
+
+  setFontSize(size) {
+    this.applyFontSize(size);
+  }
+
+  setLayout(layout) {
+    this.applyLayout(layout);
+  }
+
+  setGoal(type, metric, value) {
+    if (!this.goals[type]) this.goals[type] = {};
+    this.goals[type][metric] = value;
+    localStorage.setItem('studyGoals', JSON.stringify(this.goals));
+  }
+
+  setSearchFilter(type, value) {
+    this.searchFilters[type] = value;
+    localStorage.setItem('searchFilters', JSON.stringify(this.searchFilters));
+  }
+
+  // Additional utility methods
+  updateLanguageDisplay() {
+    // Update all UI elements with new language
+    document.querySelectorAll('[data-translate]').forEach(element => {
+      const key = element.getAttribute('data-translate');
+      element.textContent = this.translate(key);
+    });
+  }
+
+  getAnalytics() {
+    const summary = this.getAnalyticsSummary();
+    return {
+      totalTime: Math.round(summary.totalTime / 60), // Convert to minutes
+      lessonsCompleted: summary.totalLessons,
+      averageSession: Math.round(summary.averageSessionTime / 60), // Convert to minutes
+      completionRate: summary.completionRate
+    };
+  }
+
+  getGoalProgress() {
+    const today = new Date().toDateString();
+    const thisWeek = this.getWeekKey(new Date());
+    
+    const progress = JSON.parse(localStorage.getItem('studyProgress')) || {};
+    
+    return {
+      daily: {
+        lessons: progress[today] ? progress[today].lessons || 0 : 0,
+        minutes: progress[today] ? progress[today].minutes || 0 : 0
+      },
+      weekly: {
+        lessons: progress[thisWeek] ? progress[thisWeek].lessons || 0 : 0,
+        minutes: progress[thisWeek] ? progress[thisWeek].minutes || 0 : 0
+      }
+    };
+  }
+
+  hasStudyActivity(dateKey) {
+    return !!this.studySessions[dateKey];
+  }
+
+  getRecommendations() {
+    // Generate sample recommendations for demo
+    return [
+      {
+        title: "Continue Math Unit 2",
+        description: "You're 75% through this unit. Complete the remaining lessons to unlock advanced topics."
+      },
+      {
+        title: "Review Science Fundamentals",
+        description: "Based on your progress, reviewing these concepts will help with upcoming lessons."
+      },
+      {
+        title: "Explore Language Arts",
+        description: "You've shown strong performance in related areas. This might interest you."
+      },
+      {
+        title: "Practice Session Recommended",
+        description: "It's been 2 days since your last session. A quick review would be beneficial."
+      }
+    ];
+  }
+
+  trackStudySession(duration, lessonsCompleted, date = null) {
+    const sessionDate = date || new Date().toDateString();
+    const weekKey = this.getWeekKey(new Date(sessionDate));
+    
+    const progress = JSON.parse(localStorage.getItem('studyProgress')) || {};
+    
+    // Update daily progress
+    if (!progress[sessionDate]) progress[sessionDate] = { lessons: 0, minutes: 0 };
+    progress[sessionDate].lessons += lessonsCompleted;
+    progress[sessionDate].minutes += duration;
+    
+    // Update weekly progress
+    if (!progress[weekKey]) progress[weekKey] = { lessons: 0, minutes: 0 };
+    progress[weekKey].lessons += lessonsCompleted;
+    progress[weekKey].minutes += duration;
+    
+    localStorage.setItem('studyProgress', JSON.stringify(progress));
+
+    // Also update study sessions for calendar
+    if (!this.studySessions[sessionDate]) {
+      this.studySessions[sessionDate] = [];
+    }
+    
+    this.studySessions[sessionDate].push({
+      duration: duration * 60, // Convert to seconds
+      lessons: lessonsCompleted,
+      timestamp: Date.now()
+    });
+    
+    localStorage.setItem('studySessions', JSON.stringify(this.studySessions));
+  }
 }
 
-// Initialize Advanced Features
-window.AdvancedFeatures = new AdvancedFeatures();
+// Export the class, don't initialize automatically
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = AdvancedFeatures;
+} else {
+  // Make it available globally in the browser
+  window.AdvancedFeatures = AdvancedFeatures;
+}

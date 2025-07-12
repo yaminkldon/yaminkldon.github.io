@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Advanced Features Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background: #f5f5f5;
+        }
+        .test-container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        .test-section {
+            margin-bottom: 30px;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .test-section h3 {
+            margin-top: 0;
+            color: #333;
+        }
+        button {
+            background: #6c4fc1;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #5436a7;
+        }
+        .status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+            font-weight: bold;
+        }
+        .success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        #test-output {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            margin-top: 20px;
+            max-height: 400px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>Advanced Features Test Page</h1>
+        
+        <div class="test-section">
+            <h3>1. Class Loading Test</h3>
+            <button onclick="testClassLoading()">Test Class Loading</button>
+            <div id="class-status" class="status info">Not tested</div>
+        </div>
+        
+        <div class="test-section">
+            <h3>2. Language Test</h3>
+            <button onclick="testLanguage()">Test Language Features</button>
+            <div id="language-status" class="status info">Not tested</div>
+        </div>
+        
+        <div class="test-section">
+            <h3>3. Theme Test</h3>
+            <button onclick="testThemes()">Test Theme Features</button>
+            <div id="theme-status" class="status info">Not tested</div>
+        </div>
+        
+        <div class="test-section">
+            <h3>4. Analytics Test</h3>
+            <button onclick="testAnalytics()">Test Analytics Features</button>
+            <div id="analytics-status" class="status info">Not tested</div>
+        </div>
+        
+        <div class="test-section">
+            <h3>5. Demo Data Test</h3>
+            <button onclick="testDemoData()">Add Demo Data</button>
+            <div id="demo-status" class="status info">Not tested</div>
+        </div>
+        
+        <div class="test-section">
+            <h3>6. Full Feature Test</h3>
+            <button onclick="runAllTests()">Run All Tests</button>
+            <div id="full-test-status" class="status info">Not tested</div>
+        </div>
+        
+        <div id="test-output"></div>
+    </div>
+
+    <script src="advanced-features.js"></script>
+    <script>
+        let advancedFeatures = null;
+        let testOutput = '';
+        
+        function log(message) {
+            testOutput += new Date().toLocaleTimeString() + ': ' + message + '\n';
+            document.getElementById('test-output').textContent = testOutput;
+            console.log(message);
+        }
+        
+        function updateStatus(elementId, message, type = 'info') {
+            const element = document.getElementById(elementId);
+            element.textContent = message;
+            element.className = `status ${type}`;
+        }
+        
+        function testClassLoading() {
+            try {
+                log('Testing Advanced Features class loading...');
+                
+                if (typeof AdvancedFeatures === 'undefined') {
+                    throw new Error('AdvancedFeatures class is not available');
+                }
+                
+                advancedFeatures = new AdvancedFeatures();
+                log('AdvancedFeatures class instantiated successfully');
+                
+                // Test basic methods
+                const language = advancedFeatures.getCurrentLanguage();
+                log(`Current language: ${language}`);
+                
+                const theme = advancedFeatures.getCurrentTheme();
+                log(`Current theme: ${theme}`);
+                
+                updateStatus('class-status', 'SUCCESS: Class loaded and working', 'success');
+                
+            } catch (error) {
+                log(`ERROR: ${error.message}`);
+                updateStatus('class-status', `ERROR: ${error.message}`, 'error');
+            }
+        }
+        
+        function testLanguage() {
+            try {
+                if (!advancedFeatures) {
+                    advancedFeatures = new AdvancedFeatures();
+                }
+                
+                log('Testing language features...');
+                
+                // Test language switching
+                advancedFeatures.setLanguage('ar');
+                log('Language set to Arabic');
+                
+                const currentLang = advancedFeatures.getCurrentLanguage();
+                log(`Current language: ${currentLang}`);
+                
+                // Test translation
+                const translation = advancedFeatures.translate('home');
+                log(`Translation for 'home': ${translation}`);
+                
+                // Switch back to English
+                advancedFeatures.setLanguage('en');
+                log('Language set back to English');
+                
+                updateStatus('language-status', 'SUCCESS: Language features working', 'success');
+                
+            } catch (error) {
+                log(`ERROR: ${error.message}`);
+                updateStatus('language-status', `ERROR: ${error.message}`, 'error');
+            }
+        }
+        
+        function testThemes() {
+            try {
+                if (!advancedFeatures) {
+                    advancedFeatures = new AdvancedFeatures();
+                }
+                
+                log('Testing theme features...');
+                
+                // Test theme switching
+                const themes = ['default', 'dark', 'blue', 'green'];
+                
+                themes.forEach(theme => {
+                    advancedFeatures.setTheme(theme);
+                    log(`Theme set to: ${theme}`);
+                    
+                    const currentTheme = advancedFeatures.getCurrentTheme();
+                    log(`Current theme: ${currentTheme}`);
+                });
+                
+                updateStatus('theme-status', 'SUCCESS: Theme features working', 'success');
+                
+            } catch (error) {
+                log(`ERROR: ${error.message}`);
+                updateStatus('theme-status', `ERROR: ${error.message}`, 'error');
+            }
+        }
+        
+        function testAnalytics() {
+            try {
+                if (!advancedFeatures) {
+                    advancedFeatures = new AdvancedFeatures();
+                }
+                
+                log('Testing analytics features...');
+                
+                // Get initial analytics
+                const analytics = advancedFeatures.getAnalytics();
+                log(`Initial analytics: Total time: ${analytics.totalTime}min, Lessons: ${analytics.lessonsCompleted}`);
+                
+                // Test study session tracking
+                advancedFeatures.trackStudySession(30, 3);
+                log('Study session tracked: 30 minutes, 3 lessons');
+                
+                // Get updated analytics
+                const updatedAnalytics = advancedFeatures.getAnalytics();
+                log(`Updated analytics: Total time: ${updatedAnalytics.totalTime}min, Lessons: ${updatedAnalytics.lessonsCompleted}`);
+                
+                updateStatus('analytics-status', 'SUCCESS: Analytics features working', 'success');
+                
+            } catch (error) {
+                log(`ERROR: ${error.message}`);
+                updateStatus('analytics-status', `ERROR: ${error.message}`, 'error');
+            }
+        }
+        
+        function testDemoData() {
+            try {
+                if (!advancedFeatures) {
+                    advancedFeatures = new AdvancedFeatures();
+                }
+                
+                log('Testing demo data generation...');
+                
+                // Clear existing data
+                localStorage.removeItem('studyProgress');
+                localStorage.removeItem('studySessions');
+                
+                // Add demo data
+                const today = new Date();
+                const demoSessions = [
+                    { date: new Date(today.getTime() - 4 * 24 * 60 * 60 * 1000).toDateString(), duration: 25, lessons: 3 },
+                    { date: new Date(today.getTime() - 3 * 24 * 60 * 60 * 1000).toDateString(), duration: 30, lessons: 4 },
+                    { date: new Date(today.getTime() - 2 * 24 * 60 * 60 * 1000).toDateString(), duration: 20, lessons: 2 },
+                    { date: new Date(today.getTime() - 1 * 24 * 60 * 60 * 1000).toDateString(), duration: 35, lessons: 5 },
+                    { date: today.toDateString(), duration: 40, lessons: 6 }
+                ];
+                
+                demoSessions.forEach(session => {
+                    advancedFeatures.trackStudySession(session.duration, session.lessons, session.date);
+                    log(`Added demo session: ${session.date} - ${session.duration}min, ${session.lessons} lessons`);
+                });
+                
+                // Verify data
+                const analytics = advancedFeatures.getAnalytics();
+                log(`Final analytics: Total time: ${analytics.totalTime}min, Lessons: ${analytics.lessonsCompleted}`);
+                
+                updateStatus('demo-status', 'SUCCESS: Demo data added successfully', 'success');
+                
+            } catch (error) {
+                log(`ERROR: ${error.message}`);
+                updateStatus('demo-status', `ERROR: ${error.message}`, 'error');
+            }
+        }
+        
+        function runAllTests() {
+            log('=== Running All Tests ===');
+            
+            testClassLoading();
+            setTimeout(() => {
+                testLanguage();
+                setTimeout(() => {
+                    testThemes();
+                    setTimeout(() => {
+                        testAnalytics();
+                        setTimeout(() => {
+                            testDemoData();
+                            updateStatus('full-test-status', 'All tests completed! Check individual results above.', 'success');
+                        }, 500);
+                    }, 500);
+                }, 500);
+            }, 500);
+        }
+        
+        // Auto-run basic test on page load
+        window.addEventListener('load', () => {
+            log('=== Advanced Features Test Page Loaded ===');
+            testClassLoading();
+        });
+    </script>
+</body>
+</html>
