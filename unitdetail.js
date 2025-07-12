@@ -225,7 +225,13 @@ function initCustomVideoPlayer(videoPlayer, lessonKey) {
     NotificationManager.showToast('Lesson completed! 🎉');
   });
   
-  // Keyboard controls
+  // Disable default video keyboard shortcuts
+  videoPlayer.addEventListener('keydown', function(e) {
+    e.preventDefault();
+    e.stopPropagation();
+  });
+  
+  // Keyboard controls - use capture phase to override browser defaults
   const keydownHandler = function(e) {
     console.log('Key pressed:', e.key, 'Video container visible:', document.getElementById('video-container').style.display); // Debug
     
@@ -235,39 +241,39 @@ function initCustomVideoPlayer(videoPlayer, lessonKey) {
       switch(e.key) {
         case 'ArrowRight':
           e.preventDefault();
-          e.stopPropagation();
+          e.stopImmediatePropagation();
           skipForward(videoPlayer, 5);
-          break;
+          return false;
         case 'ArrowLeft':
           e.preventDefault();
-          e.stopPropagation();
+          e.stopImmediatePropagation();
           skipBackward(videoPlayer, 5);
-          break;
+          return false;
         case ' ':
         case 'Spacebar':
           e.preventDefault();
-          e.stopPropagation();
+          e.stopImmediatePropagation();
           togglePlayPause(videoPlayer);
-          break;
+          return false;
         case 'f':
         case 'F':
           e.preventDefault();
-          e.stopPropagation();
+          e.stopImmediatePropagation();
           toggleFullscreen(videoPlayer);
-          break;
+          return false;
         case 'm':
         case 'M':
           e.preventDefault();
-          e.stopPropagation();
+          e.stopImmediatePropagation();
           toggleMute(videoPlayer);
-          break;
+          return false;
       }
     }
   };
   
-  // Remove any existing handlers and add new one
-  document.removeEventListener('keydown', keydownHandler);
-  document.addEventListener('keydown', keydownHandler);
+  // Remove any existing handlers and add new one with capture
+  document.removeEventListener('keydown', keydownHandler, true);
+  document.addEventListener('keydown', keydownHandler, true);
   
   // Touch controls for mobile
   let touchStartX = 0;
