@@ -134,7 +134,7 @@ function createLessonCard(lessonKey, lessonData) {
 }
 
 function playLesson(lessonKey, lessonData) {
-  console.log('playLesson called with:', lessonKey, lessonData); // Debug
+  console.log('playLesson called with:', lessonKey, lessonData);
   
   const videoFile = lessonData.videoURL || lessonData.videoFile;
   
@@ -150,30 +150,28 @@ function playLesson(lessonKey, lessonData) {
   // Get video URL from Firebase Storage
   storage.ref('videos/' + videoFile).getDownloadURL()
     .then(url => {
-      console.log('Video URL loaded:', url); // Debug
+      console.log('Video URL loaded:', url);
       
       const videoPlayer = document.getElementById('video-player');
       videoPlayer.src = url;
       document.getElementById('video-title').textContent = lessonKey;
       
-      // Remove any existing event listeners to prevent duplicates
-      const newPlayer = videoPlayer.cloneNode(true);
-      videoPlayer.parentNode.replaceChild(newPlayer, videoPlayer);
-      
-      console.log('About to initialize custom video player'); // Debug
-      
       // Initialize custom video player
-      initCustomVideoPlayer(newPlayer, lessonKey);
+      initCustomVideoPlayer(videoPlayer, lessonKey);
       
       // Scroll to video
       document.getElementById('video-container').scrollIntoView({ 
         behavior: 'smooth' 
       });
+      
+      // Auto-play the video
+      videoPlayer.play().catch(error => {
+        console.log('Autoplay prevented:', error);
+      });
     })
     .catch(error => {
       console.error('Error loading video:', error);
       NotificationManager.showToast('Error loading video: ' + error.message);
-      document.getElementById('video-container').style.display = 'none';
     });
 }
 
@@ -197,31 +195,43 @@ function goBack() {
 
 // Custom Video Player Functions
 function initCustomVideoPlayer(videoPlayer, lessonKey) {
-  console.log('initCustomVideoPlayer called with:', videoPlayer, lessonKey); // Debug
+  console.log('initCustomVideoPlayer called with:', videoPlayer, lessonKey);
   
-  let lastTapTime = 0;
   let savePositionInterval;
+  let isMouseOverControls = false;
+  let controlsTimeout;
   
-  // Load saved video position (async)
-  console.log('Loading video position for:', currentUnitName, lessonKey); // Debug
+  // Get control elements
+  const customControls = document.getElementById('custom-controls');
+  const playPauseBtn = document.getElementById('play-pause-btn');
+  const progressBar = document.getElementById('progress-bar');
+  const progressFilled = document.getElementById('progress-filled');
+  const progressHandle = document.getElementById('progress-handle');
+  const volumeBtn = document.getElementById('volume-btn');
+  const volumeSlider = document.getElementById('volume-slider');
+  const currentTimeSpan = document.getElementById('current-time');
+  const durationSpan = document.getElementById('duration');
+  const speedSelect = document.getElementById('speed-select');
+  const qualitySelect = document.getElementById('quality-select');
+  const captionsSelect = document.getElementById('captions-select');
+  const settingsBtn = document.getElementById('settings-btn');
+  const settingsMenu = document.getElementById('settings-menu');
+  const fullscreenBtn = document.getElementById('fullscreen-btn');
+  const videoWrapper = document.querySelector('.video-player-wrapper');
   
+  // Load saved video position
   ProgressTracker.getVideoPosition(currentUnitName, lessonKey)
     .then(savedPosition => {
-      console.log('Saved position loaded:', savedPosition); // Debug
-      
       if (savedPosition > 0) {
         videoPlayer.addEventListener('loadedmetadata', function() {
-          console.log('Setting video position to:', savedPosition); // Debug
           videoPlayer.currentTime = savedPosition;
           NotificationManager.showToast(`Resumed from ${formatTime(savedPosition)}`);
         });
       }
     })
-    .catch(error => {
-      console.error('Error loading video position:', error);
-    });
+    .catch(error => console.error('Error loading video position:', error));
   
-  // Save video position every 5 seconds
+  // Save video position periodically
   videoPlayer.addEventListener('play', function() {
     savePositionInterval = setInterval(() => {
       ProgressTracker.saveVideoPosition(currentUnitName, lessonKey, videoPlayer.currentTime);
@@ -233,73 +243,199 @@ function initCustomVideoPlayer(videoPlayer, lessonKey) {
     ProgressTracker.saveVideoPosition(currentUnitName, lessonKey, videoPlayer.currentTime);
   });
   
-  // Mark lesson as completed when video ends
+  // Mark lesson complete on end
   videoPlayer.addEventListener('ended', function() {
     clearInterval(savePositionInterval);
     ProgressTracker.markLessonCompleted(currentUnitName, lessonKey);
-    ProgressTracker.saveVideoPosition(currentUnitName, lessonKey, 0); // Reset position
+    ProgressTracker.saveVideoPosition(currentUnitName, lessonKey, 0);
     NotificationManager.showToast('Lesson completed! 🎉');
   });
   
-  // Initialize playback speed control
-  initPlaybackSpeedControl(videoPlayer);
-  
-  // Initialize video quality control
-  initVideoQualityControl(videoPlayer);
-  
-  // Initialize captions control
-  initCaptionsControl(videoPlayer);
-  
-  // Initialize lesson notes
-  initLessonNotes(videoPlayer, lessonKey);
-  
-  // Disable default video keyboard shortcuts
-  videoPlayer.addEventListener('keydown', function(e) {
-    e.preventDefault();
-    e.stopPropagation();
+  // Play/Pause button
+  playPauseBtn.addEventListener('click', function() {
+    if (videoPlayer.paused) {
+      videoPlayer.play();
+    } else {
+      videoPlayer.pause();
+    }
   });
   
-  // Keyboard controls - use capture phase to override browser defaults
-  const keydownHandler = function(e) {
-    console.log('Key pressed:', e.key, 'Video container visible:', document.getElementById('video-container').style.display); // Debug
-    
+  // Update play/pause icon
+  videoPlayer.addEventListener('play', function() {
+    playPauseBtn.querySelector('.material-icons').textContent = 'pause';
+  });
+  
+  videoPlayer.addEventListener('pause', function() {
+    playPauseBtn.querySelector('.material-icons').textContent = 'play_arrow';
+  });
+  
+  // Progress bar functionality
+  videoPlayer.addEventListener('timeupdate', function() {
+    const progress = (videoPlayer.currentTime / videoPlayer.duration) * 100;
+    progressFilled.style.width = progress + '%';
+    progressHandle.style.left = progress + '%';
+    currentTimeSpan.textContent = formatTime(videoPlayer.currentTime);
+  });
+  
+  videoPlayer.addEventListener('loadedmetadata', function() {
+    durationSpan.textContent = formatTime(videoPlayer.duration);
+  });
+  
+  // Progress bar click/drag
+  progressBar.addEventListener('click', function(e) {
+    const rect = progressBar.getBoundingClientRect();
+    const pos = (e.clientX - rect.left) / rect.width;
+    videoPlayer.currentTime = pos * videoPlayer.duration;
+  });
+  
+  // Volume controls
+  volumeBtn.addEventListener('click', function() {
+    if (videoPlayer.muted) {
+      videoPlayer.muted = false;
+      volumeBtn.querySelector('.material-icons').textContent = 'volume_up';
+      volumeSlider.value = videoPlayer.volume * 100;
+    } else {
+      videoPlayer.muted = true;
+      volumeBtn.querySelector('.material-icons').textContent = 'volume_off';
+    }
+  });
+  
+  volumeSlider.addEventListener('input', function() {
+    videoPlayer.volume = this.value / 100;
+    videoPlayer.muted = false;
+    volumeBtn.querySelector('.material-icons').textContent = this.value > 0 ? 'volume_up' : 'volume_off';
+  });
+  
+  // Speed control
+  speedSelect.addEventListener('change', function() {
+    videoPlayer.playbackRate = parseFloat(this.value);
+    localStorage.setItem('playbackSpeed', this.value);
+    NotificationManager.showToast(`Speed: ${this.value}x`);
+  });
+  
+  // Load saved speed
+  const savedSpeed = localStorage.getItem('playbackSpeed') || '1';
+  speedSelect.value = savedSpeed;
+  videoPlayer.playbackRate = parseFloat(savedSpeed);
+  
+  // Quality control (placeholder - would need actual implementation)
+  qualitySelect.addEventListener('change', function() {
+    localStorage.setItem('videoQuality', this.value);
+    NotificationManager.showToast(`Quality: ${this.value === 'auto' ? 'Auto' : this.value + 'p'}`);
+  });
+  
+  // Load saved quality
+  const savedQuality = localStorage.getItem('videoQuality') || 'auto';
+  qualitySelect.value = savedQuality;
+  
+  // Captions control
+  initCaptionsControl(videoPlayer, captionsSelect);
+  
+  // Settings menu toggle
+  settingsBtn.addEventListener('click', function() {
+    settingsMenu.classList.toggle('show');
+  });
+  
+  // Close settings when clicking outside
+  document.addEventListener('click', function(e) {
+    if (!settingsBtn.contains(e.target) && !settingsMenu.contains(e.target)) {
+      settingsMenu.classList.remove('show');
+    }
+  });
+  
+  // Fullscreen functionality
+  fullscreenBtn.addEventListener('click', function() {
+    if (!document.fullscreenElement) {
+      videoWrapper.requestFullscreen().catch(err => {
+        console.error('Error entering fullscreen:', err);
+      });
+    } else {
+      document.exitFullscreen();
+    }
+  });
+  
+  // Fullscreen change events
+  document.addEventListener('fullscreenchange', function() {
+    if (document.fullscreenElement) {
+      fullscreenBtn.querySelector('.material-icons').textContent = 'fullscreen_exit';
+    } else {
+      fullscreenBtn.querySelector('.material-icons').textContent = 'fullscreen';
+    }
+  });
+  
+  // Controls visibility
+  function showControls() {
+    customControls.classList.add('visible');
+    clearTimeout(controlsTimeout);
+  }
+  
+  function hideControls() {
+    if (!isMouseOverControls && !videoPlayer.paused) {
+      customControls.classList.remove('visible');
+    }
+  }
+  
+  function resetControlsTimeout() {
+    showControls();
+    controlsTimeout = setTimeout(hideControls, 3000);
+  }
+  
+  // Mouse/touch events for controls
+  videoWrapper.addEventListener('mousemove', resetControlsTimeout);
+  videoWrapper.addEventListener('click', function() {
+    if (videoPlayer.paused) {
+      videoPlayer.play();
+    } else {
+      videoPlayer.pause();
+    }
+  });
+  
+  customControls.addEventListener('mouseenter', function() {
+    isMouseOverControls = true;
+    showControls();
+  });
+  
+  customControls.addEventListener('mouseleave', function() {
+    isMouseOverControls = false;
+    resetControlsTimeout();
+  });
+  
+  // Show controls initially
+  resetControlsTimeout();
+  
+  // Keyboard controls
+  document.addEventListener('keydown', function(e) {
     if (document.getElementById('video-container').style.display === 'block') {
-      console.log('Processing key for video player:', e.key); // Debug
-      
       switch(e.key) {
         case 'ArrowRight':
           e.preventDefault();
-          e.stopImmediatePropagation();
-          skipForward(videoPlayer, 5);
-          return false;
+          videoPlayer.currentTime += 5;
+          NotificationManager.showToast('Forward 5s');
+          break;
         case 'ArrowLeft':
           e.preventDefault();
-          e.stopImmediatePropagation();
-          skipBackward(videoPlayer, 5);
-          return false;
+          videoPlayer.currentTime -= 5;
+          NotificationManager.showToast('Backward 5s');
+          break;
         case ' ':
-        case 'Spacebar':
           e.preventDefault();
-          e.stopImmediatePropagation();
-          togglePlayPause(videoPlayer);
-          return false;
+          if (videoPlayer.paused) videoPlayer.play();
+          else videoPlayer.pause();
+          break;
         case 'f':
         case 'F':
           e.preventDefault();
-          e.stopImmediatePropagation();
-          toggleFullscreen(videoPlayer);
-          return false;
+          fullscreenBtn.click();
+          break;
         case 'm':
         case 'M':
           e.preventDefault();
-          e.stopImmediatePropagation();
-          toggleMute(videoPlayer);
-          return false;
+          volumeBtn.click();
+          break;
       }
     }
-  };
-  
-  // Remove any existing handlers and add new one with capture
+  });
+}
   document.removeEventListener('keydown', keydownHandler, true);
   document.addEventListener('keydown', keydownHandler, true);
   
@@ -360,143 +496,24 @@ function initCustomVideoPlayer(videoPlayer, lessonKey) {
   });
 }
 
-function skipForward(videoPlayer, seconds) {
-  videoPlayer.currentTime = Math.min(videoPlayer.currentTime + seconds, videoPlayer.duration);
-  NotificationManager.showToast(`⏩ +${seconds}s`);
-}
-
-function skipBackward(videoPlayer, seconds) {
-  videoPlayer.currentTime = Math.max(videoPlayer.currentTime - seconds, 0);
-  NotificationManager.showToast(`⏪ -${seconds}s`);
-}
-
-function togglePlayPause(videoPlayer) {
-  if (videoPlayer.paused) {
-    videoPlayer.play();
-    NotificationManager.showToast('▶️ Play');
-  } else {
-    videoPlayer.pause();
-    NotificationManager.showToast('⏸️ Pause');
-  }
-}
-
-function toggleFullscreen(videoPlayer) {
-  if (!document.fullscreenElement) {
-    videoPlayer.requestFullscreen();
-    NotificationManager.showToast('🔲 Fullscreen');
-  } else {
-    document.exitFullscreen();
-    NotificationManager.showToast('🔳 Exit Fullscreen');
-  }
-}
-
-function toggleMute(videoPlayer) {
-  videoPlayer.muted = !videoPlayer.muted;
-  NotificationManager.showToast(videoPlayer.muted ? '🔇 Muted' : '🔊 Unmuted');
-}
-
-function showSkipIndicator(direction) {
-  // Create visual indicator for mobile skip
-  const indicator = document.createElement('div');
-  indicator.className = 'skip-indicator';
-  indicator.textContent = direction === 'forward' ? '⏩ +5s' : '⏪ -5s';
-  indicator.style.cssText = `
-    position: fixed;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    background: rgba(0, 0, 0, 0.8);
-    color: white;
-    padding: 10px 20px;
-    border-radius: 20px;
-    font-size: 18px;
-    z-index: 999999;
-    pointer-events: none;
-  `;
-  
-  document.body.appendChild(indicator);
-  
-  setTimeout(() => {
-    document.body.removeChild(indicator);
-  }, 1000);
-}
-
+// Helper function to format time
 function formatTime(seconds) {
-  const mins = Math.floor(seconds / 60);
+  if (isNaN(seconds)) return '0:00';
+  const minutes = Math.floor(seconds / 60);
   const secs = Math.floor(seconds % 60);
-  return `${mins}:${secs.toString().padStart(2, '0')}`;
+  return `${minutes}:${secs.toString().padStart(2, '0')}`;
 }
 
-function initPlaybackSpeedControl(videoPlayer) {
-  const speedSelector = document.getElementById('speed-select');
-  
-  // Load saved playback speed
-  const savedSpeed = localStorage.getItem('playbackSpeed') || '1';
-  speedSelector.value = savedSpeed;
-  videoPlayer.playbackRate = parseFloat(savedSpeed);
-  
-  speedSelector.addEventListener('change', function() {
-    const speed = parseFloat(this.value);
-    videoPlayer.playbackRate = speed;
-    localStorage.setItem('playbackSpeed', speed.toString());
-    NotificationManager.showToast(`Speed: ${speed}x`);
-  });
-}
-
-function initVideoQualityControl(videoPlayer) {
-  const qualitySelector = document.getElementById('quality-select');
-  
-  // Load saved quality preference
-  const savedQuality = localStorage.getItem('videoQuality') || 'auto';
-  qualitySelector.value = savedQuality;
-  
-  qualitySelector.addEventListener('change', function() {
-    const quality = this.value;
-    localStorage.setItem('videoQuality', quality);
-    
-    // For demonstration purposes, show quality change notification
-    // In a real implementation, you would need different quality video files
-    // or use adaptive streaming technologies like HLS or DASH
-    let qualityText = quality === 'auto' ? 'Auto' : `${quality}p`;
-    NotificationManager.showToast(`Quality: ${qualityText}`);
-    
-    // Store current video position
-    const currentTime = videoPlayer.currentTime;
-    const wasPaused = videoPlayer.paused;
-    
-    // If implementing actual quality switching, you would:
-    // 1. Get the current video source URL
-    // 2. Replace with quality-specific URL (e.g., video_720p.mp4)
-    // 3. Set the new source and restore position
-    
-    // Example implementation (commented out):
-    /*
-    const currentSrc = videoPlayer.src;
-    const qualitySrc = getQualityUrl(currentSrc, quality);
-    
-    videoPlayer.src = qualitySrc;
-    videoPlayer.addEventListener('loadedmetadata', () => {
-      videoPlayer.currentTime = currentTime;
-      if (!wasPaused) {
-        videoPlayer.play();
-      }
-    }, { once: true });
-    */
-  });
-}
-
-function initCaptionsControl(videoPlayer) {
-  const captionsSelector = document.getElementById('captions-select');
+// Captions functionality
+function initCaptionsControl(videoPlayer, captionsSelect) {
   const captionsDisplay = document.getElementById('custom-captions');
+  let captionsData = null;
   
   // Load saved captions preference
   const savedCaptions = localStorage.getItem('captionsLanguage') || 'off';
-  captionsSelector.value = savedCaptions;
+  captionsSelect.value = savedCaptions;
   
-  let captionsData = null;
-  let currentCaptionIndex = 0;
-  
-  captionsSelector.addEventListener('change', function() {
+  captionsSelect.addEventListener('change', function() {
     const language = this.value;
     localStorage.setItem('captionsLanguage', language);
     
@@ -512,28 +529,14 @@ function initCaptionsControl(videoPlayer) {
   
   // Update captions during video playback
   videoPlayer.addEventListener('timeupdate', function() {
-    if (captionsData && captionsSelector.value !== 'off') {
+    if (captionsData && captionsSelect.value !== 'off') {
       updateCaptions(videoPlayer.currentTime);
     }
   });
   
   function loadCaptions(language) {
-    if (language === 'auto') {
-      // Simulate auto-generated captions
-      captionsData = generateSampleCaptions();
-      captionsDisplay.style.display = 'block';
-    } else {
-      // In a real implementation, you would load actual subtitle files
-      // fetch(`captions/${currentLessonKey}_${language}.vtt`)
-      //   .then(response => response.text())
-      //   .then(vttContent => {
-      //     captionsData = parseVTT(vttContent);
-      //   });
-      
-      // For demonstration, load sample captions
-      captionsData = generateSampleCaptions(language);
-      captionsDisplay.style.display = 'block';
-    }
+    // Generate sample captions for demonstration
+    captionsData = generateSampleCaptions(language);
   }
   
   function updateCaptions(currentTime) {
@@ -561,7 +564,6 @@ function initCaptionsControl(videoPlayer) {
   }
   
   function generateSampleCaptions(language = 'en') {
-    // Sample captions for demonstration
     if (language === 'ar') {
       return [
         { start: 0, end: 5, text: 'مرحبا بكم في هذا الدرس' },
@@ -585,148 +587,4 @@ function initCaptionsControl(videoPlayer) {
   if (savedCaptions !== 'off') {
     loadCaptions(savedCaptions);
   }
-}
-
-function initLessonNotes(videoPlayer, lessonKey) {
-  const notesPanel = document.getElementById('lesson-notes-panel');
-  const toggleButton = document.getElementById('toggle-notes');
-  const addBookmarkBtn = document.getElementById('add-bookmark');
-  const noteInput = document.getElementById('note-input');
-  const saveNoteBtn = document.getElementById('save-note');
-  const notesList = document.getElementById('notes-list');
-  
-  let currentLessonKey = lessonKey;
-  let notesData = [];
-  
-  // Toggle notes panel
-  toggleButton.addEventListener('click', function() {
-    notesPanel.classList.toggle('open');
-  });
-  
-  // Add bookmark at current time
-  addBookmarkBtn.addEventListener('click', function() {
-    const currentTime = videoPlayer.currentTime;
-    const bookmark = {
-      id: Date.now(),
-      timestamp: currentTime,
-      text: `Bookmark at ${formatTime(currentTime)}`,
-      isBookmark: true,
-      createdAt: new Date().toISOString()
-    };
-    
-    addNote(bookmark);
-    NotificationManager.showToast('Bookmark added! 📖');
-  });
-  
-  // Save note with current timestamp
-  saveNoteBtn.addEventListener('click', function() {
-    const noteText = noteInput.value.trim();
-    if (!noteText) return;
-    
-    const currentTime = videoPlayer.currentTime;
-    const note = {
-      id: Date.now(),
-      timestamp: currentTime,
-      text: noteText,
-      isBookmark: false,
-      createdAt: new Date().toISOString()
-    };
-    
-    addNote(note);
-    noteInput.value = '';
-    NotificationManager.showToast('Note saved! 📝');
-  });
-  
-  // Add note to storage and display
-  function addNote(note) {
-    notesData.push(note);
-    saveNotesToFirebase();
-    displayNotes();
-  }
-  
-  // Display all notes
-  function displayNotes() {
-    notesList.innerHTML = '';
-    
-    // Sort by timestamp
-    const sortedNotes = [...notesData].sort((a, b) => a.timestamp - b.timestamp);
-    
-    sortedNotes.forEach(note => {
-      const noteElement = createNoteElement(note);
-      notesList.appendChild(noteElement);
-    });
-  }
-  
-  // Create note DOM element
-  function createNoteElement(note) {
-    const div = document.createElement('div');
-    div.className = `note-item ${note.isBookmark ? 'note-bookmark' : ''}`;
-    
-    div.innerHTML = `
-      <div class="note-timestamp">${formatTime(note.timestamp)}</div>
-      <div class="note-text">${note.text}</div>
-      <div class="note-actions">
-        <button class="note-action-btn" onclick="seekToNote(${note.timestamp})">Go to</button>
-        <button class="note-action-btn" onclick="deleteNote(${note.id})">Delete</button>
-      </div>
-    `;
-    
-    return div;
-  }
-  
-  // Format time for display
-  function formatTime(seconds) {
-    const minutes = Math.floor(seconds / 60);
-    const secs = Math.floor(seconds % 60);
-    return `${minutes}:${secs.toString().padStart(2, '0')}`;
-  }
-  
-  // Save notes to Firebase
-  function saveNotesToFirebase() {
-    const user = firebase.auth().currentUser;
-    if (!user) return;
-    
-    const notesRef = db.ref(`notes/${user.uid}/${currentUnitName}/${currentLessonKey}`);
-    notesRef.set(notesData)
-      .then(() => {
-        console.log('Notes saved to Firebase');
-      })
-      .catch(error => {
-        console.error('Error saving notes:', error);
-      });
-  }
-  
-  // Load notes from Firebase
-  function loadNotesFromFirebase() {
-    const user = firebase.auth().currentUser;
-    if (!user) return;
-    
-    const notesRef = db.ref(`notes/${user.uid}/${currentUnitName}/${currentLessonKey}`);
-    notesRef.once('value')
-      .then(snapshot => {
-        if (snapshot.exists()) {
-          notesData = snapshot.val() || [];
-          displayNotes();
-        }
-      })
-      .catch(error => {
-        console.error('Error loading notes:', error);
-      });
-  }
-  
-  // Global functions for note actions
-  window.seekToNote = function(timestamp) {
-    videoPlayer.currentTime = timestamp;
-    NotificationManager.showToast(`Jumped to ${formatTime(timestamp)}`);
-  };
-  
-  window.deleteNote = function(noteId) {
-    notesData = notesData.filter(note => note.id !== noteId);
-    saveNotesToFirebase();
-    displayNotes();
-    NotificationManager.showToast('Note deleted');
-  };
-  
-  // Load existing notes
-  loadNotesFromFirebase();
 }

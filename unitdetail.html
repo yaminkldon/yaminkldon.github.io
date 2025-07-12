@@ -123,84 +123,170 @@
       display: none;
       position: relative;
     }
-    .video-controls-overlay {
+    .video-player-wrapper {
+      position: relative;
+      background: #000;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    .video-player {
+      width: 100%;
+      height: auto;
+      display: block;
+      background: #000;
+    }
+    
+    /* Custom Video Controls */
+    .custom-controls {
       position: absolute;
-      top: 70px;
-      right: 24px;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: linear-gradient(transparent, rgba(0,0,0,0.8));
+      padding: 20px 16px 16px;
+      opacity: 0;
+      transition: opacity 0.3s ease;
       z-index: 10;
-      display: flex;
-      gap: 15px;
-      flex-wrap: wrap;
     }
-    .playback-speed-control {
-      background: rgba(0, 0, 0, 0.7);
-      color: white;
-      padding: 8px 12px;
-      border-radius: 8px;
+    .video-player-wrapper:hover .custom-controls,
+    .custom-controls.visible {
+      opacity: 1;
+    }
+    .progress-container {
+      margin-bottom: 12px;
+      cursor: pointer;
+    }
+    .progress-bar {
+      width: 100%;
+      height: 6px;
+      background: rgba(255,255,255,0.3);
+      border-radius: 3px;
+      position: relative;
+    }
+    .progress-filled {
+      height: 100%;
+      background: #6c4fc1;
+      border-radius: 3px;
+      width: 0%;
+      transition: width 0.1s ease;
+    }
+    .progress-handle {
+      position: absolute;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      width: 14px;
+      height: 14px;
+      background: #6c4fc1;
+      border-radius: 50%;
+      opacity: 0;
+      transition: opacity 0.2s ease;
+      left: 0%;
+    }
+    .progress-container:hover .progress-handle {
+      opacity: 1;
+    }
+    .controls-row {
       display: flex;
       align-items: center;
-      gap: 8px;
+      justify-content: space-between;
+    }
+    .controls-left, .controls-right {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .control-btn {
+      background: none;
+      border: none;
+      color: white;
+      cursor: pointer;
+      padding: 8px;
+      border-radius: 4px;
+      transition: background-color 0.2s;
+    }
+    .control-btn:hover {
+      background: rgba(255,255,255,0.2);
+    }
+    .control-btn .material-icons {
+      font-size: 24px;
+    }
+    .volume-slider-container {
+      width: 80px;
+      opacity: 0;
+      transition: opacity 0.2s ease, width 0.2s ease;
+      overflow: hidden;
+    }
+    .controls-left:hover .volume-slider-container {
+      opacity: 1;
+    }
+    .volume-slider {
+      width: 100%;
+      height: 4px;
+      background: rgba(255,255,255,0.3);
+      outline: none;
+      border-radius: 2px;
+      cursor: pointer;
+    }
+    .volume-slider::-webkit-slider-thumb {
+      appearance: none;
+      width: 12px;
+      height: 12px;
+      background: #6c4fc1;
+      border-radius: 50%;
+      cursor: pointer;
+    }
+    .time-display {
+      color: white;
+      font-size: 14px;
+      font-family: monospace;
+      white-space: nowrap;
+    }
+    .settings-dropdown {
+      position: relative;
+    }
+    .settings-menu {
+      position: absolute;
+      bottom: 100%;
+      right: 0;
+      background: rgba(0,0,0,0.9);
+      border-radius: 8px;
+      padding: 12px;
+      margin-bottom: 8px;
+      min-width: 180px;
+      display: none;
+      backdrop-filter: blur(10px);
+    }
+    .settings-menu.show {
+      display: block;
+    }
+    .setting-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 8px;
+      color: white;
       font-size: 14px;
     }
-    .speed-selector {
-      background: rgba(255, 255, 255, 0.2);
+    .setting-item:last-child {
+      margin-bottom: 0;
+    }
+    .setting-select {
+      background: rgba(255,255,255,0.2);
       color: white;
-      border: 1px solid rgba(255, 255, 255, 0.3);
+      border: 1px solid rgba(255,255,255,0.3);
       border-radius: 4px;
       padding: 4px 8px;
-      font-size: 13px;
+      font-size: 12px;
     }
-    .speed-selector option {
+    .setting-select option {
       background: #333;
       color: white;
     }
-    .video-quality-control {
-      background: rgba(0, 0, 0, 0.7);
-      color: white;
-      padding: 8px 12px;
-      border-radius: 8px;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      font-size: 14px;
-    }
-    .quality-selector {
-      background: rgba(255, 255, 255, 0.2);
-      color: white;
-      border: 1px solid rgba(255, 255, 255, 0.3);
-      border-radius: 4px;
-      padding: 4px 8px;
-      font-size: 13px;
-    }
-    .quality-selector option {
-      background: #333;
-      color: white;
-    }
-    .captions-control {
-      background: rgba(0, 0, 0, 0.7);
-      color: white;
-      padding: 8px 12px;
-      border-radius: 8px;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      font-size: 14px;
-    }
-    .captions-selector {
-      background: rgba(255, 255, 255, 0.2);
-      color: white;
-      border: 1px solid rgba(255, 255, 255, 0.3);
-      border-radius: 4px;
-      padding: 4px 8px;
-      font-size: 13px;
-    }
-    .captions-selector option {
-      background: #333;
-      color: white;
-    }
+    
+    /* Custom Captions */
     .custom-captions {
       position: absolute;
-      bottom: 60px;
+      bottom: 80px;
       left: 50%;
       transform: translateX(-50%);
       background: rgba(0, 0, 0, 0.8);
@@ -214,132 +300,60 @@
       display: none;
       line-height: 1.4;
     }
-    .lesson-notes-panel {
-      position: absolute;
-      top: 0;
-      right: -320px;
-      width: 300px;
+    
+    /* Fullscreen Styles */
+    .video-player-wrapper:-webkit-full-screen {
+      width: 100vw;
+      height: 100vh;
+    }
+    .video-player-wrapper:-moz-full-screen {
+      width: 100vw;
+      height: 100vh;
+    }
+    .video-player-wrapper:fullscreen {
+      width: 100vw;
+      height: 100vh;
+    }
+    .video-player-wrapper:-webkit-full-screen .video-player {
+      width: 100%;
       height: 100%;
-      background: rgba(0, 0, 0, 0.9);
-      color: white;
-      border-radius: 0 8px 8px 0;
-      transition: right 0.3s ease;
-      z-index: 20;
-      overflow-y: auto;
+      object-fit: contain;
     }
-    .lesson-notes-panel.open {
-      right: 0;
-    }
-    .notes-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 16px;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.2);
-    }
-    .notes-header h4 {
-      margin: 0;
-      font-size: 16px;
-    }
-    .notes-toggle {
-      background: rgba(255, 255, 255, 0.2);
-      border: none;
-      color: white;
-      padding: 8px 12px;
-      border-radius: 4px;
-      cursor: pointer;
-      font-size: 14px;
-    }
-    .notes-content {
-      padding: 16px;
-    }
-    .add-note-section {
-      margin-bottom: 20px;
-    }
-    .bookmark-btn, .save-note-btn {
+    .video-player-wrapper:-moz-full-screen .video-player {
       width: 100%;
-      padding: 8px;
-      margin-bottom: 8px;
-      background: #6c4fc1;
-      color: white;
-      border: none;
-      border-radius: 4px;
-      cursor: pointer;
-      font-size: 14px;
+      height: 100%;
+      object-fit: contain;
     }
-    .bookmark-btn:hover, .save-note-btn:hover {
-      background: #5436a7;
-    }
-    #note-input {
+    .video-player-wrapper:fullscreen .video-player {
       width: 100%;
-      padding: 8px;
-      border: 1px solid rgba(255, 255, 255, 0.3);
-      border-radius: 4px;
-      background: rgba(255, 255, 255, 0.1);
-      color: white;
-      font-family: inherit;
-      resize: vertical;
-      margin-bottom: 8px;
+      height: 100%;
+      object-fit: contain;
     }
-    #note-input::placeholder {
-      color: rgba(255, 255, 255, 0.6);
-    }
-    .note-item {
-      background: rgba(255, 255, 255, 0.1);
-      border-radius: 6px;
-      padding: 12px;
-      margin-bottom: 8px;
-      border-left: 3px solid #6c4fc1;
-    }
-    .note-timestamp {
-      font-size: 12px;
-      color: #ccc;
-      margin-bottom: 4px;
-    }
-    .note-text {
-      font-size: 14px;
-      line-height: 1.4;
-    }
-    .note-bookmark {
-      background: rgba(255, 193, 7, 0.2);
-      border-left-color: #ffc107;
-    }
-    .note-actions {
-      display: flex;
-      gap: 8px;
-      margin-top: 8px;
-    }
-    .note-action-btn {
-      background: none;
-      border: 1px solid rgba(255, 255, 255, 0.3);
-      color: white;
-      padding: 4px 8px;
-      border-radius: 3px;
-      cursor: pointer;
-      font-size: 12px;
-    }
-    .note-action-btn:hover {
-      background: rgba(255, 255, 255, 0.1);
+    
+    /* Mobile Controls */
+    @media (max-width: 768px) {
+      .custom-controls {
+        padding: 15px 12px 12px;
+      }
+      .controls-left, .controls-right {
+        gap: 8px;
+      }
+      .control-btn .material-icons {
+        font-size: 20px;
+      }
+      .volume-slider-container {
+        width: 60px;
+      }
+      .time-display {
+        font-size: 12px;
+      }
+      .settings-menu {
+        min-width: 150px;
+      }
     }
     .video-player {
       width: 100%;
       border-radius: 8px;
-    }
-    /* Hide download button */
-    .video-player::-webkit-media-controls-enclosure {
-      overflow: hidden;
-    }
-    .video-player::-webkit-media-controls-panel {
-      width: calc(100% + 30px); /* Push download button out of view */
-      margin-left: -15px;
-    }
-    /* For Firefox */
-    .video-player::-moz-media-controls-download-button {
-      display: none !important;
-    }
-    /* General approach */
-    .video-player[controlslist*="nodownload"] {
-      controlslist: "nodownload";
     }
     .video-title {
       font-size: 20px;
@@ -371,55 +385,85 @@
     
     <div class="video-container" id="video-container">
       <h3 class="video-title" id="video-title"></h3>
-      <div class="video-controls-overlay">
-        <div class="playback-speed-control">
-          <label for="speed-select">Speed:</label>
-          <select id="speed-select" class="speed-selector">
-            <option value="0.5">0.5x</option>
-            <option value="0.75">0.75x</option>
-            <option value="1" selected>1x</option>
-            <option value="1.25">1.25x</option>
-            <option value="1.5">1.5x</option>
-            <option value="2">2x</option>
-          </select>
-        </div>
-        <div class="video-quality-control">
-          <label for="quality-select">Quality:</label>
-          <select id="quality-select" class="quality-selector">
-            <option value="auto" selected>Auto</option>
-            <option value="1080">1080p</option>
-            <option value="720">720p</option>
-            <option value="480">480p</option>
-            <option value="360">360p</option>
-          </select>
-        </div>
-        <div class="captions-control">
-          <label for="captions-select">Captions:</label>
-          <select id="captions-select" class="captions-selector">
-            <option value="off" selected>Off</option>
-            <option value="en">English</option>
-            <option value="ar">Arabic</option>
-            <option value="auto">Auto-generate</option>
-          </select>
-        </div>
-      </div>
-      <video class="video-player" id="video-player" controls controlslist="nodownload">
-        Your browser does not support the video tag.
-      </video>
-      <div id="custom-captions" class="custom-captions"></div>
-      <div class="lesson-notes-panel" id="lesson-notes-panel">
-        <div class="notes-header">
-          <h4>Lesson Notes</h4>
-          <button id="toggle-notes" class="notes-toggle">📝</button>
-        </div>
-        <div class="notes-content" id="notes-content">
-          <div class="add-note-section">
-            <button id="add-bookmark" class="bookmark-btn">Add Bookmark</button>
-            <textarea id="note-input" placeholder="Add a note..." rows="3"></textarea>
-            <button id="save-note" class="save-note-btn">Save Note</button>
+      <div class="video-player-wrapper">
+        <video class="video-player" id="video-player" preload="metadata">
+          Your browser does not support the video tag.
+        </video>
+        
+        <!-- Custom Video Controls -->
+        <div class="custom-controls" id="custom-controls">
+          <!-- Progress Bar -->
+          <div class="progress-container">
+            <div class="progress-bar" id="progress-bar">
+              <div class="progress-filled" id="progress-filled"></div>
+              <div class="progress-handle" id="progress-handle"></div>
+            </div>
           </div>
-          <div id="notes-list" class="notes-list"></div>
+          
+          <!-- Control Buttons -->
+          <div class="controls-row">
+            <div class="controls-left">
+              <button class="control-btn" id="play-pause-btn">
+                <span class="material-icons">play_arrow</span>
+              </button>
+              <button class="control-btn" id="volume-btn">
+                <span class="material-icons">volume_up</span>
+              </button>
+              <div class="volume-slider-container">
+                <input type="range" class="volume-slider" id="volume-slider" min="0" max="100" value="100">
+              </div>
+              <div class="time-display">
+                <span id="current-time">0:00</span> / <span id="duration">0:00</span>
+              </div>
+            </div>
+            
+            <div class="controls-right">
+              <div class="settings-dropdown">
+                <button class="control-btn" id="settings-btn">
+                  <span class="material-icons">settings</span>
+                </button>
+                <div class="settings-menu" id="settings-menu">
+                  <div class="setting-item">
+                    <label>Speed:</label>
+                    <select id="speed-select" class="setting-select">
+                      <option value="0.5">0.5x</option>
+                      <option value="0.75">0.75x</option>
+                      <option value="1" selected>1x</option>
+                      <option value="1.25">1.25x</option>
+                      <option value="1.5">1.5x</option>
+                      <option value="2">2x</option>
+                    </select>
+                  </div>
+                  <div class="setting-item">
+                    <label>Quality:</label>
+                    <select id="quality-select" class="setting-select">
+                      <option value="auto" selected>Auto</option>
+                      <option value="1080">1080p</option>
+                      <option value="720">720p</option>
+                      <option value="480">480p</option>
+                      <option value="360">360p</option>
+                    </select>
+                  </div>
+                  <div class="setting-item">
+                    <label>Captions:</label>
+                    <select id="captions-select" class="setting-select">
+                      <option value="off" selected>Off</option>
+                      <option value="en">English</option>
+                      <option value="ar">Arabic</option>
+                      <option value="auto">Auto-generate</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+              <button class="control-btn" id="fullscreen-btn">
+                <span class="material-icons">fullscreen</span>
+              </button>
+            </div>
+          </div>
         </div>
+        
+        <!-- Custom Captions -->
+        <div id="custom-captions" class="custom-captions"></div>
       </div>
       <button class="close-video" onclick="closeVideo()">Close Video</button>
     </div>
@@ -459,7 +503,7 @@
     z-index: 1000;
     user-select: none;
     pointer-events: none;
-  ">v1.6</div>
+  ">V1.7</div>
 
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
