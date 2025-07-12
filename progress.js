@@ -54,14 +54,19 @@ function displayProgress() {
   // Calculate overall statistics
   Object.keys(unitsData).forEach(unitId => {
     const unit = unitsData[unitId];
-    if (unit.lessons) {
-      Object.keys(unit.lessons).forEach(lessonId => {
+    
+    // Count lessons directly under unit (not under unit.lessons)
+    Object.keys(unit).forEach(key => {
+      const item = unit[key];
+      // Check if this is a lesson (has videoURL or videoFile)
+      if (item && typeof item === 'object' && (item.videoURL || item.videoFile)) {
         totalLessons++;
-        if (userProgress[unitId] && userProgress[unitId][lessonId]) {
+        // Check if this lesson is completed
+        if (userProgress[unitId] && userProgress[unitId][key] && userProgress[unitId][key].completed) {
           completedLessons++;
         }
-      });
-    }
+      }
+    });
   });
 
   const completionPercentage = totalLessons > 0 ? Math.round((completedLessons / totalLessons) * 100) : 0;
@@ -85,17 +90,24 @@ function displayUnitProgress() {
 
   Object.keys(unitsData).forEach(unitId => {
     const unit = unitsData[unitId];
-    if (!unit.lessons) return;
+    
+    // Count lessons directly under unit
+    const lessonKeys = Object.keys(unit).filter(key => {
+      const item = unit[key];
+      return item && typeof item === 'object' && (item.videoURL || item.videoFile);
+    });
+    
+    if (lessonKeys.length === 0) return; // Skip if no lessons
 
     const unitDiv = document.createElement('div');
     unitDiv.className = 'unit-progress';
 
-    let unitTotalLessons = Object.keys(unit.lessons).length;
+    let unitTotalLessons = lessonKeys.length;
     let unitCompletedLessons = 0;
 
     // Count completed lessons in this unit
-    Object.keys(unit.lessons).forEach(lessonId => {
-      if (userProgress[unitId] && userProgress[unitId][lessonId]) {
+    lessonKeys.forEach(lessonId => {
+      if (userProgress[unitId] && userProgress[unitId][lessonId] && userProgress[unitId][lessonId].completed) {
         unitCompletedLessons++;
       }
     });
@@ -104,7 +116,7 @@ function displayUnitProgress() {
 
     unitDiv.innerHTML = `
       <div class="unit-header">
-        <div class="unit-name">${unit.name || 'Unit ' + unitId}</div>
+        <div class="unit-name">${unitId}</div>
         <div class="unit-percentage">${unitCompletedLessons}/${unitTotalLessons} (${unitPercentage}%)</div>
       </div>
       <div class="progress-bar-container">
@@ -117,9 +129,9 @@ function displayUnitProgress() {
 
     // Add lesson details
     const lessonsList = document.getElementById(`lessons-${unitId}`);
-    Object.keys(unit.lessons).forEach(lessonId => {
-      const lesson = unit.lessons[lessonId];
-      const isCompleted = userProgress[unitId] && userProgress[unitId][lessonId];
+    lessonKeys.forEach(lessonId => {
+      const lesson = unit[lessonId];
+      const isCompleted = userProgress[unitId] && userProgress[unitId][lessonId] && userProgress[unitId][lessonId].completed;
       
       const lessonDiv = document.createElement('div');
       lessonDiv.className = 'lesson-item';
@@ -127,7 +139,7 @@ function displayUnitProgress() {
         <span class="material-icons lesson-status ${isCompleted ? '' : 'incomplete'}">
           ${isCompleted ? 'check_circle' : 'radio_button_unchecked'}
         </span>
-        <span class="lesson-name">${lesson.title || 'Lesson ' + lessonId}</span>
+        <span class="lesson-name">${lessonId}</span>
       `;
       
       lessonsList.appendChild(lessonDiv);

@@ -85,6 +85,22 @@
       width: 100%;
       border-radius: 8px;
     }
+    /* Hide download button */
+    .video-player::-webkit-media-controls-enclosure {
+      overflow: hidden;
+    }
+    .video-player::-webkit-media-controls-panel {
+      width: calc(100% + 30px); /* Push download button out of view */
+      margin-left: -15px;
+    }
+    /* For Firefox */
+    .video-player::-moz-media-controls-download-button {
+      display: none !important;
+    }
+    /* General approach */
+    .video-player[controlslist*="nodownload"] {
+      controlslist: "nodownload";
+    }
     .video-title {
       font-size: 20px;
       font-weight: bold;
@@ -115,7 +131,7 @@
     
     <div class="video-container" id="video-container">
       <h3 class="video-title" id="video-title"></h3>
-      <video class="video-player" id="video-player" controls>
+      <video class="video-player" id="video-player" controls controlslist="nodownload">
         Your browser does not support the video tag.
       </video>
       <button class="close-video" onclick="closeVideo()">Close Video</button>

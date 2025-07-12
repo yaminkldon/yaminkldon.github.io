@@ -226,7 +226,7 @@ function initCustomVideoPlayer(videoPlayer, lessonKey) {
   });
   
   // Keyboard controls
-  document.addEventListener('keydown', function(e) {
+  const keydownHandler = function(e) {
     console.log('Key pressed:', e.key, 'Video container visible:', document.getElementById('video-container').style.display); // Debug
     
     if (document.getElementById('video-container').style.display === 'block') {
@@ -235,30 +235,39 @@ function initCustomVideoPlayer(videoPlayer, lessonKey) {
       switch(e.key) {
         case 'ArrowRight':
           e.preventDefault();
+          e.stopPropagation();
           skipForward(videoPlayer, 5);
           break;
         case 'ArrowLeft':
           e.preventDefault();
+          e.stopPropagation();
           skipBackward(videoPlayer, 5);
           break;
         case ' ':
         case 'Spacebar':
           e.preventDefault();
+          e.stopPropagation();
           togglePlayPause(videoPlayer);
           break;
         case 'f':
         case 'F':
           e.preventDefault();
+          e.stopPropagation();
           toggleFullscreen(videoPlayer);
           break;
         case 'm':
         case 'M':
           e.preventDefault();
+          e.stopPropagation();
           toggleMute(videoPlayer);
           break;
       }
     }
-  });
+  };
+  
+  // Remove any existing handlers and add new one
+  document.removeEventListener('keydown', keydownHandler);
+  document.addEventListener('keydown', keydownHandler);
   
   // Touch controls for mobile
   let touchStartX = 0;

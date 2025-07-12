@@ -378,6 +378,17 @@ firebase.auth().onAuthStateChanged(function(user) {
   if (!user) {
     // If no user is logged in, send them back to login
     window.location.href = "index.html";
+  } else {
+    // User is authenticated, load units with progress
+    loadUnits();
+  }
+});
+
+// Refresh progress when page becomes visible (user returns from other pages)
+document.addEventListener('visibilitychange', function() {
+  if (!document.hidden && firebase.auth().currentUser) {
+    console.log('Page became visible, refreshing units with progress');
+    loadUnits();
   }
 });
 
