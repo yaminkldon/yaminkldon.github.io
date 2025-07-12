@@ -212,7 +212,7 @@
     }
     .volume-slider-container {
       width: 80px;
-      opacity: 0.7;
+      opacity: 1;
       transition: opacity 0.2s ease, width 0.2s ease;
       overflow: hidden;
       margin-right: 16px;
@@ -223,19 +223,37 @@
     }
     .volume-slider {
       width: 100%;
-      height: 4px;
-      background: rgba(255,255,255,0.3);
+      height: 6px;
+      background: rgba(255,255,255,0.8);
       outline: none;
-      border-radius: 2px;
+      border-radius: 3px;
       cursor: pointer;
+      -webkit-appearance: none;
+      appearance: none;
     }
     .volume-slider::-webkit-slider-thumb {
       appearance: none;
-      width: 12px;
-      height: 12px;
-      background: #6c4fc1;
+      width: 16px;
+      height: 16px;
+      background: #fff;
+      border: 2px solid #6c4fc1;
       border-radius: 50%;
       cursor: pointer;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+    }
+    .volume-slider::-moz-range-thumb {
+      width: 16px;
+      height: 16px;
+      background: #fff;
+      border: 2px solid #6c4fc1;
+      border-radius: 50%;
+      cursor: pointer;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+    }
+    .volume-slider::-moz-range-track {
+      height: 6px;
+      background: rgba(255,255,255,0.8);
+      border-radius: 3px;
     }
     .time-display {
       color: white;
@@ -477,7 +495,7 @@
     z-index: 1000;
     user-select: none;
     pointer-events: none;
-  ">V1.1</div>
+  ">V1.2</div>
 
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
