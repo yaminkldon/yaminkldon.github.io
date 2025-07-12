@@ -24,7 +24,7 @@ firebase.auth().onAuthStateChanged(function(user) {
     loadUserInfo();
     loadSettings();
   } else {
-    window.location.href = "index.html";
+    Navigation.goToLogin();
   }
 });
 
@@ -63,12 +63,11 @@ function loadUserInfo() {
 }
 
 function loadSettings() {
-  // Load dark mode preference
-  const darkMode = localStorage.getItem('darkMode') === 'true';
+  // Load dark mode preference using global theme manager
+  const darkMode = window.themeManager.isDarkMode();
   const darkModeToggle = document.getElementById('dark-mode-toggle');
   if (darkMode) {
     darkModeToggle.classList.add('active');
-    applyDarkMode(true);
   }
 
   // Load notifications preference
@@ -81,48 +80,12 @@ function loadSettings() {
 
 function toggleDarkMode() {
   const toggle = document.getElementById('dark-mode-toggle');
-  const isActive = toggle.classList.contains('active');
+  const newState = window.themeManager.toggleDarkMode();
   
-  if (isActive) {
-    toggle.classList.remove('active');
-    localStorage.setItem('darkMode', 'false');
-    applyDarkMode(false);
-  } else {
+  if (newState) {
     toggle.classList.add('active');
-    localStorage.setItem('darkMode', 'true');
-    applyDarkMode(true);
-  }
-}
-
-function applyDarkMode(isDark) {
-  if (isDark) {
-    document.body.style.background = '#1a1a1a';
-    document.body.style.color = '#fff';
-    // Apply dark theme to all sections
-    const sections = document.querySelectorAll('.settings-section');
-    sections.forEach(section => {
-      section.style.background = '#2d2d2d';
-      section.style.color = '#fff';
-    });
-    const headers = document.querySelectorAll('.section-header');
-    headers.forEach(header => {
-      header.style.background = '#333';
-      header.style.color = '#fff';
-    });
   } else {
-    document.body.style.background = '#f7f4fb';
-    document.body.style.color = '#222c5c';
-    // Reset to light theme
-    const sections = document.querySelectorAll('.settings-section');
-    sections.forEach(section => {
-      section.style.background = '#fff';
-      section.style.color = '#222c5c';
-    });
-    const headers = document.querySelectorAll('.section-header');
-    headers.forEach(header => {
-      header.style.background = '#f8f9fa';
-      header.style.color = '#222c5c';
-    });
+    toggle.classList.remove('active');
   }
 }
 
@@ -133,11 +96,11 @@ function toggleNotifications() {
   if (isActive) {
     toggle.classList.remove('active');
     localStorage.setItem('notifications', 'false');
-    showToast('Notifications disabled');
+    NotificationManager.showToast('Notifications disabled');
   } else {
     toggle.classList.add('active');
     localStorage.setItem('notifications', 'true');
-    showToast('Notifications enabled');
+    NotificationManager.showToast('Notifications enabled');
   }
 }
 
@@ -159,17 +122,17 @@ function changePassword() {
   const confirmPassword = document.getElementById('confirm-password').value;
 
   if (!currentPassword || !newPassword || !confirmPassword) {
-    showToast('Please fill in all fields');
+    NotificationManager.showToast('Please fill in all fields');
     return;
   }
 
   if (newPassword !== confirmPassword) {
-    showToast('New passwords do not match');
+    NotificationManager.showToast('New passwords do not match');
     return;
   }
 
   if (newPassword.length < 6) {
-    showToast('Password must be at least 6 characters');
+    NotificationManager.showToast('Password must be at least 6 characters');
     return;
   }
 
@@ -187,7 +150,7 @@ function changePassword() {
     })
     .then(() => {
       showProgress(false);
-      showToast('Password updated successfully');
+      NotificationManager.showToast('Password updated successfully');
       closeChangePasswordModal();
     })
     .catch((error) => {
@@ -205,7 +168,7 @@ function changePassword() {
           errorMessage = error.message;
       }
       
-      showToast(errorMessage);
+      NotificationManager.showToast(errorMessage);
     });
 }
 
@@ -233,10 +196,10 @@ function deleteAccount() {
     })
     .then(() => {
       showProgress(false);
-      showToast('Account deleted successfully');
+      NotificationManager.showToast('Account deleted successfully');
       localStorage.clear();
       setTimeout(() => {
-        window.location.href = "index.html";
+        Navigation.goToLogin();
       }, 2000);
     })
     .catch((error) => {
@@ -247,19 +210,16 @@ function deleteAccount() {
         errorMessage = 'Please log out and log back in before deleting your account';
       }
       
-      showToast(errorMessage);
+      NotificationManager.showToast(errorMessage);
     });
 }
 
 function logout() {
-  firebase.auth().signOut().then(() => {
-    localStorage.removeItem('device_id');
-    window.location.href = "index.html";
-  });
+  AuthManager.logout();
 }
 
 function goBack() {
-  window.location.href = "mainpage.html";
+  Navigation.goToMainPage();
 }
 
 function showProgress(show) {
@@ -271,20 +231,4 @@ function showProgress(show) {
     bar.style.display = 'none';
     bar.style.width = '0%';
   }
-}
-
-function showToast(message) {
-  const toast = document.getElementById('toast');
-  toast.textContent = message;
-  toast.style.visibility = 'visible';
-  toast.style.opacity = '1';
-  
-  const hide = () => {
-    toast.style.opacity = '0';
-    setTimeout(() => { toast.style.visibility = 'hidden'; }, 500);
-    toast.removeEventListener('click', hide);
-  };
-  
-  toast.addEventListener('click', hide);
-  setTimeout(hide, 4000);
 }

@@ -96,11 +96,14 @@ function loadLessons(unitName, unitSnap) {
   lessonGrid.innerHTML = '';
   document.getElementById('lesson-details').style.display = 'none';
 
+  // Get the unit ID from the current unit name for progress tracking
+  const unitId = currentUnit;
+
   // Loop through all lessons in the unit
   unitSnap.forEach(lessonSnap => {
     const lessonKey = lessonSnap.key;
     const lessonData = lessonSnap.val();
-    lessons.push({ ...lessonData, key: lessonKey });
+    lessons.push({ ...lessonData, key: lessonKey, unitId: unitId });
 
     const card = document.createElement('div');
     card.className = 'lesson-card';
@@ -125,6 +128,11 @@ function showLessonDetails(lessonKey) {
 
   const lesson = lessons.find(l => l.key === lessonKey);
   if (!lesson) return;
+  
+  // Store current lesson info for progress tracking
+  window.currentUnitId = lesson.unitId;
+  window.currentLessonId = lesson.key;
+  
   details.style.display = 'block';
 
   const thumbnail = lesson.thumbnailURL || "";
@@ -197,6 +205,15 @@ window.playLessonVideo = function(videoURL) {
   // Enable mobile UI (double-tap seek, better fullscreen, etc.)
   vjsPlayer.mobileUi();
 
+  // Track video completion for progress
+  vjsPlayer.on('ended', function() {
+    // Mark lesson as completed when video ends
+    if (window.currentUnitId && window.currentLessonId) {
+      ProgressTracker.markLessonCompleted(window.currentUnitId, window.currentLessonId);
+      NotificationManager.showToast('Lesson completed! 🎉');
+    }
+  });
+
   // Auto fullscreen on play (optional)
   vjsPlayer.ready(function() {
     vjsPlayer.play();
@@ -243,10 +260,7 @@ window.onload = loadUnits;
 
 // Load user preferences
 function loadUserPreferences() {
-  const darkMode = localStorage.getItem('darkMode') === 'true';
-  if (darkMode) {
-    document.body.classList.add('dark-mode');
-  }
+  // Theme is now handled by global.js ThemeManager
 }
 
 // Initialize preferences on page load
@@ -267,17 +281,15 @@ window.onFabClick = function() {
 };
 
 window.logout = function() {
-  firebase.auth().signOut().then(() => {
-    window.location.href = "index.html";
-  });
+  AuthManager.logout();
 };
 
 window.openSettings = function() {
-  window.location.href = "settings.html";
+  Navigation.goToSettings();
 };
 
 window.openProgress = function() {
-  window.location.href = "progress.html";
+  Navigation.goToProgress();
 };
 
 firebase.auth().onAuthStateChanged(function(user) {

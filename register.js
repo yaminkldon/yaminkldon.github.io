@@ -40,7 +40,7 @@ function register() {
   const deviceId = getDeviceId();
 
   if (!email || !password || !token) {
-    showToast("Please fill all the fields");
+    NotificationManager.showToast("Please fill all the fields");
     return;
   }
 
@@ -54,7 +54,7 @@ function register() {
     .then(snapshot => {
       if (snapshot.exists()) {
         showProgress(false);
-        showToast("User already exists");
+        NotificationManager.showToast("User already exists");
       } else {
         // Check if token exists and is valid
         tokensRef.child(token).once('value')
@@ -65,12 +65,12 @@ function register() {
               const used = tokenData.used === true;
               if (!duration || isNaN(duration)) {
                 showProgress(false);
-                showToast("Invalid token duration");
+                NotificationManager.showToast("Invalid token duration");
                 return;
               }
               if (used) {
                 showProgress(false);
-                showToast("Token already used");
+                NotificationManager.showToast("Token already used");
                 return;
               }
               // Mark token as used
@@ -96,35 +96,35 @@ function register() {
                   }, (error) => {
                     if (error) {
                       showProgress(false);
-                      showToast("Registration failed: " + error.message);
+                      NotificationManager.showToast("Registration failed: " + error.message);
                     } else {
                       // Mark token as used ONLY after successful registration
                       tokensRef.child(token).child("used").set(true);
                       showProgress(false);
-                      showToast("Register Successful");
-                      setTimeout(() => { window.location.href = "index.html"; }, 1200);
+                      NotificationManager.showToast("Register Successful");
+                      setTimeout(() => { Navigation.goToLogin(); }, 1200);
                     }
                   });
                 })
                 .catch(error => {
                   showProgress(false);
-                  showToast("Registration failed: " + error.message);
+                  NotificationManager.showToast("Registration failed: " + error.message);
                 });
             } else {
               showProgress(false);
-              showToast("Invalid token");
+              NotificationManager.showToast("Invalid token");
             }
           });
       }
     })
     .catch(err => {
       showProgress(false);
-      showToast("Database error: " + err.message);
+      NotificationManager.showToast("Database error: " + err.message);
     });
 }
 
 function goToLogin() {
-  window.location.href = "index.html";
+  Navigation.goToLogin();
 }
 
 document.getElementById('register-email').addEventListener('input', function() {
@@ -143,18 +143,3 @@ document.getElementById('register-email').addEventListener('input', function() {
     registerBtn.disabled = false;
   }
 });
-
-function showToast(message) {
-  const toast = document.getElementById('toast');
-  toast.textContent = message;
-  toast.style.visibility = 'visible';
-  toast.style.opacity = '1';
-  // Hide after 4 seconds or on click
-  const hide = () => {
-    toast.style.opacity = '0';
-    setTimeout(() => { toast.style.visibility = 'hidden'; }, 500);
-    toast.removeEventListener('click', hide);
-  };
-  toast.addEventListener('click', hide);
-  setTimeout(hide, 4000);
-}

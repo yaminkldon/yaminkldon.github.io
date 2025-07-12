@@ -27,7 +27,7 @@ function resetPassword() {
   const email = document.getElementById("reset-email").value.trim();
 
   if (!email) {
-    showToast("Please enter your email address");
+    NotificationManager.showToast("Please enter your email address");
     return;
   }
 
@@ -36,9 +36,9 @@ function resetPassword() {
   firebase.auth().sendPasswordResetEmail(email)
     .then(() => {
       showProgress(false);
-      showToast("Password reset email sent! Check your inbox.");
+      NotificationManager.showToast("Password reset email sent! Check your inbox.");
       setTimeout(() => {
-        window.location.href = "index.html";
+        Navigation.goToLogin();
       }, 3000);
     })
     .catch((error) => {
@@ -59,12 +59,12 @@ function resetPassword() {
           errorMessage = error.message;
       }
       
-      showToast(errorMessage);
+      NotificationManager.showToast(errorMessage);
     });
 }
 
 function goToLogin() {
-  window.location.href = "index.html";
+  Navigation.goToLogin();
 }
 
 // Email validation
@@ -86,19 +86,3 @@ document.getElementById('reset-email').addEventListener('input', function() {
     resetBtn.disabled = true;
   }
 });
-
-function showToast(message) {
-  const toast = document.getElementById('toast');
-  toast.textContent = message;
-  toast.style.visibility = 'visible';
-  toast.style.opacity = '1';
-  
-  const hide = () => {
-    toast.style.opacity = '0';
-    setTimeout(() => { toast.style.visibility = 'hidden'; }, 500);
-    toast.removeEventListener('click', hide);
-  };
-  
-  toast.addEventListener('click', hide);
-  setTimeout(hide, 4000);
-}

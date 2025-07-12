@@ -43,7 +43,7 @@ function login() {
   const deviceId = getDeviceId();
 
   if (!email || !password) {
-    showToast("Make sure all fields are filled");
+    NotificationManager.showToast("Make sure all fields are filled");
     return;
   }
 
@@ -69,29 +69,29 @@ function login() {
                 if (!user.expirationDate || Date.now() <= user.expirationDate) {
                   valid = true;
                 } else {
-                  showToast("Account expired");
+                  NotificationManager.showToast("Account expired");
                 }
               } else {
-                showToast("Login Failed (DO NOT TRY TO SHARE YOUR ACCOUNT)");
+                NotificationManager.showToast("Login Failed (DO NOT TRY TO SHARE YOUR ACCOUNT)");
               }
             });
             if (valid) {
-              showToast("Login Successful");
-              setTimeout(() => { window.location.href = "mainpage.html"; }, 1200);
+              NotificationManager.showToast("Login Successful");
+              setTimeout(() => { Navigation.goToMainPage(); }, 1200);
             }
           } else {
-            showToast("User not found");
+            NotificationManager.showToast("User not found");
           }
         });
     })
     .catch(error => {
       showProgress(false);
-      showToast("Login failed: " + error.message);
+      NotificationManager.showToast("Login failed: " + error.message);
     });
 }
 
 function goToRegister() {
-  window.location.href = "register.html";
+  Navigation.goToRegister();
 }
 
 document.getElementById('email').addEventListener('input', function() {
@@ -111,24 +111,9 @@ document.getElementById('email').addEventListener('input', function() {
   }
 });
 
-function showToast(message) {
-  const toast = document.getElementById('toast');
-  toast.textContent = message;
-  toast.style.visibility = 'visible';
-  toast.style.opacity = '1';
-  // Hide after 4 seconds or on click
-  const hide = () => {
-    toast.style.opacity = '0';
-    setTimeout(() => { toast.style.visibility = 'hidden'; }, 500);
-    toast.removeEventListener('click', hide);
-  };
-  toast.addEventListener('click', hide);
-  setTimeout(hide, 4000);
-}
-
 firebase.auth().onAuthStateChanged(function(user) {
   if (user) {
-    window.location.href = "mainpage.html";
+    Navigation.goToMainPage();
   }
   // Do NOT redirect to index.html again if not logged in
   // Just stay on the login page

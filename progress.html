@@ -7,7 +7,17 @@
   <link rel="stylesheet" href="styles.css" />
   <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
   <style>
-    body { margin:0; background: #f7f4fb; font-family: 'Segoe UI', Arial, sans-serif; }
+    body { margin:0; background: #f7f4fb; font-family: 'Segoe UI', Arial, sans-serif; transition: background-color 0.3s, color 0.3s; }
+    body.dark-mode { background: #1a1a1a; color: #fff; }
+    body.dark-mode .progress-section { background: #2d2d2d; color: #fff; }
+    body.dark-mode .section-title { color: #fff; }
+    body.dark-mode .stat-card { background: #333; color: #fff; }
+    body.dark-mode .stat-label { color: #ccc; }
+    body.dark-mode .unit-name { color: #fff; }
+    body.dark-mode .lesson-name { color: #ccc; }
+    body.dark-mode .lesson-item { border-bottom-color: #444; }
+    body.dark-mode .achievement-card { background: #333; color: #fff; }
+    body.dark-mode .achievement-title { color: #fff; }
     .appbar {
       height: 56px;
       background: #6c4fc1;
@@ -230,6 +240,7 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+  <script src="global.js"></script>
   <script src="progress.js"></script>
 </body>
 </html>

@@ -23,7 +23,7 @@ firebase.auth().onAuthStateChanged(function(user) {
     currentUser = user;
     loadProgress();
   } else {
-    window.location.href = "index.html";
+    Navigation.goToLogin();
   }
 });
 
@@ -210,7 +210,7 @@ function updateAchievement(achievementId, isEarned) {
 }
 
 function goBack() {
-  window.location.href = "mainpage.html";
+  Navigation.goToMainPage();
 }
 
 // Function to mark lesson as completed (to be called from other pages)
