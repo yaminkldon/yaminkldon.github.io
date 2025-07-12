@@ -7,7 +7,14 @@
   <link rel="stylesheet" href="styles.css" />
   <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
   <style>
-    body { margin:0; background: #f7f4fb; font-family: 'Segoe UI', Arial, sans-serif; }
+    body { margin:0; background: #f7f4fb; font-family: 'Segoe UI', Arial, sans-serif; transition: background-color 0.3s, color 0.3s; }
+    body.dark-mode { background: #1a1a1a; color: #fff; }
+    body.dark-mode .settings-section,
+    body.dark-mode .lesson-card,
+    body.dark-mode .lesson-details { background: #2d2d2d; color: #fff; }
+    body.dark-mode .drawer { background: #2d2d2d; }
+    body.dark-mode .drawer li { color: #fff; }
+    body.dark-mode .drawer li:hover { background: #333; }
     .appbar {
       height: 56px;
       background: #6c4fc1;
@@ -200,7 +207,16 @@
   </div>
   <div class="drawer-backdrop" id="drawer-backdrop" onclick="closeDrawer()"></div>
   <nav class="drawer" id="drawer">
-    <ul id="units-list"></ul>
+    <ul id="units-list">
+      <li onclick="openProgress()" style="border-bottom: 1px solid #eee;">
+        <span class="material-icons" style="vertical-align: middle; margin-right: 12px;">trending_up</span>
+        Progress
+      </li>
+      <li onclick="openSettings()" style="border-bottom: 1px solid #eee;">
+        <span class="material-icons" style="vertical-align: middle; margin-right: 12px;">settings</span>
+        Settings
+      </li>
+    </ul>
     <button onclick="logout()">Logout</button>
   </nav>
   <div class="main-content" id="main-content">

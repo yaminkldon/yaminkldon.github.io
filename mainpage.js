@@ -241,6 +241,17 @@ window.closeDrawer = function() {
 
 window.onload = loadUnits;
 
+// Load user preferences
+function loadUserPreferences() {
+  const darkMode = localStorage.getItem('darkMode') === 'true';
+  if (darkMode) {
+    document.body.classList.add('dark-mode');
+  }
+}
+
+// Initialize preferences on page load
+document.addEventListener('DOMContentLoaded', loadUserPreferences);
+
 // Attempt to deter screen recording (not foolproof)
 document.addEventListener('visibilitychange', function() {
   if (document.visibilityState === 'hidden') {
@@ -259,6 +270,14 @@ window.logout = function() {
   firebase.auth().signOut().then(() => {
     window.location.href = "index.html";
   });
+};
+
+window.openSettings = function() {
+  window.location.href = "settings.html";
+};
+
+window.openProgress = function() {
+  window.location.href = "progress.html";
 };
 
 firebase.auth().onAuthStateChanged(function(user) {

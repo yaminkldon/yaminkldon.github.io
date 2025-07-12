@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Progress</title>
+  <link rel="stylesheet" href="styles.css" />
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+  <style>
+    body { margin:0; background: #f7f4fb; font-family: 'Segoe UI', Arial, sans-serif; }
+    .appbar {
+      height: 56px;
+      background: #6c4fc1;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      padding: 0 16px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      z-index: 1001;
+    }
+    .appbar .material-icons { cursor: pointer; margin-right: 16px; }
+    .main-content {
+      margin-top: 56px;
+      padding: 32px 16px;
+      max-width: 800px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+    .progress-section {
+      background: #fff;
+      border-radius: 12px;
+      margin-bottom: 20px;
+      padding: 24px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    }
+    .section-title {
+      font-size: 20px;
+      font-weight: bold;
+      color: #222c5c;
+      margin-bottom: 20px;
+    }
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+    .stat-card {
+      background: #f8f9fa;
+      padding: 16px;
+      border-radius: 8px;
+      text-align: center;
+    }
+    .stat-number {
+      font-size: 24px;
+      font-weight: bold;
+      color: #6c4fc1;
+    }
+    .stat-label {
+      color: #666;
+      font-size: 14px;
+      margin-top: 4px;
+    }
+    .unit-progress {
+      margin-bottom: 20px;
+    }
+    .unit-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+    .unit-name {
+      font-weight: bold;
+      color: #222c5c;
+    }
+    .unit-percentage {
+      color: #6c4fc1;
+      font-weight: bold;
+    }
+    .progress-bar-container {
+      background: #e0e0e0;
+      height: 8px;
+      border-radius: 4px;
+      overflow: hidden;
+      margin-bottom: 8px;
+    }
+    .progress-bar-fill {
+      background: #6c4fc1;
+      height: 100%;
+      border-radius: 4px;
+      transition: width 0.3s ease;
+    }
+    .lesson-list {
+      margin-top: 12px;
+    }
+    .lesson-item {
+      display: flex;
+      align-items: center;
+      padding: 8px 0;
+      border-bottom: 1px solid #f0f0f0;
+    }
+    .lesson-item:last-child {
+      border-bottom: none;
+    }
+    .lesson-status {
+      margin-right: 12px;
+      color: #4caf50;
+    }
+    .lesson-status.incomplete {
+      color: #ccc;
+    }
+    .lesson-name {
+      flex: 1;
+      color: #333;
+    }
+    .achievements-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px;
+    }
+    .achievement-card {
+      background: #f8f9fa;
+      padding: 16px;
+      border-radius: 8px;
+      text-align: center;
+      border: 2px solid transparent;
+    }
+    .achievement-card.earned {
+      border-color: #4caf50;
+      background: #e8f5e8;
+    }
+    .achievement-icon {
+      font-size: 32px;
+      margin-bottom: 8px;
+    }
+    .achievement-icon.earned {
+      color: #4caf50;
+    }
+    .achievement-icon.locked {
+      color: #ccc;
+    }
+    .achievement-title {
+      font-weight: bold;
+      color: #222c5c;
+      margin-bottom: 4px;
+    }
+    .achievement-desc {
+      font-size: 12px;
+      color: #666;
+    }
+  </style>
+</head>
+<body>
+  <div class="appbar">
+    <span class="material-icons" onclick="goBack()">arrow_back</span>
+    <span style="font-size:1.2em;flex:1;">Your Progress</span>
+  </div>
+
+  <div class="main-content">
+    <!-- Overall Statistics -->
+    <div class="progress-section">
+      <div class="section-title">Overall Statistics</div>
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-number" id="total-lessons">0</div>
+          <div class="stat-label">Total Lessons</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-number" id="completed-lessons">0</div>
+          <div class="stat-label">Completed</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-number" id="completion-percentage">0%</div>
+          <div class="stat-label">Progress</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-number" id="study-streak">0</div>
+          <div class="stat-label">Day Streak</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Unit Progress -->
+    <div class="progress-section">
+      <div class="section-title">Unit Progress</div>
+      <div id="units-progress"></div>
+    </div>
+
+    <!-- Achievements -->
+    <div class="progress-section">
+      <div class="section-title">Achievements</div>
+      <div class="achievements-grid">
+        <div class="achievement-card" id="first-lesson">
+          <div class="achievement-icon locked">🎯</div>
+          <div class="achievement-title">First Steps</div>
+          <div class="achievement-desc">Complete your first lesson</div>
+        </div>
+        <div class="achievement-card" id="unit-complete">
+          <div class="achievement-icon locked">📚</div>
+          <div class="achievement-title">Unit Master</div>
+          <div class="achievement-desc">Complete an entire unit</div>
+        </div>
+        <div class="achievement-card" id="streak-week">
+          <div class="achievement-icon locked">🔥</div>
+          <div class="achievement-title">Week Warrior</div>
+          <div class="achievement-desc">7-day learning streak</div>
+        </div>
+        <div class="achievement-card" id="streak-month">
+          <div class="achievement-icon locked">👑</div>
+          <div class="achievement-title">Monthly Master</div>
+          <div class="achievement-desc">30-day learning streak</div>
+        </div>
+        <div class="achievement-card" id="speedster">
+          <div class="achievement-icon locked">⚡</div>
+          <div class="achievement-title">Speedster</div>
+          <div class="achievement-desc">Complete 5 lessons in one day</div>
+        </div>
+        <div class="achievement-card" id="completionist">
+          <div class="achievement-icon locked">🏆</div>
+          <div class="achievement-title">Completionist</div>
+          <div class="achievement-desc">Complete all available lessons</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+  <script src="progress.js"></script>
+</body>
+</html>

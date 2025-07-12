@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Settings</title>
+  <link rel="stylesheet" href="styles.css" />
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+  <style>
+    body { margin:0; background: #f7f4fb; font-family: 'Segoe UI', Arial, sans-serif; }
+    .appbar {
+      height: 56px;
+      background: #6c4fc1;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      padding: 0 16px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      z-index: 1001;
+    }
+    .appbar .material-icons { cursor: pointer; margin-right: 16px; }
+    .main-content {
+      margin-top: 56px;
+      padding: 32px 16px;
+      max-width: 600px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+    .settings-section {
+      background: #fff;
+      border-radius: 12px;
+      margin-bottom: 20px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+      overflow: hidden;
+    }
+    .section-header {
+      background: #f8f9fa;
+      padding: 16px 24px;
+      font-weight: bold;
+      color: #222c5c;
+      border-bottom: 1px solid #eee;
+    }
+    .setting-item {
+      padding: 16px 24px;
+      border-bottom: 1px solid #f0f0f0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .setting-item:last-child { border-bottom: none; }
+    .setting-label {
+      color: #222c5c;
+      font-size: 16px;
+    }
+    .setting-value {
+      color: #666;
+      font-size: 14px;
+    }
+    .setting-button {
+      background: #6c4fc1;
+      color: #fff;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 14px;
+    }
+    .setting-button:hover { background: #5436a7; }
+    .setting-button.danger {
+      background: #dc3545;
+    }
+    .setting-button.danger:hover { background: #c82333; }
+    .toggle-switch {
+      position: relative;
+      width: 50px;
+      height: 24px;
+      background-color: #ccc;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: background-color 0.3s;
+    }
+    .toggle-switch.active {
+      background-color: #6c4fc1;
+    }
+    .toggle-slider {
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      width: 20px;
+      height: 20px;
+      background-color: white;
+      border-radius: 50%;
+      transition: transform 0.3s;
+    }
+    .toggle-switch.active .toggle-slider {
+      transform: translateX(26px);
+    }
+    .modal {
+      display: none;
+      position: fixed;
+      z-index: 2000;
+      left: 0; top: 0;
+      width: 100vw; height: 100vh;
+      background: rgba(0,0,0,0.5);
+      align-items: center;
+      justify-content: center;
+    }
+    .modal-content {
+      background: #fff;
+      padding: 24px;
+      border-radius: 12px;
+      max-width: 400px;
+      width: 90%;
+      margin: 0 16px;
+    }
+    .modal-header {
+      font-size: 18px;
+      font-weight: bold;
+      color: #222c5c;
+      margin-bottom: 16px;
+    }
+    .modal-input {
+      width: 100%;
+      padding: 12px;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      margin-bottom: 16px;
+      box-sizing: border-box;
+    }
+    .modal-buttons {
+      display: flex;
+      gap: 12px;
+      justify-content: flex-end;
+    }
+    .modal-button {
+      padding: 8px 16px;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+    .modal-button.primary {
+      background: #6c4fc1;
+      color: #fff;
+    }
+    .modal-button.secondary {
+      background: #e0e0e0;
+      color: #333;
+    }
+    .progress-bar {
+      height: 4px;
+      background: #6c4fc1;
+      margin: 16px 0;
+      border-radius: 2px;
+      display: none;
+      transition: width 0.3s;
+    }
+  </style>
+</head>
+<body>
+  <div class="appbar">
+    <span class="material-icons" onclick="goBack()">arrow_back</span>
+    <span style="font-size:1.2em;flex:1;">Settings</span>
+  </div>
+
+  <div class="main-content">
+    <!-- Account Information -->
+    <div class="settings-section">
+      <div class="section-header">Account Information</div>
+      <div class="setting-item">
+        <div>
+          <div class="setting-label">Email</div>
+          <div class="setting-value" id="user-email">Loading...</div>
+        </div>
+      </div>
+      <div class="setting-item">
+        <div>
+          <div class="setting-label">Device ID</div>
+          <div class="setting-value" id="device-id">Loading...</div>
+        </div>
+      </div>
+      <div class="setting-item">
+        <div>
+          <div class="setting-label">Account Expires</div>
+          <div class="setting-value" id="expiration-date">Loading...</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Security Settings -->
+    <div class="settings-section">
+      <div class="section-header">Security</div>
+      <div class="setting-item">
+        <div class="setting-label">Change Password</div>
+        <button class="setting-button" onclick="openChangePasswordModal()">Change</button>
+      </div>
+    </div>
+
+    <!-- App Settings -->
+    <div class="settings-section">
+      <div class="section-header">App Settings</div>
+      <div class="setting-item">
+        <div class="setting-label">Dark Mode</div>
+        <div class="toggle-switch" id="dark-mode-toggle" onclick="toggleDarkMode()">
+          <div class="toggle-slider"></div>
+        </div>
+      </div>
+      <div class="setting-item">
+        <div class="setting-label">Notifications</div>
+        <div class="toggle-switch" id="notifications-toggle" onclick="toggleNotifications()">
+          <div class="toggle-slider"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Account Actions -->
+    <div class="settings-section">
+      <div class="section-header">Account Actions</div>
+      <div class="setting-item">
+        <div class="setting-label">Sign Out</div>
+        <button class="setting-button" onclick="logout()">Sign Out</button>
+      </div>
+      <div class="setting-item">
+        <div class="setting-label">Delete Account</div>
+        <button class="setting-button danger" onclick="confirmDeleteAccount()">Delete</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Change Password Modal -->
+  <div class="modal" id="change-password-modal">
+    <div class="modal-content">
+      <div class="modal-header">Change Password</div>
+      <input type="password" class="modal-input" id="current-password" placeholder="Current Password" />
+      <input type="password" class="modal-input" id="new-password" placeholder="New Password" />
+      <input type="password" class="modal-input" id="confirm-password" placeholder="Confirm New Password" />
+      <div class="progress-bar" id="progress-bar"></div>
+      <div class="modal-buttons">
+        <button class="modal-button secondary" onclick="closeChangePasswordModal()">Cancel</button>
+        <button class="modal-button primary" onclick="changePassword()">Update</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification -->
+  <div id="toast" style="
+    visibility:hidden;
+    min-width:250px;
+    margin-left:-125px;
+    background:#323232;
+    color:#fff;
+    text-align:center;
+    border-radius:4px;
+    padding:16px;
+    position:fixed;
+    z-index:9999;
+    left:50%;
+    bottom:30px;
+    font-size:17px;
+    cursor:pointer;
+    transition:visibility 0s, opacity 0.5s linear;
+    opacity:0;
+  "></div>
+
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+  <script src="settings.js"></script>
+</body>
+</html>
