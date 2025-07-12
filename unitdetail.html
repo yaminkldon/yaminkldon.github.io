@@ -149,7 +149,6 @@
       transition: opacity 0.3s ease;
       z-index: 10;
     }
-    .video-player-wrapper:hover .custom-controls,
     .custom-controls.visible {
       opacity: 1;
     }
@@ -447,13 +446,12 @@
     @media (max-width: 768px) {
       .custom-controls {
         padding: 15px 12px 12px;
-        opacity: 1 !important; /* Always visible on mobile */
+        opacity: 0; /* Start hidden on mobile too */
         position: absolute;
         bottom: 0;
         left: 0;
         right: 0;
       }
-      .video-player-wrapper:hover .custom-controls,
       .custom-controls.visible {
         opacity: 1 !important;
       }
