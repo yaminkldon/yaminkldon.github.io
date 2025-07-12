@@ -286,7 +286,7 @@ function initCustomVideoPlayer(videoPlayer, lessonKey) {
   }
   
   function hideControls() {
-    if (!isMouseOverControls) {
+    if (!isMouseOverControls && !videoPlayer.paused) {
       customControls.classList.remove('visible');
     }
   }
@@ -562,27 +562,40 @@ function initCustomVideoPlayer(videoPlayer, lessonKey) {
   addEventListenerWithCleanup(window, 'orientationchange', orientationChangeHandler);
   
   // Mouse/touch events for controls
-  let lastMouseX = -1;
-  let lastMouseY = -1;
-  const mouseMoveHandler = function(e) {
-    // Only reset timeout if mouse actually moved from initial position
-    if (lastMouseX === -1 && lastMouseY === -1) {
-      // First time, just store position
-      lastMouseX = e.clientX;
-      lastMouseY = e.clientY;
-    } else if (e.clientX !== lastMouseX || e.clientY !== lastMouseY) {
-      // Mouse actually moved, show controls
-      lastMouseX = e.clientX;
-      lastMouseY = e.clientY;
-      resetControlsTimeout();
-    }
+  let cursorHideTimeout;
+  
+  const mouseMoveHandler = function() {
+    // Show cursor and controls
+    videoWrapper.style.cursor = 'default';
+    resetControlsTimeout();
+    
+    // Clear existing cursor hide timeout
+    clearTimeout(cursorHideTimeout);
+    
+    // Set timeout to hide cursor after 3 seconds of no movement
+    cursorHideTimeout = setTimeout(() => {
+      videoWrapper.style.cursor = 'none';
+      // Also hide controls when cursor is hidden
+      if (!isMouseOverControls) {
+        customControls.classList.remove('visible');
+      }
+    }, 3000);
   };
   addEventListenerWithCleanup(videoWrapper, 'mousemove', mouseMoveHandler);
   
-  // Add mouse leave event to hide controls when cursor leaves video
+  // Show cursor when mouse enters video area
+  const mouseEnterVideoHandler = function() {
+    videoWrapper.style.cursor = 'default';
+    clearTimeout(cursorHideTimeout);
+  };
+  addEventListenerWithCleanup(videoWrapper, 'mouseenter', mouseEnterVideoHandler);
+  
+  // Hide cursor when mouse leaves video area
   const mouseLeaveVideoHandler = function() {
+    videoWrapper.style.cursor = 'default';
+    clearTimeout(cursorHideTimeout);
     if (!isMouseOverControls) {
-      hideControls();
+      customControls.classList.remove('visible');
     }
   };
   addEventListenerWithCleanup(videoWrapper, 'mouseleave', mouseLeaveVideoHandler);
@@ -591,17 +604,14 @@ function initCustomVideoPlayer(videoPlayer, lessonKey) {
     // Only handle clicks on video itself, not on controls, and not on mobile
     const isMobile = window.innerWidth <= 768;
     if (!isMobile && (e.target === videoWrapper || e.target === videoPlayer)) {
-      // Check if this is a programmatic click from touch events
-      if (e.isTrusted && e.detail === 1) {
-        if (videoPlayer.ended) {
-          // If video ended, restart from beginning
-          videoPlayer.currentTime = 0;
-          videoPlayer.play();
-        } else if (videoPlayer.paused) {
-          videoPlayer.play();
-        } else {
-          videoPlayer.pause();
-        }
+      if (videoPlayer.ended) {
+        // If video ended, restart from beginning
+        videoPlayer.currentTime = 0;
+        videoPlayer.play();
+      } else if (videoPlayer.paused) {
+        videoPlayer.play();
+      } else {
+        videoPlayer.pause();
       }
     }
   };
@@ -609,12 +619,19 @@ function initCustomVideoPlayer(videoPlayer, lessonKey) {
 
   const mouseEnterHandler = function() {
     isMouseOverControls = true;
+    // Show cursor when over controls
+    videoWrapper.style.cursor = 'default';
+    clearTimeout(cursorHideTimeout);
     showControls();
   };
   addEventListenerWithCleanup(customControls, 'mouseenter', mouseEnterHandler);
 
   const mouseLeaveHandler = function() {
     isMouseOverControls = false;
+    // Start cursor hide timer when leaving controls
+    cursorHideTimeout = setTimeout(() => {
+      videoWrapper.style.cursor = 'none';
+    }, 3000);
     resetControlsTimeout();
   };
   addEventListenerWithCleanup(customControls, 'mouseleave', mouseLeaveHandler);
@@ -733,21 +750,18 @@ function initCustomVideoPlayer(videoPlayer, lessonKey) {
           lastTouchTime = currentTime;
           lastTouchX = touchX;
           
-          // Set timeout for single-tap action (toggle controls on mobile)
+          // Set timeout for single-tap action (play/pause)
           touchTimeout = setTimeout(() => {
-            console.log('Single tap - toggling controls visibility');
-            const isMobile = window.innerWidth <= 768 || !!document.fullscreenElement;
-            if (isMobile) {
-              // On mobile - toggle controls visibility
-              if (customControls.classList.contains('visible')) {
-                customControls.classList.remove('visible');
-                clearTimeout(controlsTimeout);
-              } else {
-                showControls();
-                resetControlsTimeout();
-              }
+            console.log('Single tap - toggling play/pause');
+            if (videoPlayer.ended) {
+              // If video ended, restart from beginning
+              videoPlayer.currentTime = 0;
+              videoPlayer.play();
+            } else if (videoPlayer.paused) {
+              videoPlayer.play();
+            } else {
+              videoPlayer.pause();
             }
-            // Remove desktop behavior from touch events completely
           }, 400);
         }
       }
@@ -757,19 +771,16 @@ function initCustomVideoPlayer(videoPlayer, lessonKey) {
   // Add touch event listeners to video wrapper only
   addEventListenerWithCleanup(videoWrapper, 'touchend', touchEndHandler);
   
-  // Show controls initially, then hide them after a delay
+  // Show controls initially
+  resetControlsTimeout();
+  
+  // Initialize cursor state for desktop
   const isMobile = window.innerWidth <= 768;
-  if (isMobile) {
-    // On mobile, show controls briefly then hide
-    showControls();
-    setTimeout(() => {
-      if (!isMouseOverControls) {
-        customControls.classList.remove('visible');
-      }
-    }, 3000); // Hide after 3 seconds on mobile
-  } else {
-    // On desktop, don't show controls initially
-    customControls.classList.remove('visible');
+  if (!isMobile) {
+    // On desktop, start cursor hide timer
+    cursorHideTimeout = setTimeout(() => {
+      videoWrapper.style.cursor = 'none';
+    }, 3000);
   }
   
   // Load and set saved volume - delay to ensure video is ready
@@ -809,6 +820,7 @@ function initCustomVideoPlayer(videoPlayer, lessonKey) {
     clearInterval(savePositionInterval);
     clearTimeout(controlsTimeout);
     clearTimeout(videoToastTimeout);
+    clearTimeout(cursorHideTimeout);
     
     // Remove all event listeners
     eventListeners.forEach(({ element, event, handler, options }) => {
@@ -819,6 +831,11 @@ function initCustomVideoPlayer(videoPlayer, lessonKey) {
     // Reset control states
     customControls.classList.remove('visible');
     settingsMenu.classList.remove('show');
+    
+    // Reset cursor
+    if (videoWrapper) {
+      videoWrapper.style.cursor = 'default';
+    }
     
     // Hide video toast
     videoToast.style.display = 'none';
