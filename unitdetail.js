@@ -286,7 +286,7 @@ function initCustomVideoPlayer(videoPlayer, lessonKey) {
   }
   
   function hideControls() {
-    if (!isMouseOverControls && !videoPlayer.paused) {
+    if (!isMouseOverControls) {
       customControls.classList.remove('visible');
     }
   }
@@ -562,8 +562,15 @@ function initCustomVideoPlayer(videoPlayer, lessonKey) {
   addEventListenerWithCleanup(window, 'orientationchange', orientationChangeHandler);
   
   // Mouse/touch events for controls
-  const mouseMoveHandler = function() {
-    resetControlsTimeout();
+  let lastMouseX = 0;
+  let lastMouseY = 0;
+  const mouseMoveHandler = function(e) {
+    // Only reset timeout if mouse actually moved
+    if (e.clientX !== lastMouseX || e.clientY !== lastMouseY) {
+      lastMouseX = e.clientX;
+      lastMouseY = e.clientY;
+      resetControlsTimeout();
+    }
   };
   addEventListenerWithCleanup(videoWrapper, 'mousemove', mouseMoveHandler);
   
@@ -744,8 +751,18 @@ function initCustomVideoPlayer(videoPlayer, lessonKey) {
   // Add touch event listeners to video wrapper only
   addEventListenerWithCleanup(videoWrapper, 'touchend', touchEndHandler);
   
-  // Show controls initially
+  // Show controls initially, then hide them after a delay
   resetControlsTimeout();
+  
+  // On mobile, hide controls after initial display
+  const isMobile = window.innerWidth <= 768;
+  if (isMobile) {
+    setTimeout(() => {
+      if (!isMouseOverControls) {
+        customControls.classList.remove('visible');
+      }
+    }, 4000); // Hide after 4 seconds on mobile
+  }
   
   // Load and set saved volume - delay to ensure video is ready
   setTimeout(() => {
