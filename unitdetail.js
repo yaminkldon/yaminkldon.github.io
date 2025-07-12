@@ -18,6 +18,16 @@ let currentUnitData = null;
 
 // Initialize page
 firebase.auth().onAuthStateChanged(function(user) {
+  const volumeBtn = document.getElementById('volume-btn');
+  const volumeSlider = document.getElementById('volume-slider');
+  const currentTimeSpan = document.getElementById('current-time');
+  const durationSpan = document.getElementById('duration');
+  const speedSelect = document.getElementById('speed-select');
+  const qualitySelect = document.getElementById('quality-select');
+  const settingsBtn = document.getElementById('settings-btn');
+  const settingsMenu = document.getElementById('settings-menu');
+  const fullscreenBtn = document.getElementById('fullscreen-btn');
+  const videoWrapper = document.querySelector('.video-player-wrapper');
   if (user) {
     loadUnitFromParams();
   } else {
