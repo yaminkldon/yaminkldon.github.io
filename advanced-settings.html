@@ -1,0 +1,654 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Advanced Settings</title>
+  <link rel="stylesheet" href="styles.css">
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+  <style>
+    :root {
+      --base-font-size: 16px;
+      --player-primary: #6c4fc1;
+      --player-background: rgba(0,0,0,0.8);
+      --player-text: #ffffff;
+      --player-accent: #8a66d9;
+    }
+
+    body {
+      margin: 0;
+      background: #f7f4fb;
+      font-family: 'Segoe UI', Arial, sans-serif;
+      font-size: var(--base-font-size);
+      transition: background-color 0.3s, color 0.3s;
+    }
+
+    body.dark-mode {
+      background: #1a1a1a;
+      color: #fff;
+    }
+
+    .appbar {
+      height: 56px;
+      background: #6c4fc1;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      padding: 0 16px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 1001;
+    }
+
+    .appbar .material-icons {
+      cursor: pointer;
+      margin-right: 16px;
+    }
+
+    .main-content {
+      margin-top: 56px;
+      padding: 32px 16px;
+      max-width: 1200px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    .section {
+      background: #fff;
+      border-radius: 12px;
+      padding: 24px;
+      margin-bottom: 24px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    }
+
+    body.dark-mode .section {
+      background: #2d2d2d;
+    }
+
+    .section-title {
+      font-size: 20px;
+      font-weight: bold;
+      color: #222c5c;
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    body.dark-mode .section-title {
+      color: #fff;
+    }
+
+    .setting-group {
+      margin-bottom: 24px;
+    }
+
+    .setting-group:last-child {
+      margin-bottom: 0;
+    }
+
+    .setting-label {
+      font-weight: 500;
+      color: #333;
+      margin-bottom: 8px;
+      display: block;
+    }
+
+    body.dark-mode .setting-label {
+      color: #e0e0e0;
+    }
+
+    .setting-description {
+      font-size: 14px;
+      color: #666;
+      margin-bottom: 12px;
+    }
+
+    body.dark-mode .setting-description {
+      color: #ccc;
+    }
+
+    .setting-input {
+      width: 100%;
+      padding: 12px;
+      border: 2px solid #e0e0e0;
+      border-radius: 8px;
+      font-size: 16px;
+      transition: border-color 0.3s;
+    }
+
+    .setting-input:focus {
+      outline: none;
+      border-color: #6c4fc1;
+    }
+
+    body.dark-mode .setting-input {
+      background: #3d3d3d;
+      border-color: #555;
+      color: #fff;
+    }
+
+    .setting-select {
+      width: 100%;
+      padding: 12px;
+      border: 2px solid #e0e0e0;
+      border-radius: 8px;
+      font-size: 16px;
+      background: white;
+      cursor: pointer;
+    }
+
+    body.dark-mode .setting-select {
+      background: #3d3d3d;
+      border-color: #555;
+      color: #fff;
+    }
+
+    .setting-buttons {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .setting-button {
+      padding: 8px 16px;
+      border: 2px solid #6c4fc1;
+      border-radius: 6px;
+      background: transparent;
+      color: #6c4fc1;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+
+    .setting-button.active {
+      background: #6c4fc1;
+      color: white;
+    }
+
+    .setting-button:hover {
+      background: #6c4fc1;
+      color: white;
+    }
+
+    .theme-preview {
+      display: flex;
+      gap: 12px;
+      margin-top: 12px;
+    }
+
+    .theme-option {
+      width: 120px;
+      height: 80px;
+      border-radius: 8px;
+      border: 3px solid transparent;
+      cursor: pointer;
+      transition: all 0.3s;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .theme-option.active {
+      border-color: #6c4fc1;
+    }
+
+    .theme-option .theme-preview-content {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-size: 12px;
+      font-weight: bold;
+      text-align: center;
+    }
+
+    .goals-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 16px;
+      margin-top: 16px;
+    }
+
+    .goal-card {
+      background: #f8f9fa;
+      border-radius: 8px;
+      padding: 16px;
+      border: 2px solid #e0e0e0;
+    }
+
+    body.dark-mode .goal-card {
+      background: #3d3d3d;
+      border-color: #555;
+    }
+
+    .goal-title {
+      font-weight: bold;
+      margin-bottom: 8px;
+      color: #6c4fc1;
+    }
+
+    .goal-input {
+      width: 100%;
+      padding: 8px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      margin-bottom: 8px;
+    }
+
+    body.dark-mode .goal-input {
+      background: #2d2d2d;
+      border-color: #555;
+      color: #fff;
+    }
+
+    .progress-bar {
+      width: 100%;
+      height: 8px;
+      background: #e0e0e0;
+      border-radius: 4px;
+      overflow: hidden;
+      margin-top: 8px;
+    }
+
+    .progress-fill {
+      height: 100%;
+      background: #6c4fc1;
+      transition: width 0.3s;
+    }
+
+    .analytics-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px;
+      margin-top: 16px;
+    }
+
+    .analytics-card {
+      background: #f8f9fa;
+      border-radius: 8px;
+      padding: 16px;
+      text-align: center;
+      border: 2px solid #e0e0e0;
+    }
+
+    body.dark-mode .analytics-card {
+      background: #3d3d3d;
+      border-color: #555;
+    }
+
+    .analytics-value {
+      font-size: 24px;
+      font-weight: bold;
+      color: #6c4fc1;
+      margin-bottom: 4px;
+    }
+
+    .analytics-label {
+      font-size: 14px;
+      color: #666;
+    }
+
+    body.dark-mode .analytics-label {
+      color: #ccc;
+    }
+
+    .calendar-grid {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 4px;
+      margin-top: 16px;
+    }
+
+    .calendar-day {
+      aspect-ratio: 1;
+      background: #f0f0f0;
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      color: #666;
+      position: relative;
+    }
+
+    .calendar-day.has-activity {
+      background: #6c4fc1;
+      color: white;
+    }
+
+    .calendar-day.today {
+      border: 2px solid #6c4fc1;
+    }
+
+    .recommendations-list {
+      margin-top: 16px;
+    }
+
+    .recommendation-item {
+      background: #f8f9fa;
+      border-radius: 8px;
+      padding: 16px;
+      margin-bottom: 12px;
+      border-left: 4px solid #6c4fc1;
+    }
+
+    body.dark-mode .recommendation-item {
+      background: #3d3d3d;
+    }
+
+    .recommendation-title {
+      font-weight: bold;
+      color: #6c4fc1;
+      margin-bottom: 4px;
+    }
+
+    .recommendation-description {
+      font-size: 14px;
+      color: #666;
+    }
+
+    body.dark-mode .recommendation-description {
+      color: #ccc;
+    }
+
+    .search-filters {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 16px;
+      flex-wrap: wrap;
+    }
+
+    .filter-group {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .filter-label {
+      font-size: 14px;
+      font-weight: 500;
+      color: #333;
+    }
+
+    body.dark-mode .filter-label {
+      color: #e0e0e0;
+    }
+
+    .filter-select {
+      padding: 8px 12px;
+      border: 2px solid #e0e0e0;
+      border-radius: 6px;
+      font-size: 14px;
+    }
+
+    body.dark-mode .filter-select {
+      background: #3d3d3d;
+      border-color: #555;
+      color: #fff;
+    }
+
+    @media (max-width: 768px) {
+      .main-content {
+        padding: 16px;
+      }
+      
+      .section {
+        padding: 16px;
+      }
+      
+      .setting-buttons {
+        flex-direction: column;
+      }
+      
+      .theme-preview {
+        flex-wrap: wrap;
+      }
+      
+      .goals-grid {
+        grid-template-columns: 1fr;
+      }
+      
+      .search-filters {
+        flex-direction: column;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="appbar">
+    <span class="material-icons" onclick="goBack()">arrow_back</span>
+    <span style="font-size:1.2em;flex:1;" data-translate="settings">Advanced Settings</span>
+  </div>
+
+  <div class="main-content">
+    <!-- Search Filters Section -->
+    <div class="section">
+      <div class="section-title">
+        <span class="material-icons">search</span>
+        <span data-translate="search">Advanced Search</span>
+      </div>
+      
+      <div class="search-filters">
+        <div class="filter-group">
+          <label class="filter-label" data-translate="difficulty">Difficulty</label>
+          <select class="filter-select" id="difficulty-filter">
+            <option value="all" data-translate="all">All</option>
+            <option value="beginner" data-translate="beginner">Beginner</option>
+            <option value="intermediate" data-translate="intermediate">Intermediate</option>
+            <option value="advanced" data-translate="advanced">Advanced</option>
+          </select>
+        </div>
+        
+        <div class="filter-group">
+          <label class="filter-label" data-translate="duration">Duration</label>
+          <select class="filter-select" id="duration-filter">
+            <option value="all" data-translate="all">All</option>
+            <option value="short" data-translate="short">Short (< 5 min)</option>
+            <option value="medium" data-translate="medium">Medium (5-15 min)</option>
+            <option value="long" data-translate="long">Long (> 15 min)</option>
+          </select>
+        </div>
+        
+        <div class="filter-group">
+          <label class="filter-label" data-translate="topic">Topic</label>
+          <select class="filter-select" id="topic-filter">
+            <option value="all" data-translate="all">All</option>
+            <option value="math">Mathematics</option>
+            <option value="science">Science</option>
+            <option value="language">Language</option>
+            <option value="history">History</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <!-- Language Support Section -->
+    <div class="section">
+      <div class="section-title">
+        <span class="material-icons">language</span>
+        <span>Language / اللغة</span>
+      </div>
+      
+      <div class="setting-group">
+        <label class="setting-label">Interface Language</label>
+        <p class="setting-description">Choose your preferred language for the interface</p>
+        <div class="setting-buttons">
+          <button class="setting-button" onclick="setLanguage('en')" id="lang-en">English</button>
+          <button class="setting-button" onclick="setLanguage('ar')" id="lang-ar">العربية</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Video Player Themes Section -->
+    <div class="section">
+      <div class="section-title">
+        <span class="material-icons">palette</span>
+        <span data-translate="themes">Player Themes</span>
+      </div>
+      
+      <div class="setting-group">
+        <label class="setting-label">Video Player Theme</label>
+        <p class="setting-description">Choose a theme for your video player</p>
+        <div class="theme-preview">
+          <div class="theme-option" onclick="setTheme('default')" id="theme-default">
+            <div class="theme-preview-content" style="background: linear-gradient(135deg, #6c4fc1, #8a66d9);">
+              Default
+            </div>
+          </div>
+          <div class="theme-option" onclick="setTheme('dark')" id="theme-dark">
+            <div class="theme-preview-content" style="background: linear-gradient(135deg, #121212, #bb86fc);">
+              Dark
+            </div>
+          </div>
+          <div class="theme-option" onclick="setTheme('blue')" id="theme-blue">
+            <div class="theme-preview-content" style="background: linear-gradient(135deg, #2196f3, #64b5f6);">
+              Ocean
+            </div>
+          </div>
+          <div class="theme-option" onclick="setTheme('green')" id="theme-green">
+            <div class="theme-preview-content" style="background: linear-gradient(135deg, #4caf50, #81c784);">
+              Forest
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Accessibility Section -->
+    <div class="section">
+      <div class="section-title">
+        <span class="material-icons">accessibility</span>
+        <span>Accessibility</span>
+      </div>
+      
+      <div class="setting-group">
+        <label class="setting-label">Font Size</label>
+        <p class="setting-description">Adjust text size for better readability</p>
+        <div class="setting-buttons">
+          <button class="setting-button" onclick="setFontSize('small')" id="font-small">Small</button>
+          <button class="setting-button" onclick="setFontSize('medium')" id="font-medium">Medium</button>
+          <button class="setting-button" onclick="setFontSize('large')" id="font-large">Large</button>
+          <button class="setting-button" onclick="setFontSize('xlarge')" id="font-xlarge">Extra Large</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Layout Preferences Section -->
+    <div class="section">
+      <div class="section-title">
+        <span class="material-icons">grid_view</span>
+        <span>Layout Preferences</span>
+      </div>
+      
+      <div class="setting-group">
+        <label class="setting-label">Grid Layout</label>
+        <p class="setting-description">Choose how many lessons to display per row</p>
+        <div class="setting-buttons">
+          <button class="setting-button" onclick="setLayout('2x2')" id="layout-2x2">2x2 Grid</button>
+          <button class="setting-button" onclick="setLayout('3x3')" id="layout-3x3">3x3 Grid</button>
+          <button class="setting-button" onclick="setLayout('4x4')" id="layout-4x4">4x4 Grid</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Goal Setting Section -->
+    <div class="section">
+      <div class="section-title">
+        <span class="material-icons">flag</span>
+        <span data-translate="goals">Learning Goals</span>
+      </div>
+      
+      <div class="goals-grid">
+        <div class="goal-card">
+          <div class="goal-title" data-translate="dailyGoal">Daily Goal</div>
+          <label>Lessons per day:</label>
+          <input type="number" class="goal-input" id="daily-lessons" min="1" max="20" value="3">
+          <label>Minutes per day:</label>
+          <input type="number" class="goal-input" id="daily-minutes" min="5" max="300" value="30">
+          <div class="progress-bar">
+            <div class="progress-fill" id="daily-progress" style="width: 0%"></div>
+          </div>
+          <div id="daily-status">0 / 3 lessons completed today</div>
+        </div>
+        
+        <div class="goal-card">
+          <div class="goal-title" data-translate="weeklyGoal">Weekly Goal</div>
+          <label>Lessons per week:</label>
+          <input type="number" class="goal-input" id="weekly-lessons" min="5" max="50" value="20">
+          <label>Minutes per week:</label>
+          <input type="number" class="goal-input" id="weekly-minutes" min="30" max="1000" value="210">
+          <div class="progress-bar">
+            <div class="progress-fill" id="weekly-progress" style="width: 0%"></div>
+          </div>
+          <div id="weekly-status">0 / 20 lessons completed this week</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Analytics Section -->
+    <div class="section">
+      <div class="section-title">
+        <span class="material-icons">analytics</span>
+        <span data-translate="analytics">Learning Analytics</span>
+      </div>
+      
+      <div class="analytics-grid">
+        <div class="analytics-card">
+          <div class="analytics-value" id="total-time">0h 0m</div>
+          <div class="analytics-label" data-translate="totalTime">Total Study Time</div>
+        </div>
+        
+        <div class="analytics-card">
+          <div class="analytics-value" id="total-lessons">0</div>
+          <div class="analytics-label" data-translate="lessonsCompleted">Lessons Completed</div>
+        </div>
+        
+        <div class="analytics-card">
+          <div class="analytics-value" id="average-session">0m</div>
+          <div class="analytics-label" data-translate="averageSession">Average Session</div>
+        </div>
+        
+        <div class="analytics-card">
+          <div class="analytics-value" id="completion-rate">0%</div>
+          <div class="analytics-label" data-translate="completionRate">Completion Rate</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Study Calendar Section -->
+    <div class="section">
+      <div class="section-title">
+        <span class="material-icons">calendar_today</span>
+        <span data-translate="calendar">Study Calendar</span>
+      </div>
+      
+      <div class="calendar-grid" id="study-calendar">
+        <!-- Calendar will be generated by JavaScript -->
+      </div>
+    </div>
+
+    <!-- Learning Recommendations Section -->
+    <div class="section">
+      <div class="section-title">
+        <span class="material-icons">recommend</span>
+        <span data-translate="recommendations">Learning Recommendations</span>
+      </div>
+      
+      <div class="recommendations-list" id="recommendations-list">
+        <!-- Recommendations will be generated by JavaScript -->
+      </div>
+    </div>
+  </div>
+
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+  <script src="global.js"></script>
+  <script src="advanced-features.js"></script>
+  <script src="advanced-settings.js"></script>
+</body>
+</html>

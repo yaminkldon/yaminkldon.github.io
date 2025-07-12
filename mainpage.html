@@ -106,6 +106,46 @@
       margin-top: 32px;
       justify-content: center;
     }
+    
+    /* Grid layout options */
+    .lesson-grid.grid-2x2 {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 20px;
+    }
+    
+    .lesson-grid.grid-3x3 {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 20px;
+    }
+    
+    .lesson-grid.grid-4x4 {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 20px;
+    }
+    
+    @media (max-width: 1200px) {
+      .lesson-grid.grid-4x4 {
+        grid-template-columns: repeat(3, 1fr);
+      }
+    }
+    
+    @media (max-width: 900px) {
+      .lesson-grid.grid-3x3,
+      .lesson-grid.grid-4x4 {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+    
+    @media (max-width: 600px) {
+      .lesson-grid.grid-2x2,
+      .lesson-grid.grid-3x3,
+      .lesson-grid.grid-4x4 {
+        grid-template-columns: 1fr;
+      }
+    }
 @media (max-width: 700px) {
   .lesson-grid {
     display: flex;
@@ -360,6 +400,10 @@ body.dark-mode .search-result-description {
         <span class="material-icons" style="vertical-align: middle; margin-right: 12px;">settings</span>
         Settings
       </li>
+      <li onclick="openAdvancedSettings()" style="border-bottom: 1px solid #eee;" data-static="true">
+        <span class="material-icons" style="vertical-align: middle; margin-right: 12px;">tune</span>
+        Advanced Settings
+      </li>
     </ul>
     <button onclick="logout()">Logout</button>
   </nav>
@@ -413,6 +457,7 @@ body.dark-mode .search-result-description {
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging-compat.js"></script>
   <script src="global.js"></script>
+  <script src="advanced-features.js"></script>
   <script src="mainpage.js"></script>
   <script>
     function openDrawer() {
@@ -454,6 +499,6 @@ body.dark-mode .search-result-description {
     z-index: 1000;
     user-select: none;
     pointer-events: none;
-  ">V1</div>
+  ">V2</div>
 </body>
 </html>
