@@ -58,14 +58,22 @@ let plyrPlayer = null;
 function loadUnits() {
   db.ref('units').once('value').then(snapshot => {
     const unitsList = document.getElementById('units-list');
+    
+    // Clear only the units, preserve Progress and Settings
+    const staticItems = unitsList.querySelectorAll('li[data-static="true"]');
     unitsList.innerHTML = '';
+    
+    // Re-add static items (Progress and Settings)
+    staticItems.forEach(item => unitsList.appendChild(item));
+    
     snapshot.forEach(unitSnap => {
       const unitName = unitSnap.key;
       const li = document.createElement('li');
       li.textContent = unitName;
       li.onclick = () => {
-        loadLessons(unitName, unitSnap);
-        closeDrawer();
+        // Navigate to unit detail page
+        localStorage.setItem('selectedUnit', unitName);
+        window.location.href = `unitdetail.html?unit=${encodeURIComponent(unitName)}`;
       };
       unitsList.appendChild(li);
     });

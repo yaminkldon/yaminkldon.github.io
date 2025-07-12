@@ -5,16 +5,148 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Unit Detail</title>
   <link rel="stylesheet" href="styles.css" />
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+  <style>
+    body { margin:0; background: #f7f4fb; font-family: 'Segoe UI', Arial, sans-serif; transition: background-color 0.3s, color 0.3s; }
+    body.dark-mode { background: #1a1a1a; color: #fff; }
+    body.dark-mode .lesson-card { background: #2d2d2d; color: #fff; }
+    body.dark-mode .video-container { background: #2d2d2d; }
+    .appbar {
+      height: 56px;
+      background: #6c4fc1;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      padding: 0 16px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      z-index: 1001;
+    }
+    .appbar .material-icons { cursor: pointer; margin-right: 16px; }
+    .main-content {
+      margin-top: 56px;
+      padding: 32px 16px;
+      max-width: 800px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+    .unit-title {
+      font-size: 24px;
+      font-weight: bold;
+      color: #222c5c;
+      margin-bottom: 24px;
+      text-align: center;
+    }
+    body.dark-mode .unit-title { color: #fff; }
+    .lessons-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+      gap: 20px;
+      margin-bottom: 32px;
+    }
+    .lesson-card {
+      background: #fff;
+      border-radius: 12px;
+      padding: 16px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+      cursor: pointer;
+      transition: box-shadow 0.2s;
+    }
+    .lesson-card:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.16); }
+    .lesson-thumbnail {
+      width: 100%;
+      height: 140px;
+      object-fit: cover;
+      border-radius: 8px;
+      margin-bottom: 12px;
+    }
+    .lesson-title {
+      font-weight: bold;
+      color: #222c5c;
+      margin-bottom: 8px;
+    }
+    body.dark-mode .lesson-title { color: #fff; }
+    .lesson-description {
+      color: #666;
+      font-size: 14px;
+      line-height: 1.4;
+    }
+    body.dark-mode .lesson-description { color: #ccc; }
+    .video-container {
+      background: #fff;
+      border-radius: 12px;
+      padding: 24px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+      margin-top: 24px;
+      display: none;
+    }
+    .video-player {
+      width: 100%;
+      border-radius: 8px;
+    }
+    .video-title {
+      font-size: 20px;
+      font-weight: bold;
+      margin-bottom: 16px;
+      color: #222c5c;
+    }
+    body.dark-mode .video-title { color: #fff; }
+    .close-video {
+      background: #e0e0e0;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 6px;
+      cursor: pointer;
+      margin-top: 16px;
+    }
+    .close-video:hover { background: #d0d0d0; }
+  </style>
 </head>
 <body>
-  <div class="login-container">
-    <h2 id="unit-title"></h2>
-    <div id="thumbnails" style="display: flex; flex-wrap: wrap; gap: 10px;"></div>
-    <button onclick="backToMain()">Back</button>
+  <div class="appbar">
+    <span class="material-icons" onclick="goBack()">arrow_back</span>
+    <span style="font-size:1.2em;flex:1;" id="unit-title-header">Unit Detail</span>
   </div>
-    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+
+  <div class="main-content">
+    <h1 class="unit-title" id="unit-title">Loading...</h1>
+    <div class="lessons-grid" id="lessons-grid"></div>
+    
+    <div class="video-container" id="video-container">
+      <h3 class="video-title" id="video-title"></h3>
+      <video class="video-player" id="video-player" controls>
+        Your browser does not support the video tag.
+      </video>
+      <button class="close-video" onclick="closeVideo()">Close Video</button>
+    </div>
+  </div>
+
+  <!-- Toast Notification -->
+  <div id="toast" style="
+    visibility:hidden;
+    min-width:250px;
+    margin-left:-125px;
+    background:#323232;
+    color:#fff;
+    text-align:center;
+    border-radius:4px;
+    padding:16px;
+    position:fixed;
+    z-index:9999;
+    left:50%;
+    bottom:30px;
+    font-size:17px;
+    cursor:pointer;
+    transition:visibility 0s, opacity 0.5s linear;
+    opacity:0;
+  "></div>
+
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
+  <script src="global.js"></script>
   <script src="unitdetail.js"></script>
 </body>
 </html>
