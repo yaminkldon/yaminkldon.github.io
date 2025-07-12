@@ -349,10 +349,12 @@ function initCustomVideoPlayer(videoPlayer, lessonKey) {
   const volumeBtnHandler = function() {
     if (videoPlayer.muted) {
       videoPlayer.muted = false;
+      showVideoToast('UnMuted 🔊');
       volumeBtn.querySelector('.material-icons').textContent = 'volume_up';
       volumeSlider.value = videoPlayer.volume * 100;
     } else {
       videoPlayer.muted = true;
+      showVideoToast('Muted 🔇');
       volumeBtn.querySelector('.material-icons').textContent = 'volume_off';
     }
   };
