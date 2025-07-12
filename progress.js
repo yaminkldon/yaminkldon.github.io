@@ -16,16 +16,55 @@ const db = firebase.database();
 let currentUser = null;
 let userProgress = {};
 let unitsData = {};
+let advancedFeatures = null;
+let currentCalendarDate = new Date();
 
 // Initialize progress page
 firebase.auth().onAuthStateChanged(function(user) {
   if (user) {
     currentUser = user;
+    
+    // Initialize Advanced Features
+    if (typeof AdvancedFeatures !== 'undefined') {
+      advancedFeatures = new AdvancedFeatures();
+      applyAdvancedFeatures();
+    }
+    
     loadProgress();
   } else {
     Navigation.goToLogin();
   }
 });
+
+function applyAdvancedFeatures() {
+  if (!advancedFeatures) return;
+  
+  // Apply theme
+  const theme = advancedFeatures.getCurrentTheme();
+  if (theme === 'dark') {
+    document.body.classList.add('dark-mode');
+  }
+  
+  // Apply font size
+  const fontSize = advancedFeatures.getCurrentFontSize();
+  const fontSizes = {
+    small: '14px',
+    medium: '16px',
+    large: '18px',
+    xlarge: '20px'
+  };
+  document.documentElement.style.setProperty('--base-font-size', fontSizes[fontSize]);
+  
+  // Apply language
+  const language = advancedFeatures.getCurrentLanguage();
+  if (language === 'ar') {
+    document.dir = 'rtl';
+    document.documentElement.lang = 'ar';
+  }
+  
+  // Update language display
+  advancedFeatures.updateLanguageDisplay();
+}
 
 function loadProgress() {
   const userId = currentUser.uid;
@@ -39,6 +78,8 @@ function loadProgress() {
     .then(snapshot => {
       unitsData = snapshot.val() || {};
       displayProgress();
+      generateCalendar();
+      setupCalendarControls();
       checkAchievements();
     })
     .catch(error => {
@@ -209,6 +250,89 @@ function checkDailyCompletions() {
   // This would need to track completion timestamps to work properly
   // For now, return 0
   return 0;
+}
+
+// Calendar Functions
+function generateCalendar() {
+  const calendar = document.getElementById('study-calendar');
+  if (!calendar) return;
+  
+  calendar.innerHTML = '';
+  
+  const year = currentCalendarDate.getFullYear();
+  const month = currentCalendarDate.getMonth();
+  
+  // Update month header
+  const monthHeader = document.getElementById('calendar-month');
+  if (monthHeader) {
+    const monthNames = ['January', 'February', 'March', 'April', 'May', 'June',
+      'July', 'August', 'September', 'October', 'November', 'December'];
+    monthHeader.textContent = `${monthNames[month]} ${year}`;
+  }
+  
+  // Add day headers
+  const dayHeaders = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  dayHeaders.forEach(day => {
+    const dayHeader = document.createElement('div');
+    dayHeader.className = 'calendar-day header';
+    dayHeader.textContent = day;
+    calendar.appendChild(dayHeader);
+  });
+  
+  // Get first day of month and number of days
+  const firstDay = new Date(year, month, 1);
+  const lastDay = new Date(year, month + 1, 0);
+  const daysInMonth = lastDay.getDate();
+  const startingDayOfWeek = firstDay.getDay();
+  
+  // Add empty cells for days before month starts
+  for (let i = 0; i < startingDayOfWeek; i++) {
+    const emptyDay = document.createElement('div');
+    emptyDay.className = 'calendar-day other-month';
+    calendar.appendChild(emptyDay);
+  }
+  
+  // Add days of the month
+  const today = new Date();
+  for (let day = 1; day <= daysInMonth; day++) {
+    const dayElement = document.createElement('div');
+    dayElement.className = 'calendar-day';
+    dayElement.textContent = day;
+    
+    // Check if this day has study activity
+    const dateString = new Date(year, month, day).toDateString();
+    const hasActivity = advancedFeatures ? advancedFeatures.hasStudyActivity(dateString) : false;
+    
+    if (hasActivity) {
+      dayElement.classList.add('has-activity');
+    }
+    
+    // Mark today
+    if (day === today.getDate() && month === today.getMonth() && year === today.getFullYear()) {
+      dayElement.classList.add('today');
+    }
+    
+    calendar.appendChild(dayElement);
+  }
+}
+
+function setupCalendarControls() {
+  const prevButton = document.getElementById('prev-month');
+  const nextButton = document.getElementById('next-month');
+  
+  if (prevButton) {
+    prevButton.addEventListener('click', () => {
+      currentCalendarDate.setMonth(currentCalendarDate.getMonth() - 1);
+      generateCalendar();
+    });
+  }
+  
+  if (nextButton) {
+    nextButton.addEventListener('click', () => {
+      currentCalendarDate.setMonth(currentCalendarDate.getMonth() + 1);
+      generateCalendar();
+    });
+  }
 }
 
 function updateAchievement(achievementId, isEarned) {

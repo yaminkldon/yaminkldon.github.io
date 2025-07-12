@@ -439,6 +439,17 @@ function applyGridLayout(layout) {
   lessonsGrid.classList.add(`grid-${layout}`);
 }
 
+// Apply advanced features when DOM is loaded
+document.addEventListener('DOMContentLoaded', () => {
+  if (typeof AdvancedFeatures !== 'undefined') {
+    setTimeout(() => {
+      if (window.advancedFeatures) {
+        applyAdvancedFeatures();
+      }
+    }, 100);
+  }
+});
+
 // Refresh progress when page becomes visible (user returns from other pages)
 document.addEventListener('visibilitychange', function() {
   if (!document.hidden && firebase.auth().currentUser) {

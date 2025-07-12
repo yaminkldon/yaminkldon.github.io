@@ -8,55 +8,11 @@ class AdvancedFeatures {
 
   init() {
     console.log('Advanced Features Manager initialized');
-    this.initSearchFilters();
     this.initLanguageSupport();
     this.initPlayerThemes();
     this.initAccessibility();
     this.initLayoutPreferences();
-    this.initGoalSetting();
     this.initStudyCalendar();
-    this.initAnalytics();
-    this.initLearningPath();
-  }
-
-  // 1. Advanced Search Filters
-  initSearchFilters() {
-    const savedFilters = localStorage.getItem('searchFilters');
-    this.searchFilters = savedFilters ? JSON.parse(savedFilters) : {
-      difficulty: 'all', // all, beginner, intermediate, advanced
-      duration: 'all',   // all, short, medium, long
-      topic: 'all',      // all, or specific topics
-      searchTerm: ''
-    };
-  }
-
-  filterLessons(lessons, filters = this.searchFilters) {
-    return lessons.filter(lesson => {
-      // Filter by search term
-      if (filters.searchTerm && !lesson.title.toLowerCase().includes(filters.searchTerm.toLowerCase())) {
-        return false;
-      }
-      
-      // Filter by difficulty
-      if (filters.difficulty !== 'all' && lesson.difficulty !== filters.difficulty) {
-        return false;
-      }
-      
-      // Filter by duration
-      if (filters.duration !== 'all') {
-        const duration = lesson.duration || 0;
-        if (filters.duration === 'short' && duration > 300) return false;
-        if (filters.duration === 'medium' && (duration <= 300 || duration > 900)) return false;
-        if (filters.duration === 'long' && duration <= 900) return false;
-      }
-      
-      // Filter by topic
-      if (filters.topic !== 'all' && lesson.topic !== filters.topic) {
-        return false;
-      }
-      
-      return true;
-    });
   }
 
   // 2. Multi-language Support
@@ -241,7 +197,7 @@ class AdvancedFeatures {
   applyLayout(layout) {
     if (!this.layoutOptions[layout]) return;
     
-    const lessonsGrid = document.querySelector('.lessons-grid');
+    const lessonsGrid = document.querySelector('.lessons-grid, .lesson-grid');
     if (lessonsGrid) {
       lessonsGrid.style.gridTemplateColumns = `repeat(${this.layoutOptions[layout].columns}, 1fr)`;
     }
@@ -250,65 +206,7 @@ class AdvancedFeatures {
     localStorage.setItem('layoutPreference', layout);
   }
 
-  // 6. Goal Setting
-  initGoalSetting() {
-    this.goals = JSON.parse(localStorage.getItem('studyGoals')) || {
-      daily: {
-        lessons: 3,
-        minutes: 30
-      },
-      weekly: {
-        lessons: 20,
-        minutes: 210
-      }
-    };
-  }
-
-  setGoal(type, metric, value) {
-    if (!this.goals[type]) this.goals[type] = {};
-    this.goals[type][metric] = value;
-    localStorage.setItem('studyGoals', JSON.stringify(this.goals));
-  }
-
-  getGoalProgress(type, metric) {
-    const today = new Date().toDateString();
-    const thisWeek = this.getWeekKey(new Date());
-    
-    const progress = JSON.parse(localStorage.getItem('studyProgress')) || {};
-    
-    if (type === 'daily') {
-      return progress[today] ? progress[today][metric] || 0 : 0;
-    } else if (type === 'weekly') {
-      return progress[thisWeek] ? progress[thisWeek][metric] || 0 : 0;
-    }
-    
-    return 0;
-  }
-
-  updateProgress(metric, value) {
-    const today = new Date().toDateString();
-    const thisWeek = this.getWeekKey(new Date());
-    
-    const progress = JSON.parse(localStorage.getItem('studyProgress')) || {};
-    
-    // Update daily progress
-    if (!progress[today]) progress[today] = {};
-    progress[today][metric] = (progress[today][metric] || 0) + value;
-    
-    // Update weekly progress
-    if (!progress[thisWeek]) progress[thisWeek] = {};
-    progress[thisWeek][metric] = (progress[thisWeek][metric] || 0) + value;
-    
-    localStorage.setItem('studyProgress', JSON.stringify(progress));
-  }
-
-  getWeekKey(date) {
-    const year = date.getFullYear();
-    const week = Math.ceil(((date - new Date(year, 0, 1)) / 86400000 + 1) / 7);
-    return `${year}-W${week}`;
-  }
-
-  // 7. Study Calendar
+  // 6. Study Calendar (for progress page)
   initStudyCalendar() {
     this.studySessions = JSON.parse(localStorage.getItem('studySessions')) || {};
   }
@@ -353,168 +251,25 @@ class AdvancedFeatures {
     return calendarData;
   }
 
-  // 8. Detailed Analytics
-  initAnalytics() {
-    this.analytics = JSON.parse(localStorage.getItem('detailedAnalytics')) || {};
+  hasStudyActivity(dateKey) {
+    return !!this.studySessions[dateKey];
   }
 
-  recordAnalytics(lessonKey, unitName, event, data = {}) {
-    const today = new Date().toDateString();
+  trackStudySession(duration, lessonsCompleted, date = null) {
+    const sessionDate = date || new Date().toDateString();
     
-    if (!this.analytics[today]) {
-      this.analytics[today] = {};
+    // Update study sessions for calendar
+    if (!this.studySessions[sessionDate]) {
+      this.studySessions[sessionDate] = [];
     }
     
-    const sessionKey = `${unitName}-${lessonKey}`;
-    
-    if (!this.analytics[today][sessionKey]) {
-      this.analytics[today][sessionKey] = {
-        lesson: lessonKey,
-        unit: unitName,
-        events: []
-      };
-    }
-    
-    this.analytics[today][sessionKey].events.push({
-      event: event,
-      timestamp: Date.now(),
-      data: data
+    this.studySessions[sessionDate].push({
+      duration: duration * 60, // Convert to seconds
+      lessons: lessonsCompleted,
+      timestamp: Date.now()
     });
     
-    localStorage.setItem('detailedAnalytics', JSON.stringify(this.analytics));
-  }
-
-  getAnalyticsSummary() {
-    const summary = {
-      totalTime: 0,
-      totalLessons: 0,
-      averageSessionTime: 0,
-      completionRate: 0,
-      viewingPatterns: {},
-      topUnits: {},
-      dailyStreaks: []
-    };
-    
-    Object.keys(this.analytics).forEach(date => {
-      const dayData = this.analytics[date];
-      Object.keys(dayData).forEach(sessionKey => {
-        const session = dayData[sessionKey];
-        const watchEvents = session.events.filter(e => e.event === 'watch');
-        const completeEvents = session.events.filter(e => e.event === 'complete');
-        
-        if (watchEvents.length > 0) {
-          summary.totalLessons++;
-          
-          // Calculate time spent
-          const timeSpent = watchEvents.reduce((sum, event) => {
-            return sum + (event.data.duration || 0);
-          }, 0);
-          
-          summary.totalTime += timeSpent;
-          
-          // Track completion
-          if (completeEvents.length > 0) {
-            summary.completionRate++;
-          }
-          
-          // Track units
-          summary.topUnits[session.unit] = (summary.topUnits[session.unit] || 0) + 1;
-        }
-      });
-    });
-    
-    if (summary.totalLessons > 0) {
-      summary.averageSessionTime = summary.totalTime / summary.totalLessons;
-      summary.completionRate = (summary.completionRate / summary.totalLessons) * 100;
-    }
-    
-    return summary;
-  }
-
-  // 9. Learning Path Recommendations
-  initLearningPath() {
-    this.learningProgress = JSON.parse(localStorage.getItem('learningProgress')) || {};
-  }
-
-  updateLearningProgress(unitName, lessonKey, status) {
-    if (!this.learningProgress[unitName]) {
-      this.learningProgress[unitName] = {};
-    }
-    
-    this.learningProgress[unitName][lessonKey] = {
-      status: status, // 'started', 'completed', 'in_progress'
-      timestamp: Date.now(),
-      lastWatched: Date.now()
-    };
-    
-    localStorage.setItem('learningProgress', JSON.stringify(this.learningProgress));
-  }
-
-  getRecommendations(currentUnit, currentLesson) {
-    const recommendations = [];
-    
-    // Get current unit progress
-    const unitProgress = this.learningProgress[currentUnit] || {};
-    
-    // Find next lesson in same unit
-    const lessonNumbers = Object.keys(unitProgress)
-      .filter(lesson => lesson.startsWith('lesson-'))
-      .map(lesson => parseInt(lesson.split('-')[1]))
-      .sort((a, b) => a - b);
-    
-    if (lessonNumbers.length > 0) {
-      const lastLessonNum = Math.max(...lessonNumbers);
-      const nextLessonKey = `lesson-${lastLessonNum + 1}`;
-      
-      recommendations.push({
-        type: 'next_in_unit',
-        unit: currentUnit,
-        lesson: nextLessonKey,
-        reason: 'Continue your learning path in this unit',
-        priority: 1
-      });
-    }
-    
-    // Find similar units with progress
-    const allUnits = Object.keys(this.learningProgress);
-    const similarUnits = allUnits.filter(unit => {
-      const progress = this.learningProgress[unit];
-      const completedLessons = Object.keys(progress).filter(lesson => 
-        progress[lesson].status === 'completed'
-      ).length;
-      
-      return completedLessons > 0 && unit !== currentUnit;
-    });
-    
-    // Recommend based on recent activity
-    const recentActivity = [];
-    allUnits.forEach(unit => {
-      const progress = this.learningProgress[unit];
-      Object.keys(progress).forEach(lesson => {
-        recentActivity.push({
-          unit: unit,
-          lesson: lesson,
-          timestamp: progress[lesson].lastWatched
-        });
-      });
-    });
-    
-    recentActivity.sort((a, b) => b.timestamp - a.timestamp);
-    
-    if (recentActivity.length > 1) {
-      const recentUnit = recentActivity[0].unit;
-      if (recentUnit !== currentUnit) {
-        recommendations.push({
-          type: 'continue_recent',
-          unit: recentUnit,
-          lesson: recentActivity[0].lesson,
-          reason: 'Continue where you left off',
-          priority: 2
-        });
-      }
-    }
-    
-    return recommendations.sort((a, b) => a.priority - b.priority);
+    localStorage.setItem('studySessions', JSON.stringify(this.studySessions));
   }
 
   // Utility Methods
@@ -553,14 +308,6 @@ class AdvancedFeatures {
     return this.currentLayout;
   }
 
-  getGoals() {
-    return this.goals;
-  }
-
-  getSearchFilters() {
-    return this.searchFilters;
-  }
-
   // Setter methods
   setLanguage(language) {
     this.currentLanguage = language;
@@ -580,17 +327,6 @@ class AdvancedFeatures {
     this.applyLayout(layout);
   }
 
-  setGoal(type, metric, value) {
-    if (!this.goals[type]) this.goals[type] = {};
-    this.goals[type][metric] = value;
-    localStorage.setItem('studyGoals', JSON.stringify(this.goals));
-  }
-
-  setSearchFilter(type, value) {
-    this.searchFilters[type] = value;
-    localStorage.setItem('searchFilters', JSON.stringify(this.searchFilters));
-  }
-
   // Additional utility methods
   updateLanguageDisplay() {
     // Update all UI elements with new language
@@ -600,79 +336,14 @@ class AdvancedFeatures {
     });
   }
 
-  getAnalytics() {
-    const summary = this.getAnalyticsSummary();
-    return {
-      totalTime: Math.round(summary.totalTime / 60), // Convert to minutes
-      lessonsCompleted: summary.totalLessons,
-      averageSession: Math.round(summary.averageSessionTime / 60), // Convert to minutes
-      completionRate: summary.completionRate
-    };
-  }
-
-  getGoalProgress() {
-    const today = new Date().toDateString();
-    const thisWeek = this.getWeekKey(new Date());
-    
-    const progress = JSON.parse(localStorage.getItem('studyProgress')) || {};
-    
-    return {
-      daily: {
-        lessons: progress[today] ? progress[today].lessons || 0 : 0,
-        minutes: progress[today] ? progress[today].minutes || 0 : 0
-      },
-      weekly: {
-        lessons: progress[thisWeek] ? progress[thisWeek].lessons || 0 : 0,
-        minutes: progress[thisWeek] ? progress[thisWeek].minutes || 0 : 0
-      }
-    };
-  }
-
   hasStudyActivity(dateKey) {
     return !!this.studySessions[dateKey];
   }
 
-  getRecommendations() {
-    // Generate sample recommendations for demo
-    return [
-      {
-        title: "Continue Math Unit 2",
-        description: "You're 75% through this unit. Complete the remaining lessons to unlock advanced topics."
-      },
-      {
-        title: "Review Science Fundamentals",
-        description: "Based on your progress, reviewing these concepts will help with upcoming lessons."
-      },
-      {
-        title: "Explore Language Arts",
-        description: "You've shown strong performance in related areas. This might interest you."
-      },
-      {
-        title: "Practice Session Recommended",
-        description: "It's been 2 days since your last session. A quick review would be beneficial."
-      }
-    ];
-  }
-
   trackStudySession(duration, lessonsCompleted, date = null) {
     const sessionDate = date || new Date().toDateString();
-    const weekKey = this.getWeekKey(new Date(sessionDate));
     
-    const progress = JSON.parse(localStorage.getItem('studyProgress')) || {};
-    
-    // Update daily progress
-    if (!progress[sessionDate]) progress[sessionDate] = { lessons: 0, minutes: 0 };
-    progress[sessionDate].lessons += lessonsCompleted;
-    progress[sessionDate].minutes += duration;
-    
-    // Update weekly progress
-    if (!progress[weekKey]) progress[weekKey] = { lessons: 0, minutes: 0 };
-    progress[weekKey].lessons += lessonsCompleted;
-    progress[weekKey].minutes += duration;
-    
-    localStorage.setItem('studyProgress', JSON.stringify(progress));
-
-    // Also update study sessions for calendar
+    // Update study sessions for calendar
     if (!this.studySessions[sessionDate]) {
       this.studySessions[sessionDate] = [];
     }

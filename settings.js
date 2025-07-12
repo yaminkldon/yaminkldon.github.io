@@ -28,6 +28,14 @@ firebase.auth().onAuthStateChanged(function(user) {
   }
 });
 
+// Initialize advanced features when DOM is ready
+document.addEventListener('DOMContentLoaded', function() {
+  if (typeof AdvancedFeatures !== 'undefined') {
+    AdvancedFeatures.init();
+    AdvancedFeatures.applyFeatures();
+  }
+});
+
 function getDeviceId() {
   let id = localStorage.getItem('device_id');
   if (!id) {
