@@ -710,10 +710,31 @@ function initCustomVideoPlayer(videoPlayer, lessonKey) {
           lastTouchTime = currentTime;
           lastTouchX = touchX;
           
-          // Set timeout for single-tap action (play/pause)
+          // Set timeout for single-tap action (toggle controls on mobile)
           touchTimeout = setTimeout(() => {
-            console.log('Single tap - toggling play/pause');
-            isMouseOverControls = !isMouseOverControls;
+            console.log('Single tap - toggling controls visibility');
+            const isMobile = window.innerWidth <= 768;
+            if (isMobile) {
+              // On mobile - toggle controls visibility
+              if (customControls.classList.contains('visible')) {
+                customControls.classList.remove('visible');
+                clearTimeout(controlsTimeout);
+              } else {
+                showControls();
+                resetControlsTimeout();
+              }
+            } else {
+              // On desktop - keep the play/pause behavior
+              if (videoPlayer.ended) {
+                // If video ended, restart from beginning
+                videoPlayer.currentTime = 0;
+                videoPlayer.play();
+              } else if (videoPlayer.paused) {
+                videoPlayer.play();
+              } else {
+                videoPlayer.pause();
+              }
+            }
           }, 400);
         }
       }
