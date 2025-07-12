@@ -367,12 +367,28 @@ function initCustomVideoPlayer(videoPlayer, lessonKey) {
   const progressBarHandler = function(e) {
     if (!videoPlayer.duration) return; // Don't handle if video not loaded
     
-    const rect = progressBar.getBoundingClientRect();
+    // Use the progress container for more accurate positioning
+    const rect = progressContainer.getBoundingClientRect();
     const clientX = e.clientX || (e.touches && e.touches[0].clientX);
-    const pos = Math.max(0, Math.min((clientX - rect.left) / rect.width, 1));
+    
+    // Calculate position relative to the container
+    const containerLeft = rect.left;
+    const containerWidth = rect.width;
+    const clickX = clientX - containerLeft;
+    
+    // Calculate position as percentage (0 to 1)
+    const pos = Math.max(0, Math.min(clickX / containerWidth, 1));
     const newTime = pos * videoPlayer.duration;
     
-    console.log('Progress bar clicked:', {pos, newTime, duration: videoPlayer.duration}); // Debug log
+    console.log('Progress bar clicked:', {
+      clientX, 
+      containerLeft, 
+      containerWidth, 
+      clickX, 
+      pos, 
+      newTime, 
+      duration: videoPlayer.duration
+    }); // Debug log
     
     videoPlayer.currentTime = newTime;
     
@@ -410,31 +426,33 @@ function initCustomVideoPlayer(videoPlayer, lessonKey) {
     progressBarHandler(e);
     e.preventDefault();
     e.stopPropagation();
+    
+    // Clear any touch timers to prevent interference with video touch controls
+    clearTimeout(touchTimeout);
   };
   
   const progressBarTouchMove = function(e) {
     if (isDragging) {
       progressBarHandler(e);
       e.preventDefault();
+      e.stopPropagation();
     }
   };
   
-  const progressBarTouchEnd = function() {
+  const progressBarTouchEnd = function(e) {
     isDragging = false;
     progressContainer.classList.remove('dragging');
+    e.stopPropagation();
   };
   
-  // Add event listeners to progress bar elements
-  addEventListenerWithCleanup(progressBar, 'mousedown', progressBarMouseDown);
+  // Add event listeners only to progress container for better control
   addEventListenerWithCleanup(progressContainer, 'mousedown', progressBarMouseDown);
+  addEventListenerWithCleanup(progressContainer, 'click', progressBarHandler);
+  addEventListenerWithCleanup(progressContainer, 'touchstart', progressBarTouchStart);
   addEventListenerWithCleanup(document, 'mousemove', progressBarMouseMove);
   addEventListenerWithCleanup(document, 'mouseup', progressBarMouseUp);
-  addEventListenerWithCleanup(progressBar, 'touchstart', progressBarTouchStart);
-  addEventListenerWithCleanup(progressContainer, 'touchstart', progressBarTouchStart);
   addEventListenerWithCleanup(document, 'touchmove', progressBarTouchMove);
   addEventListenerWithCleanup(document, 'touchend', progressBarTouchEnd);
-  addEventListenerWithCleanup(progressBar, 'click', progressBarHandler);
-  addEventListenerWithCleanup(progressContainer, 'click', progressBarHandler);
   
   // Volume controls
   const volumeBtnHandler = function() {
@@ -631,8 +649,13 @@ function initCustomVideoPlayer(videoPlayer, lessonKey) {
   let touchTimeout;
   
   const touchEndHandler = function(e) {
-    // Only handle touches on video itself, not on controls
-    if ((e.target === videoWrapper || e.target === videoPlayer) && !customControls.contains(e.target)) {
+    // Don't handle touches on controls or progress bar
+    if (customControls.contains(e.target) || progressContainer.contains(e.target)) {
+      return;
+    }
+    
+    // Only handle touches on video itself
+    if ((e.target === videoWrapper || e.target === videoPlayer)) {
       if (e.changedTouches && e.changedTouches.length === 1) {
         const touch = e.changedTouches[0];
         const currentTime = Date.now();
@@ -640,7 +663,13 @@ function initCustomVideoPlayer(videoPlayer, lessonKey) {
         const touchX = touch.clientX;
         const isMobile = window.innerWidth <= 768;
         
-        console.log('Touch detected:', {isMobile, timeDiff, touchX, isFullscreen: !!document.fullscreenElement}); // Debug log
+        console.log('Touch detected:', {
+          isMobile, 
+          timeDiff, 
+          touchX, 
+          isFullscreen: !!document.fullscreenElement,
+          target: e.target.tagName
+        }); // Debug log
         
         // Check if this is a double-tap (within 400ms)
         if (timeDiff < 400 && timeDiff > 50 && isMobile) {
@@ -651,7 +680,12 @@ function initCustomVideoPlayer(videoPlayer, lessonKey) {
           const videoRect = videoWrapper.getBoundingClientRect();
           const videoCenter = videoRect.left + videoRect.width / 2;
           
-          console.log('Double-tap detected:', {touchX, videoCenter, isFullscreen: !!document.fullscreenElement}); // Debug log
+          console.log('Double-tap detected:', {
+            touchX, 
+            videoCenter, 
+            isFullscreen: !!document.fullscreenElement,
+            side: touchX < videoCenter ? 'left' : 'right'
+          }); // Debug log
           
           if (touchX < videoCenter) {
             // Double-tap on left side - seek backward 5 seconds
@@ -670,6 +704,7 @@ function initCustomVideoPlayer(videoPlayer, lessonKey) {
           // Prevent default behavior and stop propagation
           e.preventDefault();
           e.stopPropagation();
+          return; // Exit early to prevent single-tap handling
         } else {
           // This could be a single tap - wait to see if there's a second tap
           lastTouchTime = currentTime;
@@ -677,6 +712,7 @@ function initCustomVideoPlayer(videoPlayer, lessonKey) {
           
           // Set timeout for single-tap action (play/pause)
           touchTimeout = setTimeout(() => {
+            console.log('Single tap - toggling play/pause');
             if (videoPlayer.ended) {
               // If video ended, restart from beginning
               videoPlayer.currentTime = 0;
@@ -692,9 +728,8 @@ function initCustomVideoPlayer(videoPlayer, lessonKey) {
     }
   };
   
-  // Add touch event listeners to both video wrapper and video element
+  // Add touch event listeners to video wrapper only
   addEventListenerWithCleanup(videoWrapper, 'touchend', touchEndHandler);
-  addEventListenerWithCleanup(videoPlayer, 'touchend', touchEndHandler);
   
   // Show controls initially
   resetControlsTimeout();
