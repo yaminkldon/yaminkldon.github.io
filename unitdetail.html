@@ -96,6 +96,7 @@
       flex-grow: 1;
       display: -webkit-box;
       -webkit-line-clamp: 3;
+      line-clamp: 3;
       -webkit-box-orient: vertical;
       overflow: hidden;
     }
@@ -110,7 +111,7 @@
       }
       .lesson-description {
         font-size: 12px;
-        -webkit-line-clamp: 2;
+        line-clamp: 2;
       }
     }
     body.dark-mode .lesson-description { color: #ccc; }
@@ -454,16 +455,16 @@
           </div>
           
           <!-- Control Buttons -->
-          <div class="controls-row">
+          <div class="controls-row" style="width: 100%;">
             <div class="controls-left">
-              <button class="control-btn" id="play-pause-btn">
+              <button class="control-btn" id="play-pause-btn" style="width: 15%;">
                 <span class="material-icons">play_arrow</span>
               </button>
-              <button class="control-btn" id="volume-btn">
+              <button class="control-btn" id="volume-btn" style="width: 15%;">
                 <span class="material-icons">volume_up</span>
               </button>
               <div class="volume-slider-container">
-                <input type="range" class="volume-slider" id="volume-slider" min="0" max="100" value="100">
+                <input type="range" class="volume-slider" id="volume-slider" min="0" max="100" value="100" style="border: none; background-color: transparent;">
               </div>
               <div class="time-display">
                 <span id="current-time">0:00</span> / <span id="duration">0:00</span>
@@ -545,7 +546,7 @@
     z-index: 1000;
     user-select: none;
     pointer-events: none;
-  ">V1.8</div>
+  ">V1.9</div>
 
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
