@@ -365,14 +365,23 @@ function initCustomVideoPlayer(videoPlayer, lessonKey) {
   const progressContainer = document.querySelector('.progress-container');
   
   const progressBarHandler = function(e) {
+    if (!videoPlayer.duration) return; // Don't handle if video not loaded
+    
     const rect = progressBar.getBoundingClientRect();
     const clientX = e.clientX || (e.touches && e.touches[0].clientX);
     const pos = Math.max(0, Math.min((clientX - rect.left) / rect.width, 1));
     const newTime = pos * videoPlayer.duration;
+    
+    console.log('Progress bar clicked:', {pos, newTime, duration: videoPlayer.duration}); // Debug log
+    
     videoPlayer.currentTime = newTime;
     
     // Update progress handle position immediately
     progressHandle.style.left = (pos * 100) + '%';
+    progressFilled.style.width = (pos * 100) + '%';
+    
+    // Show current time in toast
+    showVideoToast(`Seek to ${formatTime(newTime)}`);
   };
   
   const progressBarMouseDown = function(e) {
@@ -380,6 +389,7 @@ function initCustomVideoPlayer(videoPlayer, lessonKey) {
     progressContainer.classList.add('dragging');
     progressBarHandler(e);
     e.preventDefault();
+    e.stopPropagation();
   };
   
   const progressBarMouseMove = function(e) {
@@ -399,6 +409,7 @@ function initCustomVideoPlayer(videoPlayer, lessonKey) {
     progressContainer.classList.add('dragging');
     progressBarHandler(e);
     e.preventDefault();
+    e.stopPropagation();
   };
   
   const progressBarTouchMove = function(e) {
@@ -413,13 +424,17 @@ function initCustomVideoPlayer(videoPlayer, lessonKey) {
     progressContainer.classList.remove('dragging');
   };
   
+  // Add event listeners to progress bar elements
   addEventListenerWithCleanup(progressBar, 'mousedown', progressBarMouseDown);
+  addEventListenerWithCleanup(progressContainer, 'mousedown', progressBarMouseDown);
   addEventListenerWithCleanup(document, 'mousemove', progressBarMouseMove);
   addEventListenerWithCleanup(document, 'mouseup', progressBarMouseUp);
   addEventListenerWithCleanup(progressBar, 'touchstart', progressBarTouchStart);
+  addEventListenerWithCleanup(progressContainer, 'touchstart', progressBarTouchStart);
   addEventListenerWithCleanup(document, 'touchmove', progressBarTouchMove);
   addEventListenerWithCleanup(document, 'touchend', progressBarTouchEnd);
   addEventListenerWithCleanup(progressBar, 'click', progressBarHandler);
+  addEventListenerWithCleanup(progressContainer, 'click', progressBarHandler);
   
   // Volume controls
   const volumeBtnHandler = function() {
@@ -625,7 +640,7 @@ function initCustomVideoPlayer(videoPlayer, lessonKey) {
         const touchX = touch.clientX;
         const isMobile = window.innerWidth <= 768;
         
-        console.log('Touch detected:', {isMobile, timeDiff, touchX}); // Debug log
+        console.log('Touch detected:', {isMobile, timeDiff, touchX, isFullscreen: !!document.fullscreenElement}); // Debug log
         
         // Check if this is a double-tap (within 400ms)
         if (timeDiff < 400 && timeDiff > 50 && isMobile) {
@@ -636,7 +651,7 @@ function initCustomVideoPlayer(videoPlayer, lessonKey) {
           const videoRect = videoWrapper.getBoundingClientRect();
           const videoCenter = videoRect.left + videoRect.width / 2;
           
-          console.log('Double-tap detected:', {touchX, videoCenter}); // Debug log
+          console.log('Double-tap detected:', {touchX, videoCenter, isFullscreen: !!document.fullscreenElement}); // Debug log
           
           if (touchX < videoCenter) {
             // Double-tap on left side - seek backward 5 seconds
@@ -651,6 +666,10 @@ function initCustomVideoPlayer(videoPlayer, lessonKey) {
           // Reset touch tracking
           lastTouchTime = 0;
           lastTouchX = 0;
+          
+          // Prevent default behavior and stop propagation
+          e.preventDefault();
+          e.stopPropagation();
         } else {
           // This could be a single tap - wait to see if there's a second tap
           lastTouchTime = currentTime;
@@ -672,7 +691,10 @@ function initCustomVideoPlayer(videoPlayer, lessonKey) {
       }
     }
   };
+  
+  // Add touch event listeners to both video wrapper and video element
   addEventListenerWithCleanup(videoWrapper, 'touchend', touchEndHandler);
+  addEventListenerWithCleanup(videoPlayer, 'touchend', touchEndHandler);
   
   // Show controls initially
   resetControlsTimeout();
