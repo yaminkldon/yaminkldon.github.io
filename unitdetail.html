@@ -350,6 +350,15 @@
     @media (max-width: 768px) {
       .custom-controls {
         padding: 15px 12px 12px;
+        opacity: 1 !important; /* Always visible on mobile */
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
+      }
+      .video-player-wrapper:hover .custom-controls,
+      .custom-controls.visible {
+        opacity: 1 !important;
       }
       .controls-left, .controls-right {
         gap: 8px;
@@ -366,6 +375,16 @@
       }
       .settings-menu {
         min-width: 150px;
+      }
+      .progress-container {
+        margin-bottom: 8px;
+      }
+      .progress-bar {
+        height: 8px;
+      }
+      .progress-handle {
+        width: 18px;
+        height: 18px;
       }
     }
     .video-player {
@@ -512,7 +531,7 @@
     z-index: 1000;
     user-select: none;
     pointer-events: none;
-  ">V1.4</div>
+  ">V1.5</div>
 
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>

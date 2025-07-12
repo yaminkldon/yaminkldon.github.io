@@ -15,6 +15,7 @@ const storage = firebase.storage();
 
 let currentUnitName = null;
 let currentUnitData = null;
+let currentVideoPlayerCleanup = null;
 
 // Initialize page
 firebase.auth().onAuthStateChanged(function(user) {
@@ -136,6 +137,12 @@ function createLessonCard(lessonKey, lessonData) {
 function playLesson(lessonKey, lessonData) {
   console.log('playLesson called with:', lessonKey, lessonData);
   
+  // Clean up previous video player if exists
+  if (currentVideoPlayerCleanup) {
+    currentVideoPlayerCleanup();
+    currentVideoPlayerCleanup = null;
+  }
+  
   const videoFile = lessonData.videoURL || lessonData.videoFile;
   
   if (!videoFile) {
@@ -178,6 +185,12 @@ function playLesson(lessonKey, lessonData) {
 function closeVideo() {
   const videoPlayer = document.getElementById('video-player');
   
+  // Clean up current video player
+  if (currentVideoPlayerCleanup) {
+    currentVideoPlayerCleanup();
+    currentVideoPlayerCleanup = null;
+  }
+  
   // Save current position before closing
   if (currentUnitName && videoPlayer.src) {
     const lessonKey = document.getElementById('video-title').textContent;
@@ -202,6 +215,13 @@ function initCustomVideoPlayer(videoPlayer, lessonKey) {
   let controlsTimeout;
   let lastTapTime = 0;
   
+  // Arrays to store event listeners for cleanup
+  const eventListeners = [];
+  const addEventListenerWithCleanup = (element, event, handler, options) => {
+    element.addEventListener(event, handler, options);
+    eventListeners.push({ element, event, handler, options });
+  };
+  
   // Get control elements
   const customControls = document.getElementById('custom-controls');
   const playPauseBtn = document.getElementById('play-pause-btn');
@@ -219,148 +239,7 @@ function initCustomVideoPlayer(videoPlayer, lessonKey) {
   const fullscreenBtn = document.getElementById('fullscreen-btn');
   const videoWrapper = document.querySelector('.video-player-wrapper');
   
-  // Load saved video position
-  ProgressTracker.getVideoPosition(currentUnitName, lessonKey)
-    .then(savedPosition => {
-      if (savedPosition > 0) {
-        videoPlayer.addEventListener('loadedmetadata', function() {
-          videoPlayer.currentTime = savedPosition;
-          NotificationManager.showToast(`Resumed from ${formatTime(savedPosition)}`);
-        });
-      }
-    })
-    .catch(error => console.error('Error loading video position:', error));
-  
-  // Save video position periodically
-  videoPlayer.addEventListener('play', function() {
-    savePositionInterval = setInterval(() => {
-      ProgressTracker.saveVideoPosition(currentUnitName, lessonKey, videoPlayer.currentTime);
-    }, 5000);
-  });
-  
-  videoPlayer.addEventListener('pause', function() {
-    clearInterval(savePositionInterval);
-    ProgressTracker.saveVideoPosition(currentUnitName, lessonKey, videoPlayer.currentTime);
-  });
-  
-  // Mark lesson complete on end
-  videoPlayer.addEventListener('ended', function() {
-    clearInterval(savePositionInterval);
-    ProgressTracker.markLessonCompleted(currentUnitName, lessonKey);
-    ProgressTracker.saveVideoPosition(currentUnitName, lessonKey, 0);
-    NotificationManager.showToast('Lesson completed! 🎉');
-  });
-  
-  // Play/Pause button
-  playPauseBtn.addEventListener('click', function() {
-    if (videoPlayer.paused) {
-      videoPlayer.play();
-    } else {
-      videoPlayer.pause();
-    }
-  });
-  
-  // Update play/pause icon
-  videoPlayer.addEventListener('play', function() {
-    playPauseBtn.querySelector('.material-icons').textContent = 'pause';
-  });
-  
-  videoPlayer.addEventListener('pause', function() {
-    playPauseBtn.querySelector('.material-icons').textContent = 'play_arrow';
-  });
-  
-  // Progress bar functionality
-  videoPlayer.addEventListener('timeupdate', function() {
-    const progress = (videoPlayer.currentTime / videoPlayer.duration) * 100;
-    progressFilled.style.width = progress + '%';
-    progressHandle.style.left = progress + '%';
-    currentTimeSpan.textContent = formatTime(videoPlayer.currentTime);
-  });
-  
-  videoPlayer.addEventListener('loadedmetadata', function() {
-    durationSpan.textContent = formatTime(videoPlayer.duration);
-  });
-  
-  // Progress bar click/drag
-  progressBar.addEventListener('click', function(e) {
-    const rect = progressBar.getBoundingClientRect();
-    const pos = (e.clientX - rect.left) / rect.width;
-    videoPlayer.currentTime = pos * videoPlayer.duration;
-  });
-  
-  // Volume controls
-  volumeBtn.addEventListener('click', function() {
-    if (videoPlayer.muted) {
-      videoPlayer.muted = false;
-      volumeBtn.querySelector('.material-icons').textContent = 'volume_up';
-      volumeSlider.value = videoPlayer.volume * 100;
-    } else {
-      videoPlayer.muted = true;
-      volumeBtn.querySelector('.material-icons').textContent = 'volume_off';
-    }
-  });
-  
-  volumeSlider.addEventListener('input', function() {
-    videoPlayer.volume = this.value / 100;
-    videoPlayer.muted = false;
-    volumeBtn.querySelector('.material-icons').textContent = this.value > 0 ? 'volume_up' : 'volume_off';
-  });
-  
-  // Speed control
-  speedSelect.addEventListener('change', function() {
-    videoPlayer.playbackRate = parseFloat(this.value);
-    localStorage.setItem('playbackSpeed', this.value);
-    NotificationManager.showToast(`Speed: ${this.value}x`);
-  });
-  
-  // Load saved speed
-  const savedSpeed = localStorage.getItem('playbackSpeed') || '1';
-  speedSelect.value = savedSpeed;
-  videoPlayer.playbackRate = parseFloat(savedSpeed);
-  
-  // Quality control (placeholder - would need actual implementation)
-  qualitySelect.addEventListener('change', function() {
-    localStorage.setItem('videoQuality', this.value);
-    NotificationManager.showToast(`Quality: ${this.value === 'auto' ? 'Auto' : this.value + 'p'}`);
-  });
-  
-  // Load saved quality
-  const savedQuality = localStorage.getItem('videoQuality') || 'auto';
-  qualitySelect.value = savedQuality;
-  
-  // Settings menu toggle
-  settingsBtn.addEventListener('click', function() {
-    settingsMenu.classList.toggle('show');
-  });
-  
-  // Close settings when clicking outside
-  document.addEventListener('click', function(e) {
-    if (!settingsBtn.contains(e.target) && !settingsMenu.contains(e.target)) {
-      settingsMenu.classList.remove('show');
-    }
-  });
-  
-  // Fullscreen functionality
-  fullscreenBtn.addEventListener('click', function() {
-    if (!document.fullscreenElement) {
-      videoWrapper.requestFullscreen().catch(err => {
-        console.error('Error entering fullscreen:', err);
-      });
-    } else {
-      document.exitFullscreen();
-    }
-  });
-  
-  // Fullscreen change events
-  document.addEventListener('fullscreenchange', function() {
-    if (document.fullscreenElement) {
-      fullscreenBtn.querySelector('.material-icons').textContent = 'fullscreen_exit';
-    } else {
-      fullscreenBtn.querySelector('.material-icons').textContent = 'fullscreen';
-    }
-  });
-  
-  // Controls visibility
+  // Controls visibility functions
   function showControls() {
     customControls.classList.add('visible');
     clearTimeout(controlsTimeout);
@@ -377,31 +256,194 @@ function initCustomVideoPlayer(videoPlayer, lessonKey) {
     controlsTimeout = setTimeout(hideControls, 3000);
   }
   
-  // Mouse/touch events for controls
-  videoWrapper.addEventListener('mousemove', resetControlsTimeout);
-  videoWrapper.addEventListener('click', function() {
+  // Load saved video position
+  ProgressTracker.getVideoPosition(currentUnitName, lessonKey)
+    .then(savedPosition => {
+      if (savedPosition > 0) {
+        const loadedMetadataHandler = function() {
+          videoPlayer.currentTime = savedPosition;
+          NotificationManager.showToast(`Resumed from ${formatTime(savedPosition)}`);
+        };
+        addEventListenerWithCleanup(videoPlayer, 'loadedmetadata', loadedMetadataHandler);
+      }
+    })
+    .catch(error => console.error('Error loading video position:', error));
+  
+  // Save video position periodically
+  const playHandler = function() {
+    savePositionInterval = setInterval(() => {
+      ProgressTracker.saveVideoPosition(currentUnitName, lessonKey, videoPlayer.currentTime);
+    }, 5000);
+    playPauseBtn.querySelector('.material-icons').textContent = 'pause';
+  };
+  addEventListenerWithCleanup(videoPlayer, 'play', playHandler);
+  
+  const pauseHandler = function() {
+    clearInterval(savePositionInterval);
+    ProgressTracker.saveVideoPosition(currentUnitName, lessonKey, videoPlayer.currentTime);
+    playPauseBtn.querySelector('.material-icons').textContent = 'play_arrow';
+  };
+  addEventListenerWithCleanup(videoPlayer, 'pause', pauseHandler);
+  
+  // Mark lesson complete on end
+  const endedHandler = function() {
+    clearInterval(savePositionInterval);
+    ProgressTracker.markLessonCompleted(currentUnitName, lessonKey);
+    ProgressTracker.saveVideoPosition(currentUnitName, lessonKey, 0);
+    NotificationManager.showToast('Lesson completed! 🎉');
+  };
+  addEventListenerWithCleanup(videoPlayer, 'ended', endedHandler);
+  
+  // Play/Pause button
+  const playPauseHandler = function() {
     if (videoPlayer.paused) {
       videoPlayer.play();
     } else {
       videoPlayer.pause();
     }
-  });
+  };
+  addEventListenerWithCleanup(playPauseBtn, 'click', playPauseHandler);
   
-  customControls.addEventListener('mouseenter', function() {
+  // Progress bar functionality
+  const timeUpdateHandler = function() {
+    const progress = (videoPlayer.currentTime / videoPlayer.duration) * 100;
+    progressFilled.style.width = progress + '%';
+    progressHandle.style.left = progress + '%';
+    currentTimeSpan.textContent = formatTime(videoPlayer.currentTime);
+  };
+  addEventListenerWithCleanup(videoPlayer, 'timeupdate', timeUpdateHandler);
+  
+  const loadedMetadataHandler = function() {
+    durationSpan.textContent = formatTime(videoPlayer.duration);
+  };
+  addEventListenerWithCleanup(videoPlayer, 'loadedmetadata', loadedMetadataHandler);
+  
+  // Progress bar click/drag
+  const progressBarHandler = function(e) {
+    const rect = progressBar.getBoundingClientRect();
+    const pos = (e.clientX - rect.left) / rect.width;
+    videoPlayer.currentTime = pos * videoPlayer.duration;
+  };
+  addEventListenerWithCleanup(progressBar, 'click', progressBarHandler);
+  
+  // Volume controls
+  const volumeBtnHandler = function() {
+    if (videoPlayer.muted) {
+      videoPlayer.muted = false;
+      volumeBtn.querySelector('.material-icons').textContent = 'volume_up';
+      volumeSlider.value = videoPlayer.volume * 100;
+    } else {
+      videoPlayer.muted = true;
+      volumeBtn.querySelector('.material-icons').textContent = 'volume_off';
+    }
+  };
+  addEventListenerWithCleanup(volumeBtn, 'click', volumeBtnHandler);
+  
+  const volumeSliderHandler = function() {
+    videoPlayer.volume = this.value / 100;
+    videoPlayer.muted = false;
+    volumeBtn.querySelector('.material-icons').textContent = this.value > 0 ? 'volume_up' : 'volume_off';
+  };
+  addEventListenerWithCleanup(volumeSlider, 'input', volumeSliderHandler);
+  
+  // Speed control
+  const speedSelectHandler = function() {
+    videoPlayer.playbackRate = parseFloat(this.value);
+    localStorage.setItem('playbackSpeed', this.value);
+    NotificationManager.showToast(`Speed: ${this.value}x`);
+  };
+  addEventListenerWithCleanup(speedSelect, 'change', speedSelectHandler);
+  
+  // Load saved speed
+  const savedSpeed = localStorage.getItem('playbackSpeed') || '1';
+  speedSelect.value = savedSpeed;
+  videoPlayer.playbackRate = parseFloat(savedSpeed);
+  
+  // Quality control (placeholder - would need actual implementation)
+  const qualitySelectHandler = function() {
+    localStorage.setItem('videoQuality', this.value);
+    NotificationManager.showToast(`Quality: ${this.value === 'auto' ? 'Auto' : this.value + 'p'}`);
+  };
+  addEventListenerWithCleanup(qualitySelect, 'change', qualitySelectHandler);
+  
+  // Load saved quality
+  const savedQuality = localStorage.getItem('videoQuality') || 'auto';
+  qualitySelect.value = savedQuality;
+  
+  // Settings menu toggle
+  const settingsBtnHandler = function() {
+    settingsMenu.classList.toggle('show');
+  };
+  addEventListenerWithCleanup(settingsBtn, 'click', settingsBtnHandler);
+  
+  // Close settings when clicking outside
+  const documentClickHandler = function(e) {
+    if (!settingsBtn.contains(e.target) && !settingsMenu.contains(e.target)) {
+      settingsMenu.classList.remove('show');
+    }
+  };
+  addEventListenerWithCleanup(document, 'click', documentClickHandler);
+  
+  // Fullscreen functionality
+  const fullscreenHandler = function() {
+    if (!document.fullscreenElement) {
+      videoWrapper.requestFullscreen().catch(err => {
+        console.error('Error entering fullscreen:', err);
+      });
+    } else {
+      document.exitFullscreen();
+    }
+  };
+  addEventListenerWithCleanup(fullscreenBtn, 'click', fullscreenHandler);
+  
+  // Fullscreen change events
+  const fullscreenChangeHandler = function() {
+    if (document.fullscreenElement) {
+      fullscreenBtn.querySelector('.material-icons').textContent = 'fullscreen_exit';
+    } else {
+      fullscreenBtn.querySelector('.material-icons').textContent = 'fullscreen';
+    }
+  };
+  addEventListenerWithCleanup(document, 'fullscreenchange', fullscreenChangeHandler);
+  
+  // Mouse/touch events for controls
+  const mouseMoveHandler = function() {
+    resetControlsTimeout();
+  };
+  addEventListenerWithCleanup(videoWrapper, 'mousemove', mouseMoveHandler);
+  
+  const videoWrapperClickHandler = function(e) {
+    // Only toggle play/pause if clicked on video itself, not on controls
+    if (e.target === videoWrapper || e.target === videoPlayer) {
+      if (videoPlayer.paused) {
+        videoPlayer.play();
+      } else {
+        videoPlayer.pause();
+      }
+    }
+  };
+  addEventListenerWithCleanup(videoWrapper, 'click', videoWrapperClickHandler);
+
+  const mouseEnterHandler = function() {
     isMouseOverControls = true;
     showControls();
-  });
-  
-  customControls.addEventListener('mouseleave', function() {
+  };
+  addEventListenerWithCleanup(customControls, 'mouseenter', mouseEnterHandler);
+
+  const mouseLeaveHandler = function() {
     isMouseOverControls = false;
     resetControlsTimeout();
-  });
-  
-  // Show controls initially
-  resetControlsTimeout();
+  };
+  addEventListenerWithCleanup(customControls, 'mouseleave', mouseLeaveHandler);
+
+  // Prevent click events on controls from bubbling to video wrapper
+  const controlsClickHandler = function(e) {
+    e.stopPropagation();
+  };
+  addEventListenerWithCleanup(customControls, 'click', controlsClickHandler);
   
   // Keyboard controls
-  document.addEventListener('keydown', function(e) {
+  const keydownHandler = function(e) {
     if (document.getElementById('video-container').style.display === 'block') {
       switch(e.key) {
         case 'ArrowRight':
@@ -431,20 +473,52 @@ function initCustomVideoPlayer(videoPlayer, lessonKey) {
           break;
       }
     }
-  });
-
+  };
+  addEventListenerWithCleanup(document, 'keydown', keydownHandler);
   
   // Touch controls for mobile (simple version)
-  videoWrapper.addEventListener('touchend', function(e) {
-    if (e.touches.length === 0) {
-      // Single touch end - toggle play/pause
-      if (videoPlayer.paused) {
-        videoPlayer.play();
-      } else {
-        videoPlayer.pause();
+  const touchEndHandler = function(e) {
+    // Only toggle play/pause if touched on video itself, not on controls
+    if (e.target === videoWrapper || e.target === videoPlayer) {
+      if (e.touches.length === 0) {
+        // Single touch end - toggle play/pause
+        if (videoPlayer.paused) {
+          videoPlayer.play();
+        } else {
+          videoPlayer.pause();
+        }
       }
     }
-  });
+  };
+  addEventListenerWithCleanup(videoWrapper, 'touchend', touchEndHandler);
+  
+  // Show controls initially
+  resetControlsTimeout();
+  
+  // Create cleanup function
+  currentVideoPlayerCleanup = function() {
+    console.log('Cleaning up video player...');
+    
+    // Clear all intervals and timeouts
+    clearInterval(savePositionInterval);
+    clearTimeout(controlsTimeout);
+    
+    // Remove all event listeners
+    eventListeners.forEach(({ element, event, handler, options }) => {
+      element.removeEventListener(event, handler, options);
+    });
+    eventListeners.length = 0;
+    
+    // Reset control states
+    customControls.classList.remove('visible');
+    settingsMenu.classList.remove('show');
+    
+    // Reset video player state
+    videoPlayer.pause();
+    videoPlayer.currentTime = 0;
+    
+    console.log('Video player cleanup completed');
+  };
 }
 
 // Helper function to format time
