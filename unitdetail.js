@@ -661,7 +661,7 @@ function initCustomVideoPlayer(videoPlayer, lessonKey) {
         const currentTime = Date.now();
         const timeDiff = currentTime - lastTouchTime;
         const touchX = touch.clientX;
-        const isMobile = window.innerWidth <= 768;
+        const isMobile = window.innerWidth <= 768 || !!document.fullscreenElement;
         
         console.log('Touch detected:', {
           isMobile, 
@@ -672,7 +672,7 @@ function initCustomVideoPlayer(videoPlayer, lessonKey) {
         }); // Debug log
         
         // Check if this is a double-tap (within 400ms)
-        if (timeDiff < 400 && timeDiff > 50 && isMobile) {
+        if (timeDiff < 400 && timeDiff > 50 ) {
           // Clear any pending single-tap action
           clearTimeout(touchTimeout);
           
