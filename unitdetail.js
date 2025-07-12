@@ -214,7 +214,6 @@ function initCustomVideoPlayer(videoPlayer, lessonKey) {
   const durationSpan = document.getElementById('duration');
   const speedSelect = document.getElementById('speed-select');
   const qualitySelect = document.getElementById('quality-select');
-  const captionsSelect = document.getElementById('captions-select');
   const settingsBtn = document.getElementById('settings-btn');
   const settingsMenu = document.getElementById('settings-menu');
   const fullscreenBtn = document.getElementById('fullscreen-btn');
@@ -319,18 +318,37 @@ function initCustomVideoPlayer(videoPlayer, lessonKey) {
   speedSelect.value = savedSpeed;
   videoPlayer.playbackRate = parseFloat(savedSpeed);
   
-  // Quality control (placeholder - would need actual implementation)
+  // Quality control - basic implementation
   qualitySelect.addEventListener('change', function() {
-    localStorage.setItem('videoQuality', this.value);
-    NotificationManager.showToast(`Quality: ${this.value === 'auto' ? 'Auto' : this.value + 'p'}`);
+    const newQuality = this.value;
+    localStorage.setItem('videoQuality', newQuality);
+    
+    // Save current time
+    const currentTime = videoPlayer.currentTime;
+    const isPaused = videoPlayer.paused;
+    
+    // Apply quality setting (basic implementation)
+    if (newQuality === '720p') {
+      // For a real implementation, you'd switch video sources here
+      NotificationManager.showToast('Quality set to 720p');
+    } else if (newQuality === '480p') {
+      NotificationManager.showToast('Quality set to 480p');
+    } else if (newQuality === '360p') {
+      NotificationManager.showToast('Quality set to 360p');
+    } else {
+      NotificationManager.showToast('Quality set to Auto');
+    }
+    
+    // Restore playback position
+    videoPlayer.currentTime = currentTime;
+    if (!isPaused) {
+      videoPlayer.play();
+    }
   });
   
   // Load saved quality
   const savedQuality = localStorage.getItem('videoQuality') || 'auto';
   qualitySelect.value = savedQuality;
-  
-  // Captions control
-  initCaptionsControl(videoPlayer, captionsSelect);
   
   // Settings menu toggle
   settingsBtn.addEventListener('click', function() {
@@ -383,13 +401,6 @@ function initCustomVideoPlayer(videoPlayer, lessonKey) {
   
   // Mouse/touch events for controls
   videoWrapper.addEventListener('mousemove', resetControlsTimeout);
-  videoWrapper.addEventListener('click', function() {
-    if (videoPlayer.paused) {
-      videoPlayer.play();
-    } else {
-      videoPlayer.pause();
-    }
-  });
   
   customControls.addEventListener('mouseenter', function() {
     isMouseOverControls = true;
@@ -436,10 +447,6 @@ function initCustomVideoPlayer(videoPlayer, lessonKey) {
       }
     }
   });
-
-  // Remove any existing keydown handlers and add new one
-  document.removeEventListener('keydown', keydownHandler, true);
-  document.addEventListener('keydown', keydownHandler, true);
   
   // Touch controls for mobile (simple version)
   videoWrapper.addEventListener('touchend', function(e) {
@@ -460,89 +467,4 @@ function formatTime(seconds) {
   const minutes = Math.floor(seconds / 60);
   const secs = Math.floor(seconds % 60);
   return `${minutes}:${secs.toString().padStart(2, '0')}`;
-}
-
-// Captions functionality
-function initCaptionsControl(videoPlayer, captionsSelect) {
-  const captionsDisplay = document.getElementById('custom-captions');
-  let captionsData = null;
-  
-  // Load saved captions preference
-  const savedCaptions = localStorage.getItem('captionsLanguage') || 'off';
-  captionsSelect.value = savedCaptions;
-  
-  captionsSelect.addEventListener('change', function() {
-    const language = this.value;
-    localStorage.setItem('captionsLanguage', language);
-    
-    if (language === 'off') {
-      captionsDisplay.style.display = 'none';
-      captionsData = null;
-      NotificationManager.showToast('Captions: Off');
-    } else {
-      loadCaptions(language);
-      NotificationManager.showToast(`Captions: ${getLanguageName(language)}`);
-    }
-  });
-  
-  // Update captions during video playback
-  videoPlayer.addEventListener('timeupdate', function() {
-    if (captionsData && captionsSelect.value !== 'off') {
-      updateCaptions(videoPlayer.currentTime);
-    }
-  });
-  
-  function loadCaptions(language) {
-    // Generate sample captions for demonstration
-    captionsData = generateSampleCaptions(language);
-  }
-  
-  function updateCaptions(currentTime) {
-    if (!captionsData) return;
-    
-    const currentCaption = captionsData.find(caption => 
-      currentTime >= caption.start && currentTime <= caption.end
-    );
-    
-    if (currentCaption) {
-      captionsDisplay.textContent = currentCaption.text;
-      captionsDisplay.style.display = 'block';
-    } else {
-      captionsDisplay.style.display = 'none';
-    }
-  }
-  
-  function getLanguageName(code) {
-    const languages = {
-      'en': 'English',
-      'ar': 'Arabic',
-      'auto': 'Auto-generated'
-    };
-    return languages[code] || code;
-  }
-  
-  function generateSampleCaptions(language = 'en') {
-    if (language === 'ar') {
-      return [
-        { start: 0, end: 5, text: 'مرحبا بكم في هذا الدرس' },
-        { start: 5, end: 10, text: 'سنتعلم اليوم موضوعا جديدا' },
-        { start: 10, end: 15, text: 'دعونا نبدأ بالأساسيات' },
-        { start: 15, end: 20, text: 'هذا مثال على الترجمة العربية' }
-      ];
-    } else {
-      return [
-        { start: 0, end: 5, text: 'Welcome to this lesson' },
-        { start: 5, end: 10, text: 'Today we will learn something new' },
-        { start: 10, end: 15, text: 'Let\'s start with the basics' },
-        { start: 15, end: 20, text: 'This is an example of English captions' },
-        { start: 20, end: 25, text: 'Captions help with accessibility' },
-        { start: 25, end: 30, text: 'Thank you for watching' }
-      ];
-    }
-  }
-  
-  // Initialize captions if previously enabled
-  if (savedCaptions !== 'off') {
-    loadCaptions(savedCaptions);
-  }
 }

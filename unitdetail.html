@@ -215,6 +215,7 @@
       opacity: 0;
       transition: opacity 0.2s ease, width 0.2s ease;
       overflow: hidden;
+      margin-right: 16px;
     }
     .controls-left:hover .volume-slider-container {
       opacity: 1;
@@ -281,24 +282,6 @@
     .setting-select option {
       background: #333;
       color: white;
-    }
-    
-    /* Custom Captions */
-    .custom-captions {
-      position: absolute;
-      bottom: 80px;
-      left: 50%;
-      transform: translateX(-50%);
-      background: rgba(0, 0, 0, 0.8);
-      color: white;
-      padding: 8px 16px;
-      border-radius: 6px;
-      font-size: 16px;
-      max-width: 80%;
-      text-align: center;
-      z-index: 15;
-      display: none;
-      line-height: 1.4;
     }
     
     /* Fullscreen Styles */
@@ -444,15 +427,6 @@
                       <option value="360">360p</option>
                     </select>
                   </div>
-                  <div class="setting-item">
-                    <label>Captions:</label>
-                    <select id="captions-select" class="setting-select">
-                      <option value="off" selected>Off</option>
-                      <option value="en">English</option>
-                      <option value="ar">Arabic</option>
-                      <option value="auto">Auto-generate</option>
-                    </select>
-                  </div>
                 </div>
               </div>
               <button class="control-btn" id="fullscreen-btn">
@@ -462,8 +436,6 @@
           </div>
         </div>
         
-        <!-- Custom Captions -->
-        <div id="custom-captions" class="custom-captions"></div>
       </div>
       <button class="close-video" onclick="closeVideo()">Close Video</button>
     </div>
@@ -503,7 +475,7 @@
     z-index: 1000;
     user-select: none;
     pointer-events: none;
-  ">V1.8</div>
+  ">V1.9</div>
 
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
