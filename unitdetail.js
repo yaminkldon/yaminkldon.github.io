@@ -210,6 +210,16 @@ function initCustomVideoPlayer(videoPlayer, lessonKey) {
   const progressBar = document.getElementById('progress-bar');
   const progressFilled = document.getElementById('progress-filled');
   const progressHandle = document.getElementById('progress-handle');
+  const volumeBtn = document.getElementById('volume-btn');
+  const volumeSlider = document.getElementById('volume-slider');
+  const currentTimeSpan = document.getElementById('current-time');
+  const durationSpan = document.getElementById('duration');
+  const speedSelect = document.getElementById('speed-select');
+  const qualitySelect = document.getElementById('quality-select');
+  const settingsBtn = document.getElementById('settings-btn');
+  const settingsMenu = document.getElementById('settings-menu');
+  const fullscreenBtn = document.getElementById('fullscreen-btn');
+  const videoWrapper = document.querySelector('.video-player-wrapper');
   
   // Debug: Check if elements exist
   console.log('Control elements:', {
@@ -233,16 +243,6 @@ function initCustomVideoPlayer(videoPlayer, lessonKey) {
   // Disable native video controls
   videoPlayer.controls = false;
   videoPlayer.disablePictureInPicture = true;
-  const volumeBtn = document.getElementById('volume-btn');
-  const volumeSlider = document.getElementById('volume-slider');
-  const currentTimeSpan = document.getElementById('current-time');
-  const durationSpan = document.getElementById('duration');
-  const speedSelect = document.getElementById('speed-select');
-  const qualitySelect = document.getElementById('quality-select');
-  const settingsBtn = document.getElementById('settings-btn');
-  const settingsMenu = document.getElementById('settings-menu');
-  const fullscreenBtn = document.getElementById('fullscreen-btn');
-  const videoWrapper = document.querySelector('.video-player-wrapper');
   
   // Load saved video position
   ProgressTracker.getVideoPosition(currentUnitName, lessonKey)
