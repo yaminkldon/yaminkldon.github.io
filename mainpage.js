@@ -56,6 +56,54 @@ let plyrPlayer = null;
 
 // Load units into drawer
 function loadUnits() {
+  // Load user progress first, then units
+  ProgressTracker.getUserProgress()
+    .then(userProgress => {
+      return db.ref('units').once('value').then(snapshot => {
+        const unitsList = document.getElementById('units-list');
+        
+        // Clear only the units, preserve Progress and Settings
+        const staticItems = unitsList.querySelectorAll('li[data-static="true"]');
+        unitsList.innerHTML = '';
+        
+        // Re-add static items (Progress and Settings)
+        staticItems.forEach(item => unitsList.appendChild(item));
+        
+        snapshot.forEach(unitSnap => {
+          const unitName = unitSnap.key;
+          const unitData = unitSnap.val();
+          
+          // Calculate progress for this unit
+          const progress = calculateUnitProgress(unitName, unitData, userProgress);
+          
+          const li = document.createElement('li');
+          li.innerHTML = `
+            <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+              <span>${unitName}</span>
+              <span style="font-size: 12px; color: #666; margin-left: 8px;">
+                ${progress.completed}/${progress.total} lessons
+                ${progress.percentage > 0 ? `(${progress.percentage}%)` : ''}
+              </span>
+            </div>
+          `;
+          
+          li.onclick = () => {
+            // Navigate to unit detail page
+            localStorage.setItem('selectedUnit', unitName);
+            window.location.href = `unitdetail.html?unit=${encodeURIComponent(unitName)}`;
+          };
+          unitsList.appendChild(li);
+        });
+      });
+    })
+    .catch(error => {
+      console.error('Error loading units with progress:', error);
+      // Fallback to loading units without progress
+      loadUnitsWithoutProgress();
+    });
+}
+
+function loadUnitsWithoutProgress() {
   db.ref('units').once('value').then(snapshot => {
     const unitsList = document.getElementById('units-list');
     
@@ -78,6 +126,32 @@ function loadUnits() {
       unitsList.appendChild(li);
     });
   });
+}
+
+function calculateUnitProgress(unitName, unitData, userProgress) {
+  let totalLessons = 0;
+  let completedLessons = 0;
+  
+  // Count lessons in this unit
+  Object.keys(unitData).forEach(key => {
+    const item = unitData[key];
+    if (item && typeof item === 'object' && (item.videoURL || item.videoFile)) {
+      totalLessons++;
+      
+      // Check if this lesson is completed
+      if (userProgress[unitName] && userProgress[unitName][key] && userProgress[unitName][key].completed) {
+        completedLessons++;
+      }
+    }
+  });
+  
+  const percentage = totalLessons > 0 ? Math.round((completedLessons / totalLessons) * 100) : 0;
+  
+  return {
+    total: totalLessons,
+    completed: completedLessons,
+    percentage: percentage
+  };
 }
 
 // Load lessons for a unit

@@ -118,6 +118,8 @@ function createLessonCard(lessonKey, lessonData) {
 }
 
 function playLesson(lessonKey, lessonData) {
+  console.log('playLesson called with:', lessonKey, lessonData); // Debug
+  
   const videoFile = lessonData.videoURL || lessonData.videoFile;
   
   if (!videoFile) {
@@ -132,6 +134,8 @@ function playLesson(lessonKey, lessonData) {
   // Get video URL from Firebase Storage
   storage.ref('videos/' + videoFile).getDownloadURL()
     .then(url => {
+      console.log('Video URL loaded:', url); // Debug
+      
       const videoPlayer = document.getElementById('video-player');
       videoPlayer.src = url;
       document.getElementById('video-title').textContent = lessonKey;
@@ -139,6 +143,8 @@ function playLesson(lessonKey, lessonData) {
       // Remove any existing event listeners to prevent duplicates
       const newPlayer = videoPlayer.cloneNode(true);
       videoPlayer.parentNode.replaceChild(newPlayer, videoPlayer);
+      
+      console.log('About to initialize custom video player'); // Debug
       
       // Initialize custom video player
       initCustomVideoPlayer(newPlayer, lessonKey);
@@ -175,18 +181,28 @@ function goBack() {
 
 // Custom Video Player Functions
 function initCustomVideoPlayer(videoPlayer, lessonKey) {
+  console.log('initCustomVideoPlayer called with:', videoPlayer, lessonKey); // Debug
+  
   let lastTapTime = 0;
   let savePositionInterval;
   
   // Load saved video position (async)
+  console.log('Loading video position for:', currentUnitName, lessonKey); // Debug
+  
   ProgressTracker.getVideoPosition(currentUnitName, lessonKey)
     .then(savedPosition => {
+      console.log('Saved position loaded:', savedPosition); // Debug
+      
       if (savedPosition > 0) {
         videoPlayer.addEventListener('loadedmetadata', function() {
+          console.log('Setting video position to:', savedPosition); // Debug
           videoPlayer.currentTime = savedPosition;
           NotificationManager.showToast(`Resumed from ${formatTime(savedPosition)}`);
         });
       }
+    })
+    .catch(error => {
+      console.error('Error loading video position:', error);
     });
   
   // Save video position every 5 seconds
@@ -211,7 +227,11 @@ function initCustomVideoPlayer(videoPlayer, lessonKey) {
   
   // Keyboard controls
   document.addEventListener('keydown', function(e) {
+    console.log('Key pressed:', e.key, 'Video container visible:', document.getElementById('video-container').style.display); // Debug
+    
     if (document.getElementById('video-container').style.display === 'block') {
+      console.log('Processing key for video player:', e.key); // Debug
+      
       switch(e.key) {
         case 'ArrowRight':
           e.preventDefault();
