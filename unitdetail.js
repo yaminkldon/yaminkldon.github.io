@@ -145,37 +145,40 @@ function createLessonCard(lessonKey, lessonData) {
 
 function playLesson(lessonKey, lessonData) {
   console.log('playLesson called with:', lessonKey, lessonData);
-  
+
+  // Always close any previous video player before opening a new one
+  closeVideo();
+
   const videoFile = lessonData.videoURL || lessonData.videoFile;
-  
+
   if (!videoFile) {
     NotificationManager.showToast('No video available for this lesson');
     return;
   }
-  
+
   // Show loading message
   document.getElementById('video-title').textContent = 'Loading: ' + lessonKey;
   document.getElementById('video-container').style.display = 'block';
-  
+
   // Get video URL from Firebase Storage
   storage.ref('videos/' + videoFile).getDownloadURL()
     .then(url => {
       console.log('Video URL loaded:', url);
-      
+
       const videoPlayer = document.getElementById('video-player');
       videoPlayer.src = url;
       document.getElementById('video-title').textContent = lessonKey;
-      
+
       // Initialize custom video player
       console.log('About to initialize custom video player...');
       initCustomVideoPlayer(videoPlayer, lessonKey);
       console.log('Custom video player initialization completed');
-      
+
       // Scroll to video
       document.getElementById('video-container').scrollIntoView({ 
         behavior: 'smooth' 
       });
-      
+
       // Auto-play the video
       videoPlayer.play().catch(error => {
         console.log('Autoplay prevented:', error);
