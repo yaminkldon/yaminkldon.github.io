@@ -256,6 +256,27 @@ function initCustomVideoPlayer(videoPlayer, lessonKey) {
     }, duration);
   }
   
+  // Volume icon and progress updater
+  function updateVolumeDisplay(volume) {
+    const volumeSliderContainer = document.querySelector('.volume-slider-container');
+    const progressWidth = volume + '%';
+    
+    // Update visual progress bar
+    volumeSliderContainer.style.setProperty('--volume-progress', progressWidth);
+    
+    // Update volume icon based on volume level
+    const volumeIcon = volumeBtn.querySelector('.material-icons');
+    if (videoPlayer.muted || volume === 0) {
+      volumeIcon.textContent = 'volume_off';
+    } else if (volume < 30) {
+      volumeIcon.textContent = 'volume_mute';
+    } else if (volume < 70) {
+      volumeIcon.textContent = 'volume_down';
+    } else {
+      volumeIcon.textContent = 'volume_up';
+    }
+  }
+  
   // Controls visibility functions
   function showControls() {
     customControls.classList.add('visible');
@@ -350,20 +371,21 @@ function initCustomVideoPlayer(videoPlayer, lessonKey) {
     if (videoPlayer.muted) {
       videoPlayer.muted = false;
       showVideoToast('UnMuted 🔊');
-      volumeBtn.querySelector('.material-icons').textContent = 'volume_up';
       volumeSlider.value = videoPlayer.volume * 100;
+      updateVolumeDisplay(videoPlayer.volume * 100);
     } else {
       videoPlayer.muted = true;
       showVideoToast('Muted 🔇');
-      volumeBtn.querySelector('.material-icons').textContent = 'volume_off';
+      updateVolumeDisplay(0);
     }
   };
   addEventListenerWithCleanup(volumeBtn, 'click', volumeBtnHandler);
   
   const volumeSliderHandler = function() {
-    videoPlayer.volume = this.value / 100;
+    const volume = this.value;
+    videoPlayer.volume = volume / 100;
     videoPlayer.muted = false;
-    volumeBtn.querySelector('.material-icons').textContent = this.value > 0 ? 'volume_up' : 'volume_off';
+    updateVolumeDisplay(volume);
   };
   addEventListenerWithCleanup(volumeSlider, 'input', volumeSliderHandler);
   
@@ -417,15 +439,39 @@ function initCustomVideoPlayer(videoPlayer, lessonKey) {
   };
   addEventListenerWithCleanup(fullscreenBtn, 'click', fullscreenHandler);
   
+  // Mobile orientation handler
+  function handleMobileOrientation() {
+    const isMobile = window.innerWidth <= 768;
+    if (isMobile && document.fullscreenElement) {
+      // Try to lock orientation to landscape on mobile when in fullscreen
+      if (screen.orientation && screen.orientation.lock) {
+        screen.orientation.lock('landscape').catch(err => {
+          console.log('Orientation lock not supported or failed:', err);
+        });
+      }
+    }
+  }
+  
   // Fullscreen change events
   const fullscreenChangeHandler = function() {
     if (document.fullscreenElement) {
       fullscreenBtn.querySelector('.material-icons').textContent = 'fullscreen_exit';
+      handleMobileOrientation();
     } else {
       fullscreenBtn.querySelector('.material-icons').textContent = 'fullscreen';
+      // Unlock orientation when exiting fullscreen
+      if (screen.orientation && screen.orientation.unlock) {
+        screen.orientation.unlock();
+      }
     }
   };
   addEventListenerWithCleanup(document, 'fullscreenchange', fullscreenChangeHandler);
+  
+  // Orientation change handler for mobile
+  const orientationChangeHandler = function() {
+    handleMobileOrientation();
+  };
+  addEventListenerWithCleanup(window, 'orientationchange', orientationChangeHandler);
   
   // Mouse/touch events for controls
   const mouseMoveHandler = function() {
@@ -522,6 +568,9 @@ function initCustomVideoPlayer(videoPlayer, lessonKey) {
   
   // Show controls initially
   resetControlsTimeout();
+  
+  // Initialize volume display
+  updateVolumeDisplay(videoPlayer.volume * 100);
   
   // Create cleanup function
   currentVideoPlayerCleanup = function() {
