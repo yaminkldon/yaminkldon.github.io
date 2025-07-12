@@ -157,7 +157,9 @@ function playLesson(lessonKey, lessonData) {
       document.getElementById('video-title').textContent = lessonKey;
       
       // Initialize custom video player
+      console.log('About to initialize custom video player...');
       initCustomVideoPlayer(videoPlayer, lessonKey);
+      console.log('Custom video player initialization completed');
       
       // Scroll to video
       document.getElementById('video-container').scrollIntoView({ 
@@ -208,6 +210,29 @@ function initCustomVideoPlayer(videoPlayer, lessonKey) {
   const progressBar = document.getElementById('progress-bar');
   const progressFilled = document.getElementById('progress-filled');
   const progressHandle = document.getElementById('progress-handle');
+  
+  // Debug: Check if elements exist
+  console.log('Control elements:', {
+    customControls: !!customControls,
+    playPauseBtn: !!playPauseBtn,
+    progressBar: !!progressBar,
+    progressFilled: !!progressFilled,
+    progressHandle: !!progressHandle
+  });
+  
+  // Check if essential elements exist
+  if (!customControls || !playPauseBtn || !videoWrapper) {
+    console.error('Essential video control elements not found!');
+    return;
+  }
+  
+  // Ensure controls are visible and clickable
+  customControls.style.pointerEvents = 'auto';
+  customControls.style.zIndex = '100';
+  
+  // Disable native video controls
+  videoPlayer.controls = false;
+  videoPlayer.disablePictureInPicture = true;
   const volumeBtn = document.getElementById('volume-btn');
   const volumeSlider = document.getElementById('volume-slider');
   const currentTimeSpan = document.getElementById('current-time');
@@ -249,14 +274,35 @@ function initCustomVideoPlayer(videoPlayer, lessonKey) {
     ProgressTracker.markLessonCompleted(currentUnitName, lessonKey);
     ProgressTracker.saveVideoPosition(currentUnitName, lessonKey, 0);
     NotificationManager.showToast('Lesson completed! 🎉');
+    
+    // Reset video for replay
+    videoPlayer.currentTime = 0;
+    playPauseBtn.querySelector('.material-icons').textContent = 'play_arrow';
   });
   
   // Play/Pause button
-  playPauseBtn.addEventListener('click', function() {
-    if (videoPlayer.paused) {
-      videoPlayer.play();
-    } else {
-      videoPlayer.pause();
+  playPauseBtn.addEventListener('click', function(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    console.log('Play/pause button clicked! Video state:', {
+      paused: videoPlayer.paused,
+      ended: videoPlayer.ended,
+      currentTime: videoPlayer.currentTime
+    });
+    
+    try {
+      if (videoPlayer.paused || videoPlayer.ended) {
+        if (videoPlayer.ended) {
+          videoPlayer.currentTime = 0;
+        }
+        videoPlayer.play().catch(error => {
+          console.log('Play error:', error);
+        });
+      } else {
+        videoPlayer.pause();
+      }
+    } catch (error) {
+      console.error('Error in play/pause handler:', error);
     }
   });
   
@@ -283,26 +329,42 @@ function initCustomVideoPlayer(videoPlayer, lessonKey) {
   
   // Progress bar click/drag
   progressBar.addEventListener('click', function(e) {
-    const rect = progressBar.getBoundingClientRect();
-    const pos = (e.clientX - rect.left) / rect.width;
-    videoPlayer.currentTime = pos * videoPlayer.duration;
+    e.preventDefault();
+    e.stopPropagation();
+    console.log('Progress bar clicked!');
+    
+    try {
+      const rect = progressBar.getBoundingClientRect();
+      const pos = (e.clientX - rect.left) / rect.width;
+      videoPlayer.currentTime = pos * videoPlayer.duration;
+    } catch (error) {
+      console.error('Error in progress bar handler:', error);
+    }
   });
   
   // Volume controls
   let previousVolume = 1.0; // Store previous volume level
   
-  volumeBtn.addEventListener('click', function() {
-    if (videoPlayer.muted || videoPlayer.volume === 0) {
-      videoPlayer.muted = false;
-      videoPlayer.volume = previousVolume;
-      volumeBtn.querySelector('.material-icons').textContent = 'volume_up';
-      volumeSlider.value = previousVolume * 100;
-    } else {
-      previousVolume = videoPlayer.volume;
-      videoPlayer.muted = true;
-      videoPlayer.volume = 0;
-      volumeBtn.querySelector('.material-icons').textContent = 'volume_off';
-      volumeSlider.value = 0;
+  volumeBtn.addEventListener('click', function(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    console.log('Volume button clicked!');
+    
+    try {
+      if (videoPlayer.muted || videoPlayer.volume === 0) {
+        videoPlayer.muted = false;
+        videoPlayer.volume = previousVolume;
+        volumeBtn.querySelector('.material-icons').textContent = 'volume_up';
+        volumeSlider.value = previousVolume * 100;
+      } else {
+        previousVolume = videoPlayer.volume;
+        videoPlayer.muted = true;
+        videoPlayer.volume = 0;
+        volumeBtn.querySelector('.material-icons').textContent = 'volume_off';
+        volumeSlider.value = 0;
+      }
+    } catch (error) {
+      console.error('Error in volume handler:', error);
     }
   });
   
@@ -323,7 +385,7 @@ function initCustomVideoPlayer(videoPlayer, lessonKey) {
   speedSelect.addEventListener('change', function() {
     videoPlayer.playbackRate = parseFloat(this.value);
     localStorage.setItem('playbackSpeed', this.value);
-    NotificationManager.showToast(`Speed: ${this.value}x`);
+    showVideoToast(`Speed: ${this.value}x`);
   });
   
   // Load saved speed
@@ -342,13 +404,13 @@ function initCustomVideoPlayer(videoPlayer, lessonKey) {
     
     // Apply quality setting (basic implementation)
     if (newQuality === '720p') {
-      NotificationManager.showToast('Quality set to 720p');
+      showVideoToast('Quality set to 720p');
     } else if (newQuality === '480p') {
-      NotificationManager.showToast('Quality set to 480p');
+      showVideoToast('Quality set to 480p');
     } else if (newQuality === '360p') {
-      NotificationManager.showToast('Quality set to 360p');
+      showVideoToast('Quality set to 360p');
     } else {
-      NotificationManager.showToast('Quality set to Auto');
+      showVideoToast('Quality set to Auto');
     }
     
     // Restore playback position
@@ -392,36 +454,52 @@ function initCustomVideoPlayer(videoPlayer, lessonKey) {
   
   // Controls visibility
   function showControls() {
+    console.log('showControls called');
     customControls.classList.add('visible');
     clearTimeout(controlsTimeout);
   }
   
   function hideControls() {
+    console.log('hideControls called, isMouseOverControls:', isMouseOverControls, 'videoPlayer.paused:', videoPlayer.paused);
     if (!isMouseOverControls && !videoPlayer.paused) {
       customControls.classList.remove('visible');
     }
   }
   
   function resetControlsTimeout() {
+    console.log('resetControlsTimeout called');
     showControls();
     controlsTimeout = setTimeout(hideControls, 3000);
   }
   
   // Mouse/touch events for controls
-  videoWrapper.addEventListener('mousemove', resetControlsTimeout);
+  videoWrapper.addEventListener('mousemove', function() {
+    console.log('Video wrapper mousemove');
+    resetControlsTimeout();
+  });
   
   customControls.addEventListener('mouseenter', function() {
+    console.log('Custom controls mouseenter');
     isMouseOverControls = true;
     showControls();
   });
   
   customControls.addEventListener('mouseleave', function() {
+    console.log('Custom controls mouseleave');
     isMouseOverControls = false;
     resetControlsTimeout();
   });
   
   // Show controls initially
   resetControlsTimeout();
+  
+  // Debug: Add click test to video wrapper
+  videoWrapper.addEventListener('click', function(e) {
+    if (e.target === videoWrapper || e.target === videoPlayer) {
+      console.log('Video wrapper/player clicked - should toggle play/pause');
+      playPauseBtn.click();
+    }
+  });
   
   // Keyboard controls
   document.addEventListener('keydown', function(e) {
@@ -430,12 +508,12 @@ function initCustomVideoPlayer(videoPlayer, lessonKey) {
         case 'ArrowRight':
           e.preventDefault();
           videoPlayer.currentTime += 5;
-          NotificationManager.showToast('Forward 5s');
+          showVideoToast('Forward 5s');
           break;
         case 'ArrowLeft':
           e.preventDefault();
           videoPlayer.currentTime -= 5;
-          NotificationManager.showToast('Backward 5s');
+          showVideoToast('Backward 5s');
           break;
         case ' ':
           e.preventDefault();
@@ -475,4 +553,21 @@ function formatTime(seconds) {
   const minutes = Math.floor(seconds / 60);
   const secs = Math.floor(seconds % 60);
   return `${minutes}:${secs.toString().padStart(2, '0')}`;
+}
+
+// Video toast function for fullscreen notifications
+function showVideoToast(message, duration = 3000) {
+  const videoToast = document.getElementById('video-toast');
+  if (!videoToast) return;
+  
+  videoToast.textContent = message;
+  videoToast.style.display = 'block';
+  videoToast.style.opacity = '1';
+  
+  setTimeout(() => {
+    videoToast.style.opacity = '0';
+    setTimeout(() => {
+      videoToast.style.display = 'none';
+    }, 300);
+  }, duration);
 }

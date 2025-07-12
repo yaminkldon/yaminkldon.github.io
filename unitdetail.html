@@ -211,11 +211,11 @@
       font-size: 24px;
     }
     .volume-slider-container {
-      width: 100px;
+      width: 120px;
       opacity: 1;
       transition: opacity 0.2s ease, width 0.2s ease;
       overflow: hidden;
-      margin-right: 24px;
+      margin-right: 30px;
     }
     .controls-left:hover .volume-slider-container,
     .volume-slider-container:hover {
@@ -298,6 +298,23 @@
     .setting-select option {
       background: #333;
       color: white;
+    }
+    
+    /* Video Toast for Fullscreen */
+    .video-toast {
+      position: absolute;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(0, 0, 0, 0.8);
+      color: white;
+      padding: 12px 20px;
+      border-radius: 6px;
+      font-size: 16px;
+      z-index: 1000;
+      display: none;
+      pointer-events: none;
+      transition: opacity 0.3s ease;
     }
     
     /* Fullscreen Styles */
@@ -386,9 +403,12 @@
     <div class="video-container" id="video-container">
       <h3 class="video-title" id="video-title"></h3>
       <div class="video-player-wrapper">
-        <video class="video-player" id="video-player" preload="metadata">
+        <video class="video-player" id="video-player" preload="metadata" controlsList="nodownload" disablePictureInPicture>
           Your browser does not support the video tag.
         </video>
+        
+        <!-- Video Toast for Fullscreen -->
+        <div id="video-toast" class="video-toast"></div>
         
         <!-- Custom Video Controls -->
         <div class="custom-controls" id="custom-controls">
@@ -492,7 +512,7 @@
     z-index: 1000;
     user-select: none;
     pointer-events: none;
-  ">V1.3</div>
+  ">V1.4</div>
 
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
