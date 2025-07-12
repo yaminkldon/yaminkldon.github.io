@@ -67,7 +67,6 @@ class AdvancedSettingsManager {
     this.advancedFeatures.updateLanguageDisplay();
   }
 }
-}
 
 // Global functions for UI interactions
 function goBack() {
