@@ -282,12 +282,14 @@ function initCustomVideoPlayer(videoPlayer, lessonKey) {
   // Controls visibility functions
   function showControls() {
     customControls.classList.add('visible');
+    customControls.style.display = 'none';
     clearTimeout(controlsTimeout);
   }
   
   function hideControls() {
     if (!isMouseOverControls && !videoPlayer.paused) {
       customControls.classList.remove('visible');
+      customControls.style.display = 'block';
     }
   }
   
@@ -578,6 +580,7 @@ function initCustomVideoPlayer(videoPlayer, lessonKey) {
       // Also hide controls when cursor is hidden
       if (!isMouseOverControls) {
         customControls.classList.remove('visible');
+        customControls.style.display = 'none';
       }
     }, 3000);
   };
@@ -596,6 +599,7 @@ function initCustomVideoPlayer(videoPlayer, lessonKey) {
     clearTimeout(cursorHideTimeout);
     if (!isMouseOverControls) {
       customControls.classList.remove('visible');
+      customControls.style.display = 'none';
     }
   };
   addEventListenerWithCleanup(videoWrapper, 'mouseleave', mouseLeaveVideoHandler);
@@ -830,6 +834,7 @@ function initCustomVideoPlayer(videoPlayer, lessonKey) {
     
     // Reset control states
     customControls.classList.remove('visible');
+    customControls.style.display = 'none';
     settingsMenu.classList.remove('show');
     
     // Reset cursor
