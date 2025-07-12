@@ -433,9 +433,6 @@ function initCustomVideoPlayer(videoPlayer, lessonKey) {
     }
   });
 
-  // Remove any existing keydown handlers and add new one
-  document.removeEventListener('keydown', keydownHandler, true);
-  document.addEventListener('keydown', keydownHandler, true);
   
   // Touch controls for mobile (simple version)
   videoWrapper.addEventListener('touchend', function(e) {
