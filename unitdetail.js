@@ -724,7 +724,6 @@ function initCustomVideoPlayer(videoPlayer, lessonKey) {
     // Save volume to localStorage (but not when muted)
     if (!videoPlayer.muted && videoPlayer.volume > 0) {
       localStorage.setItem('videoVolume', videoPlayer.volume * 100);
-      console.log('Saved volume:', videoPlayer.volume * 100);
     }
   };
   addEventListenerWithCleanup(videoPlayer, 'volumechange', volumeChangeHandler);
