@@ -202,9 +202,16 @@
 
 /* Search Styles */
 .search-section {
-  padding: 24px 32px;
+  margin-top: 56px;
+  padding: 32px 16px 80px 16px;
+  min-height: calc(100vh - 56px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
   max-width: 800px;
-  margin: 0 auto;
+  margin-left: auto;
+  margin-right: auto;
 }
 .search-container {
   background: #fff;
@@ -356,27 +363,28 @@ body.dark-mode .search-result-description {
     </ul>
     <button onclick="logout()">Logout</button>
   </nav>
-  <div class="main-content" id="main-content">
-    <!-- Search Section -->
-    <div class="search-section" id="searchSection" style="display: none;">
-      <div class="search-container">
-        <div style="display: flex; align-items: center; margin-bottom: 16px;" class="search-header">
-          <button onclick="hideSearchSection()" class="search-back-btn">
-            <span class="material-icons">arrow_back</span>
-          </button>
-          <h2>Search Lessons</h2>
-        </div>
-        <div class="search-box">
-          <span class="material-icons search-icon">search</span>
-          <input type="text" id="searchInput" placeholder="Search lessons..." class="search-input">
-          <button id="clearSearch" class="clear-search" style="display: none;">
-            <span class="material-icons">close</span>
-          </button>
-        </div>
-        <div class="search-results" id="searchResults"></div>
+  
+  <!-- Search Section (outside main-content) -->
+  <div class="search-section" id="searchSection" style="display: none;">
+    <div class="search-container">
+      <div style="display: flex; align-items: center; margin-bottom: 16px;" class="search-header">
+        <button onclick="hideSearchSection()" class="search-back-btn">
+          <span class="material-icons">arrow_back</span>
+        </button>
+        <h2>Search Lessons</h2>
       </div>
+      <div class="search-box">
+        <span class="material-icons search-icon">search</span>
+        <input type="text" id="searchInput" placeholder="Search lessons..." class="search-input">
+        <button id="clearSearch" class="clear-search" style="display: none;">
+          <span class="material-icons">close</span>
+        </button>
+      </div>
+      <div class="search-results" id="searchResults"></div>
     </div>
-    
+  </div>
+  
+  <div class="main-content" id="main-content">
     <div id="home-fragment-msg" style="margin-top:40px; font-size:1.3em; color:#222c5c;">This is home Fragment</div>
     <div class="lesson-grid" id="lesson-grid"></div>
     <div class="lesson-details" id="lesson-details" style="display:none;"></div>
@@ -446,6 +454,6 @@ body.dark-mode .search-result-description {
     z-index: 1000;
     user-select: none;
     pointer-events: none;
-  ">V1.9</div>
+  ">V1.1</div>
 </body>
 </html>

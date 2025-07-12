@@ -212,12 +212,13 @@
     }
     .volume-slider-container {
       width: 80px;
-      opacity: 0;
+      opacity: 0.7;
       transition: opacity 0.2s ease, width 0.2s ease;
       overflow: hidden;
       margin-right: 16px;
     }
-    .controls-left:hover .volume-slider-container {
+    .controls-left:hover .volume-slider-container,
+    .volume-slider-container:hover {
       opacity: 1;
     }
     .volume-slider {
@@ -326,6 +327,7 @@
       }
       .volume-slider-container {
         width: 60px;
+        opacity: 1 !important; /* Always visible on mobile */
       }
       .time-display {
         font-size: 12px;
@@ -475,7 +477,7 @@
     z-index: 1000;
     user-select: none;
     pointer-events: none;
-  ">V1.9</div>
+  ">V1.1</div>
 
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
