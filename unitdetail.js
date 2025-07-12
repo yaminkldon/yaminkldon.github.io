@@ -43,15 +43,18 @@ function loadUnitFromParams() {
   loadUnitLessons(unitName);
 }
 function loadUnitLessons(unitName) {
+  console.log('Loading unit:', unitName); // Debug log
   db.ref('units/' + unitName).once('value')
     .then(snapshot => {
       if (!snapshot.exists()) {
+        console.log('Unit not found in database'); // Debug log
         NotificationManager.showToast('Unit not found');
         Navigation.goToMainPage();
         return;
       }
       
       currentUnitData = snapshot.val();
+      console.log('Unit data loaded:', currentUnitData); // Debug log
       renderLessons();
     })
     .catch(error => {
@@ -61,16 +64,36 @@ function loadUnitLessons(unitName) {
 }
 
 function renderLessons() {
+  console.log('Rendering lessons for unit data:', currentUnitData); // Debug log
+  
   const container = document.getElementById('lessons-grid');
   container.innerHTML = '';
   
-  if (!currentUnitData || !currentUnitData.lessons) {
+  if (!currentUnitData) {
+    console.log('No unit data available'); // Debug log
     container.innerHTML = '<p>No lessons available in this unit.</p>';
     return;
   }
   
-  Object.keys(currentUnitData.lessons).forEach(lessonKey => {
-    const lesson = currentUnitData.lessons[lessonKey];
+  // Get all keys that are lessons (not metadata like 'name', 'description', etc.)
+  const lessonKeys = Object.keys(currentUnitData).filter(key => {
+    const item = currentUnitData[key];
+    const isLesson = typeof item === 'object' && 
+      item !== null &&
+      (item.videoURL || item.videoFile);
+    console.log(`Checking key "${key}":`, item, 'Is lesson:', isLesson); // Debug log
+    return isLesson;
+  });
+  
+  console.log('Found lesson keys:', lessonKeys); // Debug log
+  
+  if (lessonKeys.length === 0) {
+    container.innerHTML = '<p>No lessons available in this unit.</p>';
+    return;
+  }
+  
+  lessonKeys.forEach(lessonKey => {
+    const lesson = currentUnitData[lessonKey];
     const lessonCard = createLessonCard(lessonKey, lesson);
     container.appendChild(lessonCard);
   });
@@ -95,7 +118,7 @@ function createLessonCard(lessonKey, lessonData) {
 }
 
 function playLesson(lessonKey, lessonData) {
-  const videoFile = lessonData.videoFile || lessonData.videoURL;
+  const videoFile = lessonData.videoURL || lessonData.videoFile;
   
   if (!videoFile) {
     NotificationManager.showToast('No video available for this lesson');
@@ -113,8 +136,12 @@ function playLesson(lessonKey, lessonData) {
       videoPlayer.src = url;
       document.getElementById('video-title').textContent = lessonKey;
       
+      // Remove any existing event listeners to prevent duplicates
+      const newPlayer = videoPlayer.cloneNode(true);
+      videoPlayer.parentNode.replaceChild(newPlayer, videoPlayer);
+      
       // Mark lesson as completed when video ends
-      videoPlayer.addEventListener('ended', function() {
+      newPlayer.addEventListener('ended', function() {
         ProgressTracker.markLessonCompleted(currentUnitName, lessonKey);
         NotificationManager.showToast('Lesson completed! 🎉');
       });
