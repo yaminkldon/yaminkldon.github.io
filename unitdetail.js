@@ -575,6 +575,7 @@ function initCustomVideoPlayer(videoPlayer, lessonKey) {
     // Set timeout to hide cursor after 3 seconds of no movement
     cursorHideTimeout = setTimeout(() => {
       videoWrapper.style.cursor = 'none';
+      customControls.classList.remove('visible');
       // Also hide controls when cursor is hidden
       if (!isMouseOverControls) {
         customControls.classList.remove('visible');
@@ -631,6 +632,7 @@ function initCustomVideoPlayer(videoPlayer, lessonKey) {
     // Start cursor hide timer when leaving controls
     cursorHideTimeout = setTimeout(() => {
       videoWrapper.style.cursor = 'none';
+      customControls.classList.remove('visible');
     }, 3000);
     resetControlsTimeout();
   };
@@ -780,6 +782,7 @@ function initCustomVideoPlayer(videoPlayer, lessonKey) {
     // On desktop, start cursor hide timer
     cursorHideTimeout = setTimeout(() => {
       videoWrapper.style.cursor = 'none';
+      customControls.classList.remove('visible');
     }, 3000);
   }
   
