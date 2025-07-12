@@ -477,6 +477,11 @@
         overflow: hidden;
         transition: width 0.3s ease, opacity 0.3s ease;
       }
+      /* Hide progress bar on mobile when not in fullscreen */
+      .progress-container {
+        display: none !important;
+        transition: display 0.3s ease;
+      }
       .time-display {
         font-size: 12px;
       }
@@ -504,11 +509,36 @@
     
     /* Mobile Fullscreen Controls */
     @media (max-width: 768px) {
+      /* Enhanced volume slider in fullscreen */
       .video-player-wrapper:-webkit-full-screen .volume-slider-container,
       .video-player-wrapper:-moz-full-screen .volume-slider-container,
       .video-player-wrapper:fullscreen .volume-slider-container {
         width: 80px !important;
         opacity: 1 !important;
+      }
+      
+      /* Enhanced progress bar in fullscreen */
+      .video-player-wrapper:-webkit-full-screen .progress-container,
+      .video-player-wrapper:-moz-full-screen .progress-container,
+      .video-player-wrapper:fullscreen .progress-container {
+        display: block !important; /* Show progress bar in fullscreen */
+        padding: 20px 0; /* Even larger touch target in fullscreen */
+        opacity: 1 !important;
+      }
+      
+      .video-player-wrapper:-webkit-full-screen .progress-bar,
+      .video-player-wrapper:-moz-full-screen .progress-bar,
+      .video-player-wrapper:fullscreen .progress-bar {
+        height: 12px; /* Thicker in fullscreen */
+        background: rgba(255,255,255,0.8); /* More visible in fullscreen */
+      }
+      
+      .video-player-wrapper:-webkit-full-screen .progress-handle,
+      .video-player-wrapper:-moz-full-screen .progress-handle,
+      .video-player-wrapper:fullscreen .progress-handle {
+        width: 22px;
+        height: 22px;
+        opacity: 1; /* Fully visible in fullscreen */
       }
       
       /* Auto-rotate to landscape in fullscreen on mobile */
@@ -694,7 +724,7 @@
     z-index: 1000;
     user-select: none;
     pointer-events: none;
-  ">V2.5</div>
+  ">V2.6</div>
 
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
