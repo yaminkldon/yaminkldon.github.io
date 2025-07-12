@@ -713,15 +713,7 @@ function initCustomVideoPlayer(videoPlayer, lessonKey) {
           // Set timeout for single-tap action (play/pause)
           touchTimeout = setTimeout(() => {
             console.log('Single tap - toggling play/pause');
-            if (videoPlayer.ended) {
-              // If video ended, restart from beginning
-              videoPlayer.currentTime = 0;
-              videoPlayer.play();
-            } else if (videoPlayer.paused) {
-              videoPlayer.play();
-            } else {
-              videoPlayer.pause();
-            }
+            isMouseOverControls = !isMouseOverControls;
           }, 400);
         }
       }
