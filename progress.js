@@ -30,7 +30,7 @@ firebase.auth().onAuthStateChanged(function(user) {
 function loadProgress() {
   const userId = currentUser.uid;
   
-  // Load user progress data
+  // Load user progress data from Firebase
   db.ref('progress/' + userId).once('value')
     .then(snapshot => {
       userProgress = snapshot.val() || {};
@@ -43,6 +43,7 @@ function loadProgress() {
     })
     .catch(error => {
       console.error('Error loading progress:', error);
+      NotificationManager.showToast('Error loading progress data');
     });
 }
 

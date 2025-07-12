@@ -66,7 +66,7 @@ class ProgressTracker {
     const userId = user.uid;
     const today = new Date().toISOString().split('T')[0];
     
-    // Mark lesson as completed
+    // Mark lesson as completed in Firebase
     firebase.database().ref(`progress/${userId}/${unitId}/${lessonId}`).set({
       completed: true,
       completedDate: today,
@@ -86,10 +86,36 @@ class ProgressTracker {
 
   static async getUserProgress() {
     const user = firebase.auth().currentUser;
-    if (!user) return null;
+    if (!user) return {};
     
-    const snapshot = await firebase.database().ref(`progress/${user.uid}`).once('value');
-    return snapshot.val() || {};
+    try {
+      const snapshot = await firebase.database().ref(`progress/${user.uid}`).once('value');
+      return snapshot.val() || {};
+    } catch (error) {
+      console.error('Error getting user progress:', error);
+      return {};
+    }
+  }
+  
+  static saveVideoPosition(unitId, lessonId, currentTime) {
+    const user = firebase.auth().currentUser;
+    if (!user) return;
+    
+    const userId = user.uid;
+    firebase.database().ref(`progress/${userId}/${unitId}/${lessonId}/lastPosition`).set(currentTime);
+  }
+  
+  static async getVideoPosition(unitId, lessonId) {
+    const user = firebase.auth().currentUser;
+    if (!user) return 0;
+    
+    try {
+      const snapshot = await firebase.database().ref(`progress/${user.uid}/${unitId}/${lessonId}/lastPosition`).once('value');
+      return snapshot.val() || 0;
+    } catch (error) {
+      console.error('Error getting video position:', error);
+      return 0;
+    }
   }
 }
 

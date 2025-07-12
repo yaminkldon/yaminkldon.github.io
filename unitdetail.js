@@ -140,11 +140,8 @@ function playLesson(lessonKey, lessonData) {
       const newPlayer = videoPlayer.cloneNode(true);
       videoPlayer.parentNode.replaceChild(newPlayer, videoPlayer);
       
-      // Mark lesson as completed when video ends
-      newPlayer.addEventListener('ended', function() {
-        ProgressTracker.markLessonCompleted(currentUnitName, lessonKey);
-        NotificationManager.showToast('Lesson completed! 🎉');
-      });
+      // Initialize custom video player
+      initCustomVideoPlayer(newPlayer, lessonKey);
       
       // Scroll to video
       document.getElementById('video-container').scrollIntoView({ 
@@ -160,6 +157,13 @@ function playLesson(lessonKey, lessonData) {
 
 function closeVideo() {
   const videoPlayer = document.getElementById('video-player');
+  
+  // Save current position before closing
+  if (currentUnitName && videoPlayer.src) {
+    const lessonKey = document.getElementById('video-title').textContent;
+    ProgressTracker.saveVideoPosition(currentUnitName, lessonKey, videoPlayer.currentTime);
+  }
+  
   videoPlayer.pause();
   videoPlayer.src = '';
   document.getElementById('video-container').style.display = 'none';
@@ -167,4 +171,195 @@ function closeVideo() {
 
 function goBack() {
   Navigation.goToMainPage();
+}
+
+// Custom Video Player Functions
+function initCustomVideoPlayer(videoPlayer, lessonKey) {
+  let lastTapTime = 0;
+  let savePositionInterval;
+  
+  // Load saved video position (async)
+  ProgressTracker.getVideoPosition(currentUnitName, lessonKey)
+    .then(savedPosition => {
+      if (savedPosition > 0) {
+        videoPlayer.addEventListener('loadedmetadata', function() {
+          videoPlayer.currentTime = savedPosition;
+          NotificationManager.showToast(`Resumed from ${formatTime(savedPosition)}`);
+        });
+      }
+    });
+  
+  // Save video position every 5 seconds
+  videoPlayer.addEventListener('play', function() {
+    savePositionInterval = setInterval(() => {
+      ProgressTracker.saveVideoPosition(currentUnitName, lessonKey, videoPlayer.currentTime);
+    }, 5000);
+  });
+  
+  videoPlayer.addEventListener('pause', function() {
+    clearInterval(savePositionInterval);
+    ProgressTracker.saveVideoPosition(currentUnitName, lessonKey, videoPlayer.currentTime);
+  });
+  
+  // Mark lesson as completed when video ends
+  videoPlayer.addEventListener('ended', function() {
+    clearInterval(savePositionInterval);
+    ProgressTracker.markLessonCompleted(currentUnitName, lessonKey);
+    ProgressTracker.saveVideoPosition(currentUnitName, lessonKey, 0); // Reset position
+    NotificationManager.showToast('Lesson completed! 🎉');
+  });
+  
+  // Keyboard controls
+  document.addEventListener('keydown', function(e) {
+    if (document.getElementById('video-container').style.display === 'block') {
+      switch(e.key) {
+        case 'ArrowRight':
+          e.preventDefault();
+          skipForward(videoPlayer, 5);
+          break;
+        case 'ArrowLeft':
+          e.preventDefault();
+          skipBackward(videoPlayer, 5);
+          break;
+        case ' ':
+        case 'Spacebar':
+          e.preventDefault();
+          togglePlayPause(videoPlayer);
+          break;
+        case 'f':
+        case 'F':
+          e.preventDefault();
+          toggleFullscreen(videoPlayer);
+          break;
+        case 'm':
+        case 'M':
+          e.preventDefault();
+          toggleMute(videoPlayer);
+          break;
+      }
+    }
+  });
+  
+  // Touch controls for mobile
+  let touchStartX = 0;
+  let touchStartY = 0;
+  
+  videoPlayer.addEventListener('touchstart', function(e) {
+    const touch = e.touches[0];
+    touchStartX = touch.clientX;
+    touchStartY = touch.clientY;
+    
+    // Double tap detection
+    const currentTime = new Date().getTime();
+    const tapLength = currentTime - lastTapTime;
+    
+    if (tapLength < 500 && tapLength > 0) {
+      // Double tap detected
+      const videoRect = videoPlayer.getBoundingClientRect();
+      const tapX = touch.clientX - videoRect.left;
+      const videoWidth = videoRect.width;
+      
+      if (tapX > videoWidth * 0.6) {
+        // Double tap on right side - forward 5 seconds
+        skipForward(videoPlayer, 5);
+        showSkipIndicator('forward');
+      } else if (tapX < videoWidth * 0.4) {
+        // Double tap on left side - backward 5 seconds
+        skipBackward(videoPlayer, 5);
+        showSkipIndicator('backward');
+      }
+      
+      e.preventDefault();
+    }
+    
+    lastTapTime = currentTime;
+  });
+  
+  // Swipe controls
+  videoPlayer.addEventListener('touchend', function(e) {
+    const touch = e.changedTouches[0];
+    const deltaX = touch.clientX - touchStartX;
+    const deltaY = touch.clientY - touchStartY;
+    
+    // Only process swipes that are primarily horizontal
+    if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > 50) {
+      if (deltaX > 0) {
+        // Swipe right - forward 10 seconds
+        skipForward(videoPlayer, 10);
+        showSkipIndicator('forward');
+      } else {
+        // Swipe left - backward 10 seconds
+        skipBackward(videoPlayer, 10);
+        showSkipIndicator('backward');
+      }
+      e.preventDefault();
+    }
+  });
+}
+
+function skipForward(videoPlayer, seconds) {
+  videoPlayer.currentTime = Math.min(videoPlayer.currentTime + seconds, videoPlayer.duration);
+  NotificationManager.showToast(`⏩ +${seconds}s`);
+}
+
+function skipBackward(videoPlayer, seconds) {
+  videoPlayer.currentTime = Math.max(videoPlayer.currentTime - seconds, 0);
+  NotificationManager.showToast(`⏪ -${seconds}s`);
+}
+
+function togglePlayPause(videoPlayer) {
+  if (videoPlayer.paused) {
+    videoPlayer.play();
+    NotificationManager.showToast('▶️ Play');
+  } else {
+    videoPlayer.pause();
+    NotificationManager.showToast('⏸️ Pause');
+  }
+}
+
+function toggleFullscreen(videoPlayer) {
+  if (!document.fullscreenElement) {
+    videoPlayer.requestFullscreen();
+    NotificationManager.showToast('🔲 Fullscreen');
+  } else {
+    document.exitFullscreen();
+    NotificationManager.showToast('🔳 Exit Fullscreen');
+  }
+}
+
+function toggleMute(videoPlayer) {
+  videoPlayer.muted = !videoPlayer.muted;
+  NotificationManager.showToast(videoPlayer.muted ? '🔇 Muted' : '🔊 Unmuted');
+}
+
+function showSkipIndicator(direction) {
+  // Create visual indicator for mobile skip
+  const indicator = document.createElement('div');
+  indicator.className = 'skip-indicator';
+  indicator.textContent = direction === 'forward' ? '⏩ +5s' : '⏪ -5s';
+  indicator.style.cssText = `
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(0, 0, 0, 0.8);
+    color: white;
+    padding: 10px 20px;
+    border-radius: 20px;
+    font-size: 18px;
+    z-index: 9999;
+    pointer-events: none;
+  `;
+  
+  document.body.appendChild(indicator);
+  
+  setTimeout(() => {
+    document.body.removeChild(indicator);
+  }, 1000);
+}
+
+function formatTime(seconds) {
+  const mins = Math.floor(seconds / 60);
+  const secs = Math.floor(seconds % 60);
+  return `${mins}:${secs.toString().padStart(2, '0')}`;
 }

@@ -1,0 +1,35 @@
+{
+  "rules": {
+    "units": {
+      ".read": "auth != null",
+      ".write": false
+    },
+    "progress": {
+      "$userId": {
+        ".read": "auth != null && auth.uid == $userId",
+        ".write": "auth != null && auth.uid == $userId",
+        "$unitId": {
+          "$lessonId": {
+            "completed": {
+              ".validate": "newData.isBoolean()"
+            },
+            "completedDate": {
+              ".validate": "newData.isString()"
+            },
+            "timestamp": {
+              ".validate": "newData.isNumber()"
+            },
+            "lastPosition": {
+              ".validate": "newData.isNumber() && newData.val() >= 0"
+            }
+          }
+        },
+        "lastStudyDates": {
+          ".validate": "newData.hasChildren()"
+        }
+      }
+    },
+    ".read": false,
+    ".write": false
+  }
+}
