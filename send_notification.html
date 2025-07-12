@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Send Notification</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 40px; }
+    .container { max-width: 400px; margin: auto; }
+    label { display: block; margin-top: 16px; }
+    input, textarea { width: 100%; padding: 8px; margin-top: 4px; }
+    button { margin-top: 20px; padding: 10px 24px; background: #222c5c; color: #fff; border: none; border-radius: 6px; cursor: pointer; }
+    button:hover { background: #31418a; }
+  </style>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging-compat.js"></script>
+</head>
+<body>
+  <div class="container">
+    <h2>Send Notification</h2>
+    <form id="notifForm">
+      <label>Title</label>
+      <input type="text" id="notifTitle" required />
+      <label>Message</label>
+      <textarea id="notifBody" required></textarea>
+      <button type="submit">Send Notification</button>
+    </form>
+    <div id="result" style="margin-top:16px;color:green;"></div>
+  </div>
+  <script>
+    // Your Firebase config
+    const firebaseConfig = {
+      apiKey: "AIzaSyCVoy2aBaQO1RDpoGGPIBqriFnGdKeNqHk",
+      authDomain: "raednusairat-68b52.firebaseapp.com",
+      databaseURL: "https://raednusairat-68b52-default-rtdb.asia-southeast1.firebasedatabase.app",
+      projectId: "raednusairat-68b52",
+      storageBucket: "raednusairat-68b52.appspot.com",
+      messagingSenderId: "852022576722",
+      appId: "1:852022576722:web:8546d7cd4d3f6b0f8fc18b"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+
+    // Only allow teachers
+    firebase.auth().onAuthStateChanged(function(user) {
+      if (!user) {
+        window.location.href = "index.html";
+        return;
+      }
+      db.ref('users/' + user.uid).once('value').then(snap => {
+        if (!snap.exists() || snap.val().type !== 'teacher') {
+          alert('Access denied. Teachers only.');
+          window.location.href = "mainpage.html";
+        }
+      });
+    });
+
+    document.getElementById('notifForm').onsubmit = function(e) {
+      e.preventDefault();
+      const title = document.getElementById('notifTitle').value.trim();
+      const body = document.getElementById('notifBody').value.trim();
+      if (!title || !body) return;
+
+      // Get all user tokens from database
+      db.ref('users').once('value').then(snapshot => {
+        const users = snapshot.val() || {};
+        const tokens = [];
+        Object.values(users).forEach(u => {
+          if (u.token) tokens.push(u.token);
+        });
+
+        // Save notification request to a "notifications_to_send" node for your backend to process
+        db.ref('notifications_to_send').push({
+          tokens,
+          notification: { title, body },
+          timestamp: Date.now()
+        });
+
+        document.getElementById('result').textContent = "Notification request sent!";
+        document.getElementById('notifForm').reset();
+      });
+    };
+  </script>
+</body>
+</html>

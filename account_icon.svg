@@ -1,0 +1,6 @@
+<!-- filepath: c:\xampp\htdocs\account_icon.svg -->
+<svg xmlns="http://www.w3.org/2000/svg" width="120" height="120" viewBox="0 0 24 24" fill="white">
+  <circle cx="12" cy="12" r="10" fill="#fff"/>
+  <circle cx="12" cy="8" r="3" fill="#283593"/>
+  <path d="M12 19.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z" fill="#283593"/>
+</svg>
