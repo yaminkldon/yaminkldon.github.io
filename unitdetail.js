@@ -625,7 +625,7 @@ function initCustomVideoPlayer(videoPlayer, lessonKey) {
       }
     }
   };
-  addEventListenerWithCleanup(document, 'keydown', keydownHandler);
+
   
   // Touch controls for mobile with double-tap seeking
   let lastTouchTime = 0;
