@@ -200,6 +200,7 @@ function initCustomVideoPlayer(videoPlayer, lessonKey) {
   let savePositionInterval;
   let isMouseOverControls = false;
   let controlsTimeout;
+  let lastTapTime = 0;
   
   // Get control elements
   const customControls = document.getElementById('custom-controls');
@@ -435,63 +436,20 @@ function initCustomVideoPlayer(videoPlayer, lessonKey) {
       }
     }
   });
-}
+
+  // Remove any existing keydown handlers and add new one
   document.removeEventListener('keydown', keydownHandler, true);
   document.addEventListener('keydown', keydownHandler, true);
   
-  // Touch controls for mobile
-  let touchStartX = 0;
-  let touchStartY = 0;
-  
-  videoPlayer.addEventListener('touchstart', function(e) {
-    const touch = e.touches[0];
-    touchStartX = touch.clientX;
-    touchStartY = touch.clientY;
-    
-    // Double tap detection
-    const currentTime = new Date().getTime();
-    const tapLength = currentTime - lastTapTime;
-    
-    if (tapLength < 500 && tapLength > 0) {
-      // Double tap detected
-      const videoRect = videoPlayer.getBoundingClientRect();
-      const tapX = touch.clientX - videoRect.left;
-      const videoWidth = videoRect.width;
-      
-      if (tapX > videoWidth * 0.6) {
-        // Double tap on right side - forward 5 seconds
-        skipForward(videoPlayer, 5);
-        showSkipIndicator('forward');
-      } else if (tapX < videoWidth * 0.4) {
-        // Double tap on left side - backward 5 seconds
-        skipBackward(videoPlayer, 5);
-        showSkipIndicator('backward');
-      }
-      
-      e.preventDefault();
-    }
-    
-    lastTapTime = currentTime;
-  });
-  
-  // Swipe controls
-  videoPlayer.addEventListener('touchend', function(e) {
-    const touch = e.changedTouches[0];
-    const deltaX = touch.clientX - touchStartX;
-    const deltaY = touch.clientY - touchStartY;
-    
-    // Only process swipes that are primarily horizontal
-    if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > 50) {
-      if (deltaX > 0) {
-        // Swipe right - forward 10 seconds
-        skipForward(videoPlayer, 10);
-        showSkipIndicator('forward');
+  // Touch controls for mobile (simple version)
+  videoWrapper.addEventListener('touchend', function(e) {
+    if (e.touches.length === 0) {
+      // Single touch end - toggle play/pause
+      if (videoPlayer.paused) {
+        videoPlayer.play();
       } else {
-        // Swipe left - backward 10 seconds
-        skipBackward(videoPlayer, 10);
-        showSkipIndicator('backward');
+        videoPlayer.pause();
       }
-      e.preventDefault();
     }
   });
 }
