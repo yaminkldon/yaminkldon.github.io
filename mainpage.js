@@ -395,3 +395,168 @@ document.addEventListener('visibilitychange', function() {
 document.getElementById('fullscreen-video').addEventListener('contextmenu', e => e.preventDefault());
 document.getElementById('fullscreen-video').addEventListener('dragstart', e => e.preventDefault());
 
+// Search functionality
+let allLessonsCache = null;
+
+// Initialize search functionality
+function initSearch() {
+  const searchInput = document.getElementById('searchInput');
+  const clearButton = document.getElementById('clearSearch');
+  
+  if (searchInput) {
+    searchInput.addEventListener('input', performSearch);
+    searchInput.addEventListener('keypress', function(e) {
+      if (e.key === 'Enter') {
+        performSearch();
+      }
+    });
+  }
+  
+  if (clearButton) {
+    clearButton.addEventListener('click', clearSearch);
+  }
+}
+
+// Cache all lessons for faster searching
+function cacheAllLessons() {
+  if (allLessonsCache) return Promise.resolve(allLessonsCache);
+  
+  return db.ref('units').once('value')
+    .then(snapshot => {
+      const lessons = [];
+      snapshot.forEach(unitSnap => {
+        const unitName = unitSnap.key;
+        const unitData = unitSnap.val();
+        
+        Object.keys(unitData).forEach(lessonKey => {
+          const lesson = unitData[lessonKey];
+          if (lesson && typeof lesson === 'object') {
+            lessons.push({
+              unitName,
+              lessonKey,
+              title: lesson.title || lessonKey,
+              description: lesson.description || '',
+              videoURL: lesson.videoURL || '',
+              thumbnailURL: lesson.thumbnailURL || ''
+            });
+          }
+        });
+      });
+      
+      allLessonsCache = lessons;
+      return lessons;
+    })
+    .catch(error => {
+      console.error('Error caching lessons:', error);
+      return [];
+    });
+}
+
+// Perform search across all lessons
+function performSearch() {
+  const searchInput = document.getElementById('searchInput');
+  const resultsContainer = document.getElementById('searchResults');
+  const query = searchInput.value.trim().toLowerCase();
+  
+  if (!query) {
+    clearSearch();
+    return;
+  }
+  
+  cacheAllLessons().then(lessons => {
+    const results = lessons.filter(lesson => {
+      return lesson.title.toLowerCase().includes(query) ||
+             lesson.description.toLowerCase().includes(query) ||
+             lesson.unitName.toLowerCase().includes(query);
+    });
+    
+    displaySearchResults(results);
+  });
+}
+
+// Display search results
+function displaySearchResults(results) {
+  const resultsContainer = document.getElementById('searchResults');
+  
+  if (results.length === 0) {
+    resultsContainer.innerHTML = '<div style="text-align: center; color: #666; padding: 24px;">No lessons found</div>';
+    return;
+  }
+  
+  resultsContainer.innerHTML = results.map(lesson => `
+    <div class="search-result-item" onclick="openLesson('${lesson.unitName}', '${lesson.lessonKey}')">
+      <div class="search-result-unit">${lesson.unitName}</div>
+      <div class="search-result-title">${lesson.title}</div>
+      <div class="search-result-description">${lesson.description}</div>
+    </div>
+  `).join('');
+}
+
+// Clear search results
+function clearSearch() {
+  const searchInput = document.getElementById('searchInput');
+  const resultsContainer = document.getElementById('searchResults');
+  
+  searchInput.value = '';
+  resultsContainer.innerHTML = '';
+}
+
+// Open lesson from search results
+window.openLesson = function(unitName, lessonKey) {
+  // Store the selected unit and lesson
+  localStorage.setItem('selectedUnit', unitName);
+  localStorage.setItem('selectedLesson', lessonKey);
+  
+  // Navigate to the unit detail page with the lesson
+  window.location.href = `unitdetail.html?unit=${encodeURIComponent(unitName)}&lesson=${encodeURIComponent(lessonKey)}`;
+};
+
+// Show search section
+window.showSearchSection = function() {
+  const mainContent = document.querySelector('.main-content');
+  const searchSection = document.getElementById('searchSection');
+  
+  // Hide main content, show search
+  if (mainContent) {
+    mainContent.style.display = 'none';
+  }
+  if (searchSection) {
+    searchSection.style.display = 'block';
+    document.getElementById('searchInput').focus();
+  }
+  
+  // Cache lessons for faster search
+  cacheAllLessons();
+  
+  // Close drawer
+  closeDrawer();
+};
+
+// Hide search section and return to main content
+window.hideSearchSection = function() {
+  const mainContent = document.querySelector('.main-content');
+  const searchSection = document.getElementById('searchSection');
+  
+  // Show main content, hide search
+  if (mainContent) {
+    mainContent.style.display = 'flex';
+  }
+  if (searchSection) {
+    searchSection.style.display = 'none';
+  }
+  
+  // Clear search results
+  clearSearch();
+};
+
+// Initialize search when DOM is loaded
+document.addEventListener('DOMContentLoaded', function() {
+  initSearch();
+  
+  // Add click handler for search menu item
+  const searchMenuItem = document.getElementById('searchMenuItem');
+  if (searchMenuItem) {
+    searchMenuItem.addEventListener('click', showSearchSection);
+  }
+});
+

@@ -199,6 +199,138 @@
   padding: 0;
   border-radius: 0;
 }
+
+/* Search Styles */
+.search-section {
+  padding: 24px 32px;
+  max-width: 800px;
+  margin: 0 auto;
+}
+.search-container {
+  background: #fff;
+  border-radius: 12px;
+  padding: 24px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+}
+body.dark-mode .search-container {
+  background: #2d2d2d;
+}
+.search-box {
+  display: flex;
+  align-items: center;
+  background: #f5f5f5;
+  border-radius: 8px;
+  padding: 12px 16px;
+  margin-bottom: 24px;
+  gap: 12px;
+}
+body.dark-mode .search-box {
+  background: #333;
+}
+.search-input {
+  flex: 1;
+  border: none;
+  background: transparent;
+  font-size: 16px;
+  outline: none;
+  color: #333;
+}
+body.dark-mode .search-input {
+  color: #fff;
+}
+.search-input::placeholder {
+  color: #999;
+}
+.search-icon {
+  color: #666;
+}
+body.dark-mode .search-icon {
+  color: #ccc;
+}
+.clear-search {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #666;
+  padding: 4px;
+  border-radius: 4px;
+}
+body.dark-mode .clear-search {
+  color: #ccc;
+}
+.search-back-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 8px;
+  margin-right: 12px;
+  border-radius: 4px;
+  color: #666;
+}
+body.dark-mode .search-back-btn {
+  color: #ccc;
+}
+.search-header h2 {
+  margin: 0;
+  color: #222c5c;
+}
+body.dark-mode .search-header h2 {
+  color: #fff;
+}
+.search-results {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+}
+.search-result-item {
+  background: #f8f9fa;
+  border-radius: 8px;
+  padding: 16px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+.search-result-item:hover {
+  background: #e9ecef;
+}
+body.dark-mode .search-result-item {
+  background: #333;
+}
+body.dark-mode .search-result-item:hover {
+  background: #444;
+}
+.search-result-unit {
+  font-size: 12px;
+  color: #666;
+  margin-bottom: 4px;
+}
+body.dark-mode .search-result-unit {
+  color: #ccc;
+}
+.search-result-title {
+  font-weight: bold;
+  margin-bottom: 8px;
+  color: #222c5c;
+}
+body.dark-mode .search-result-title {
+  color: #fff;
+}
+.search-result-description {
+  font-size: 14px;
+  color: #666;
+  line-height: 1.4;
+}
+body.dark-mode .search-result-description {
+  color: #ccc;
+}
+
+@media (max-width: 768px) {
+  .search-section {
+    padding: 16px;
+  }
+  .search-results {
+    grid-template-columns: 1fr;
+  }
+}
   </style>
 </head>
 <body>
@@ -209,6 +341,10 @@
   <div class="drawer-backdrop" id="drawer-backdrop" onclick="closeDrawer()"></div>
   <nav class="drawer" id="drawer">
     <ul id="units-list">
+      <li onclick="toggleSearch()" style="border-bottom: 1px solid #eee;" data-static="true">
+        <span class="material-icons" style="vertical-align: middle; margin-right: 12px;">search</span>
+        Search Lessons
+      </li>
       <li onclick="openProgress()" style="border-bottom: 1px solid #eee;" data-static="true">
         <span class="material-icons" style="vertical-align: middle; margin-right: 12px;">trending_up</span>
         Progress
@@ -221,6 +357,26 @@
     <button onclick="logout()">Logout</button>
   </nav>
   <div class="main-content" id="main-content">
+    <!-- Search Section -->
+    <div class="search-section" id="searchSection" style="display: none;">
+      <div class="search-container">
+        <div style="display: flex; align-items: center; margin-bottom: 16px;" class="search-header">
+          <button onclick="hideSearchSection()" class="search-back-btn">
+            <span class="material-icons">arrow_back</span>
+          </button>
+          <h2>Search Lessons</h2>
+        </div>
+        <div class="search-box">
+          <span class="material-icons search-icon">search</span>
+          <input type="text" id="searchInput" placeholder="Search lessons..." class="search-input">
+          <button id="clearSearch" class="clear-search" style="display: none;">
+            <span class="material-icons">close</span>
+          </button>
+        </div>
+        <div class="search-results" id="searchResults"></div>
+      </div>
+    </div>
+    
     <div id="home-fragment-msg" style="margin-top:40px; font-size:1.3em; color:#222c5c;">This is home Fragment</div>
     <div class="lesson-grid" id="lesson-grid"></div>
     <div class="lesson-details" id="lesson-details" style="display:none;"></div>
