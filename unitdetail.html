@@ -362,6 +362,13 @@
       }
       .controls-left, .controls-right {
         gap: 8px;
+        display: flex !important; /* Force both left and right controls to show */
+      }
+      .controls-right {
+        opacity: 1 !important; /* Ensure right controls are visible */
+      }
+      .control-btn {
+        opacity: 1 !important; /* Ensure all control buttons are visible */
       }
       .control-btn .material-icons {
         font-size: 20px;
@@ -375,6 +382,13 @@
       }
       .settings-menu {
         min-width: 150px;
+      }
+      .settings-dropdown {
+        opacity: 1 !important; /* Ensure settings button is visible */
+      }
+      #settings-btn, #fullscreen-btn {
+        opacity: 1 !important; /* Explicitly make these buttons visible */
+        display: block !important;
       }
       .progress-container {
         margin-bottom: 8px;
@@ -531,7 +545,7 @@
     z-index: 1000;
     user-select: none;
     pointer-events: none;
-  ">V1.5</div>
+  ">V1.8</div>
 
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>

@@ -214,6 +214,7 @@ function initCustomVideoPlayer(videoPlayer, lessonKey) {
   let isMouseOverControls = false;
   let controlsTimeout;
   let lastTapTime = 0;
+  let videoToastTimeout;
   
   // Arrays to store event listeners for cleanup
   const eventListeners = [];
@@ -238,6 +239,22 @@ function initCustomVideoPlayer(videoPlayer, lessonKey) {
   const settingsMenu = document.getElementById('settings-menu');
   const fullscreenBtn = document.getElementById('fullscreen-btn');
   const videoWrapper = document.querySelector('.video-player-wrapper');
+  const videoToast = document.getElementById('video-toast');
+  
+  // Video Toast Manager
+  function showVideoToast(message, duration = 2000) {
+    clearTimeout(videoToastTimeout);
+    videoToast.textContent = message;
+    videoToast.style.display = 'block';
+    videoToast.style.opacity = '1';
+    
+    videoToastTimeout = setTimeout(() => {
+      videoToast.style.opacity = '0';
+      setTimeout(() => {
+        videoToast.style.display = 'none';
+      }, 300);
+    }, duration);
+  }
   
   // Controls visibility functions
   function showControls() {
@@ -262,7 +279,7 @@ function initCustomVideoPlayer(videoPlayer, lessonKey) {
       if (savedPosition > 0) {
         const loadedMetadataHandler = function() {
           videoPlayer.currentTime = savedPosition;
-          NotificationManager.showToast(`Resumed from ${formatTime(savedPosition)}`);
+          showVideoToast(`Resumed from ${formatTime(savedPosition)}`);
         };
         addEventListenerWithCleanup(videoPlayer, 'loadedmetadata', loadedMetadataHandler);
       }
@@ -290,7 +307,9 @@ function initCustomVideoPlayer(videoPlayer, lessonKey) {
     clearInterval(savePositionInterval);
     ProgressTracker.markLessonCompleted(currentUnitName, lessonKey);
     ProgressTracker.saveVideoPosition(currentUnitName, lessonKey, 0);
-    NotificationManager.showToast('Lesson completed! 🎉');
+    showVideoToast('Lesson completed! 🎉', 3000);
+    // Update play button icon to show replay
+    playPauseBtn.querySelector('.material-icons').textContent = 'replay';
   };
   addEventListenerWithCleanup(videoPlayer, 'ended', endedHandler);
   
@@ -350,7 +369,7 @@ function initCustomVideoPlayer(videoPlayer, lessonKey) {
   const speedSelectHandler = function() {
     videoPlayer.playbackRate = parseFloat(this.value);
     localStorage.setItem('playbackSpeed', this.value);
-    NotificationManager.showToast(`Speed: ${this.value}x`);
+    showVideoToast(`Speed: ${this.value}x`);
   };
   addEventListenerWithCleanup(speedSelect, 'change', speedSelectHandler);
   
@@ -362,7 +381,7 @@ function initCustomVideoPlayer(videoPlayer, lessonKey) {
   // Quality control (placeholder - would need actual implementation)
   const qualitySelectHandler = function() {
     localStorage.setItem('videoQuality', this.value);
-    NotificationManager.showToast(`Quality: ${this.value === 'auto' ? 'Auto' : this.value + 'p'}`);
+    showVideoToast(`Quality: ${this.value === 'auto' ? 'Auto' : this.value + 'p'}`);
   };
   addEventListenerWithCleanup(qualitySelect, 'change', qualitySelectHandler);
   
@@ -449,17 +468,24 @@ function initCustomVideoPlayer(videoPlayer, lessonKey) {
         case 'ArrowRight':
           e.preventDefault();
           videoPlayer.currentTime += 5;
-          NotificationManager.showToast('Forward 5s');
+          showVideoToast('Forward 5s');
           break;
         case 'ArrowLeft':
           e.preventDefault();
           videoPlayer.currentTime -= 5;
-          NotificationManager.showToast('Backward 5s');
+          showVideoToast('Backward 5s');
           break;
         case ' ':
           e.preventDefault();
-          if (videoPlayer.paused) videoPlayer.play();
-          else videoPlayer.pause();
+          if (videoPlayer.ended) {
+            // If video ended, restart from beginning
+            videoPlayer.currentTime = 0;
+            videoPlayer.play();
+          } else if (videoPlayer.paused) {
+            videoPlayer.play();
+          } else {
+            videoPlayer.pause();
+          }
           break;
         case 'f':
         case 'F':
@@ -502,6 +528,7 @@ function initCustomVideoPlayer(videoPlayer, lessonKey) {
     // Clear all intervals and timeouts
     clearInterval(savePositionInterval);
     clearTimeout(controlsTimeout);
+    clearTimeout(videoToastTimeout);
     
     // Remove all event listeners
     eventListeners.forEach(({ element, event, handler, options }) => {
@@ -512,6 +539,10 @@ function initCustomVideoPlayer(videoPlayer, lessonKey) {
     // Reset control states
     customControls.classList.remove('visible');
     settingsMenu.classList.remove('show');
+    
+    // Hide video toast
+    videoToast.style.display = 'none';
+    videoToast.style.opacity = '0';
     
     // Reset video player state
     videoPlayer.pause();
