@@ -156,6 +156,7 @@
     .progress-container {
       margin-bottom: 12px;
       cursor: pointer;
+      padding: 8px 0; /* Add padding to make it easier to click */
     }
     .progress-bar {
       width: 100%;
@@ -163,6 +164,10 @@
       background: rgba(255,255,255,0.3);
       border-radius: 3px;
       position: relative;
+      transition: height 0.2s ease;
+    }
+    .progress-container:hover .progress-bar {
+      height: 8px; /* Make it taller on hover */
     }
     .progress-filled {
       height: 100%;
@@ -182,8 +187,10 @@
       opacity: 0;
       transition: opacity 0.2s ease;
       left: 0%;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.3);
     }
-    .progress-container:hover .progress-handle {
+    .progress-container:hover .progress-handle,
+    .progress-container.dragging .progress-handle {
       opacity: 1;
     }
     .controls-row {
@@ -638,7 +645,7 @@
     z-index: 1000;
     user-select: none;
     pointer-events: none;
-  ">V2.2</div>
+  ">V2.3</div>
 
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>

@@ -10,8 +10,30 @@ const firebaseConfig = {
 };
 
 firebase.initializeApp(firebaseConfig);
-const db = firebase.database();
-const storage = firebase.storage();
+const db = firebase.database();  // Mouse/touch events for controls
+  let controlsInteractionTimeout;
+  
+  const mouseMoveHandler = function() {
+    resetControlsTimeout();
+  };
+  addEventListenerWithCleanup(videoWrapper, 'mousemove', mouseMoveHandler);
+  
+  const videoWrapperClickHandler = function(e) {
+    // Only handle clicks on video itself, not on controls, and not on mobile
+    const isMobile = window.innerWidth <= 768;
+    if (!isMobile && (e.target === videoWrapper || e.target === videoPlayer)) {
+      if (videoPlayer.ended) {
+        // If video ended, restart from beginning
+        videoPlayer.currentTime = 0;
+        videoPlayer.play();
+      } else if (videoPlayer.paused) {
+        videoPlayer.play();
+      } else {
+        videoPlayer.pause();
+      }
+    }
+  };
+  addEventListenerWithCleanup(videoWrapper, 'click', videoWrapperClickHandler);firebase.storage();
 
 let currentUnitName = null;
 let currentUnitData = null;
@@ -362,17 +384,22 @@ function initCustomVideoPlayer(videoPlayer, lessonKey) {
   
   // Progress bar click/drag
   let isDragging = false;
+  const progressContainer = document.querySelector('.progress-container');
   
   const progressBarHandler = function(e) {
     const rect = progressBar.getBoundingClientRect();
     const clientX = e.clientX || (e.touches && e.touches[0].clientX);
-    const pos = (clientX - rect.left) / rect.width;
-    const newTime = Math.max(0, Math.min(pos * videoPlayer.duration, videoPlayer.duration));
+    const pos = Math.max(0, Math.min((clientX - rect.left) / rect.width, 1));
+    const newTime = pos * videoPlayer.duration;
     videoPlayer.currentTime = newTime;
+    
+    // Update progress handle position immediately
+    progressHandle.style.left = (pos * 100) + '%';
   };
   
   const progressBarMouseDown = function(e) {
     isDragging = true;
+    progressContainer.classList.add('dragging');
     progressBarHandler(e);
     e.preventDefault();
   };
@@ -386,10 +413,12 @@ function initCustomVideoPlayer(videoPlayer, lessonKey) {
   
   const progressBarMouseUp = function() {
     isDragging = false;
+    progressContainer.classList.remove('dragging');
   };
   
   const progressBarTouchStart = function(e) {
     isDragging = true;
+    progressContainer.classList.add('dragging');
     progressBarHandler(e);
     e.preventDefault();
   };
@@ -403,6 +432,7 @@ function initCustomVideoPlayer(videoPlayer, lessonKey) {
   
   const progressBarTouchEnd = function() {
     isDragging = false;
+    progressContainer.classList.remove('dragging');
   };
   
   addEventListenerWithCleanup(progressBar, 'mousedown', progressBarMouseDown);
@@ -605,15 +635,17 @@ function initCustomVideoPlayer(videoPlayer, lessonKey) {
   const touchEndHandler = function(e) {
     // Only handle touches on video itself, not on controls
     if ((e.target === videoWrapper || e.target === videoPlayer) && !customControls.contains(e.target)) {
-      if (e.changedTouches.length === 1) {
+      if (e.changedTouches && e.changedTouches.length === 1) {
         const touch = e.changedTouches[0];
-        const currentTime = new Date().getTime();
+        const currentTime = Date.now();
         const timeDiff = currentTime - lastTouchTime;
         const touchX = touch.clientX;
         const isMobile = window.innerWidth <= 768;
         
-        // Check if this is a double-tap (within 300ms)
-        if (timeDiff < 300 && timeDiff > 0 && isMobile) {
+        console.log('Touch detected:', {isMobile, timeDiff, touchX}); // Debug log
+        
+        // Check if this is a double-tap (within 400ms)
+        if (timeDiff < 400 && timeDiff > 50 && isMobile) {
           // Clear any pending single-tap action
           clearTimeout(touchTimeout);
           
@@ -621,14 +653,16 @@ function initCustomVideoPlayer(videoPlayer, lessonKey) {
           const videoRect = videoWrapper.getBoundingClientRect();
           const videoCenter = videoRect.left + videoRect.width / 2;
           
+          console.log('Double-tap detected:', {touchX, videoCenter}); // Debug log
+          
           if (touchX < videoCenter) {
             // Double-tap on left side - seek backward 5 seconds
             videoPlayer.currentTime = Math.max(0, videoPlayer.currentTime - 5);
-            showVideoToast('Backward 5s');
+            showVideoToast('⏪ Backward 5s');
           } else {
             // Double-tap on right side - seek forward 5 seconds
             videoPlayer.currentTime = Math.min(videoPlayer.duration, videoPlayer.currentTime + 5);
-            showVideoToast('Forward 5s');
+            showVideoToast('⏩ Forward 5s');
           }
           
           // Reset touch tracking
@@ -650,7 +684,7 @@ function initCustomVideoPlayer(videoPlayer, lessonKey) {
             } else {
               videoPlayer.pause();
             }
-          }, 300);
+          }, 400);
         }
       }
     }
@@ -660,13 +694,19 @@ function initCustomVideoPlayer(videoPlayer, lessonKey) {
   // Show controls initially
   resetControlsTimeout();
   
-  // Load and set saved volume
-  const savedVolume = localStorage.getItem('videoVolume');
-  if (savedVolume !== null) {
-    const volume = parseFloat(savedVolume);
-    videoPlayer.volume = volume / 100;
-    volumeSlider.value = volume;
-  }
+  // Load and set saved volume - delay to ensure video is ready
+  setTimeout(() => {
+    const savedVolume = localStorage.getItem('videoVolume');
+    if (savedVolume !== null) {
+      const volume = parseFloat(savedVolume);
+      if (volume >= 0 && volume <= 100) {
+        videoPlayer.volume = volume / 100;
+        volumeSlider.value = volume;
+        updateVolumeDisplay(volume);
+        console.log('Restored volume:', volume);
+      }
+    }
+  }, 100);
   
   // Initialize volume display
   updateVolumeDisplay(videoPlayer.volume * 100);
@@ -677,8 +717,9 @@ function initCustomVideoPlayer(videoPlayer, lessonKey) {
     updateVolumeDisplay(currentVolume);
     
     // Save volume to localStorage (but not when muted)
-    if (!videoPlayer.muted) {
+    if (!videoPlayer.muted && videoPlayer.volume > 0) {
       localStorage.setItem('videoVolume', videoPlayer.volume * 100);
+      console.log('Saved volume:', videoPlayer.volume * 100);
     }
   };
   addEventListenerWithCleanup(videoPlayer, 'volumechange', volumeChangeHandler);
