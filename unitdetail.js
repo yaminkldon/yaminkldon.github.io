@@ -10,30 +10,8 @@ const firebaseConfig = {
 };
 
 firebase.initializeApp(firebaseConfig);
-const db = firebase.database();  // Mouse/touch events for controls
-  let controlsInteractionTimeout;
-  
-  const mouseMoveHandler = function() {
-    resetControlsTimeout();
-  };
-  addEventListenerWithCleanup(videoWrapper, 'mousemove', mouseMoveHandler);
-  
-  const videoWrapperClickHandler = function(e) {
-    // Only handle clicks on video itself, not on controls, and not on mobile
-    const isMobile = window.innerWidth <= 768;
-    if (!isMobile && (e.target === videoWrapper || e.target === videoPlayer)) {
-      if (videoPlayer.ended) {
-        // If video ended, restart from beginning
-        videoPlayer.currentTime = 0;
-        videoPlayer.play();
-      } else if (videoPlayer.paused) {
-        videoPlayer.play();
-      } else {
-        videoPlayer.pause();
-      }
-    }
-  };
-  addEventListenerWithCleanup(videoWrapper, 'click', videoWrapperClickHandler);firebase.storage();
+const db = firebase.database();
+const storage = firebase.storage();
 
 let currentUnitName = null;
 let currentUnitData = null;
@@ -557,9 +535,14 @@ function initCustomVideoPlayer(videoPlayer, lessonKey) {
   addEventListenerWithCleanup(videoWrapper, 'mousemove', mouseMoveHandler);
   
   const videoWrapperClickHandler = function(e) {
-    // Only toggle play/pause if clicked on video itself, not on controls
-    if (e.target === videoWrapper || e.target === videoPlayer) {
-      if (videoPlayer.paused) {
+    // Only handle clicks on video itself, not on controls, and not on mobile
+    const isMobile = window.innerWidth <= 768;
+    if (!isMobile && (e.target === videoWrapper || e.target === videoPlayer)) {
+      if (videoPlayer.ended) {
+        // If video ended, restart from beginning
+        videoPlayer.currentTime = 0;
+        videoPlayer.play();
+      } else if (videoPlayer.paused) {
         videoPlayer.play();
       } else {
         videoPlayer.pause();
@@ -625,7 +608,7 @@ function initCustomVideoPlayer(videoPlayer, lessonKey) {
       }
     }
   };
-
+  addEventListenerWithCleanup(document, 'keydown', keydownHandler);
   
   // Touch controls for mobile with double-tap seeking
   let lastTouchTime = 0;
