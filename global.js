@@ -155,7 +155,7 @@ class NotificationManager {
       border-radius:4px;
       padding:16px;
       position:fixed;
-      z-index:9999;
+      z-index:999999;
       left:50%;
       bottom:30px;
       font-size:17px;

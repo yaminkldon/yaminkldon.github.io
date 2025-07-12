@@ -382,7 +382,7 @@ function showSkipIndicator(direction) {
     padding: 10px 20px;
     border-radius: 20px;
     font-size: 18px;
-    z-index: 9999;
+    z-index: 999999;
     pointer-events: none;
   `;
   
