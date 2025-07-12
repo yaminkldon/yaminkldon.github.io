@@ -16,6 +16,8 @@ class ThemeManager {
     if (isDark) {
       document.body.classList.remove('dark-mode');
       localStorage.setItem('darkMode', 'false');
+      document.body.classList.remove('dark-mode');
+
     } else {
       document.body.classList.add('dark-mode');
       localStorage.setItem('darkMode', 'true');
