@@ -27,7 +27,7 @@ firebase.auth().onAuthStateChanged(function(user) {
     // Initialize Advanced Features
     if (typeof AdvancedFeatures !== 'undefined') {
       advancedFeatures = new AdvancedFeatures();
-      applyAdvancedFeatures();
+      advancedFeatures.applyFeatures();
     }
     
     loadProgress();
@@ -35,36 +35,6 @@ firebase.auth().onAuthStateChanged(function(user) {
     Navigation.goToLogin();
   }
 });
-
-function applyAdvancedFeatures() {
-  if (!advancedFeatures) return;
-  
-  // Apply theme
-  const theme = advancedFeatures.getCurrentTheme();
-  if (theme === 'dark') {
-    document.body.classList.add('dark-mode');
-  }
-  
-  // Apply font size
-  const fontSize = advancedFeatures.getCurrentFontSize();
-  const fontSizes = {
-    small: '14px',
-    medium: '16px',
-    large: '18px',
-    xlarge: '20px'
-  };
-  document.documentElement.style.setProperty('--base-font-size', fontSizes[fontSize]);
-  
-  // Apply language
-  const language = advancedFeatures.getCurrentLanguage();
-  if (language === 'ar') {
-    document.dir = 'rtl';
-    document.documentElement.lang = 'ar';
-  }
-  
-  // Update language display
-  advancedFeatures.updateLanguageDisplay();
-}
 
 function loadProgress() {
   const userId = currentUser.uid;

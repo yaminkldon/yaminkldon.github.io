@@ -386,7 +386,7 @@ firebase.auth().onAuthStateChanged(function(user) {
     // Initialize Advanced Features
     if (typeof AdvancedFeatures !== 'undefined') {
       window.advancedFeatures = new AdvancedFeatures();
-      applyAdvancedFeatures();
+      window.advancedFeatures.applyFeatures();
     }
     
     // User is authenticated, load units with progress
@@ -394,57 +394,12 @@ firebase.auth().onAuthStateChanged(function(user) {
   }
 });
 
-function applyAdvancedFeatures() {
-  if (!window.advancedFeatures) return;
-  
-  // Apply theme
-  const theme = window.advancedFeatures.getCurrentTheme();
-  if (theme === 'dark') {
-    document.body.classList.add('dark-mode');
-  }
-  
-  // Apply font size
-  const fontSize = window.advancedFeatures.getCurrentFontSize();
-  const fontSizes = {
-    small: '14px',
-    medium: '16px',
-    large: '18px',
-    xlarge: '20px'
-  };
-  document.documentElement.style.setProperty('--base-font-size', fontSizes[fontSize]);
-  
-  // Apply language
-  const language = window.advancedFeatures.getCurrentLanguage();
-  if (language === 'ar') {
-    document.dir = 'rtl';
-    document.documentElement.lang = 'ar';
-  }
-  
-  // Apply layout
-  const layout = window.advancedFeatures.getCurrentLayout();
-  applyGridLayout(layout);
-  
-  // Update language display
-  window.advancedFeatures.updateLanguageDisplay();
-}
-
-function applyGridLayout(layout) {
-  const lessonsGrid = document.querySelector('.lesson-grid');
-  if (!lessonsGrid) return;
-  
-  // Remove existing layout classes
-  lessonsGrid.classList.remove('grid-2x2', 'grid-3x3', 'grid-4x4');
-  
-  // Add new layout class
-  lessonsGrid.classList.add(`grid-${layout}`);
-}
-
 // Apply advanced features when DOM is loaded
 document.addEventListener('DOMContentLoaded', () => {
   if (typeof AdvancedFeatures !== 'undefined') {
     setTimeout(() => {
       if (window.advancedFeatures) {
-        applyAdvancedFeatures();
+        window.advancedFeatures.applyFeatures();
       }
     }, 100);
   }

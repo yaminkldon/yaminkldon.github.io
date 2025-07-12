@@ -31,8 +31,8 @@ firebase.auth().onAuthStateChanged(function(user) {
 // Initialize advanced features when DOM is ready
 document.addEventListener('DOMContentLoaded', function() {
   if (typeof AdvancedFeatures !== 'undefined') {
-    AdvancedFeatures.init();
-    AdvancedFeatures.applyFeatures();
+    window.advancedFeatures = new AdvancedFeatures();
+    window.advancedFeatures.applyFeatures();
   }
 });
 

@@ -199,6 +199,13 @@ class AdvancedFeatures {
     
     const lessonsGrid = document.querySelector('.lessons-grid, .lesson-grid');
     if (lessonsGrid) {
+      // Remove existing layout classes
+      lessonsGrid.classList.remove('grid-2x2', 'grid-3x3', 'grid-4x4');
+      
+      // Add new layout class
+      lessonsGrid.classList.add(`grid-${layout}`);
+      
+      // Also apply direct grid-template-columns as fallback
       lessonsGrid.style.gridTemplateColumns = `repeat(${this.layoutOptions[layout].columns}, 1fr)`;
     }
     
@@ -334,6 +341,21 @@ class AdvancedFeatures {
       const key = element.getAttribute('data-translate');
       element.textContent = this.translate(key);
     });
+  }
+
+  // Apply all current features to the page
+  applyFeatures() {
+    // Apply current theme
+    this.applyPlayerTheme(this.getCurrentTheme());
+    
+    // Apply current font size
+    this.applyFontSize(this.getCurrentFontSize());
+    
+    // Apply current layout
+    this.applyLayout(this.getCurrentLayout());
+    
+    // Update language display
+    this.updateLanguageDisplay();
   }
 
   hasStudyActivity(dateKey) {
