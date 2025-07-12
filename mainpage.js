@@ -15,7 +15,7 @@ const storage = firebase.storage();
 const messaging = firebase.messaging();
 
 if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('RaedNusairatSite/firebase-messaging-sw.js')
+  navigator.serviceWorker.register('/firebase-messaging-sw.js')
     .then(function(registration) {
       console.log('Service Worker registered with scope:', registration.scope);
     }).catch(function(err) {
