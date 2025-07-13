@@ -158,9 +158,13 @@ function playLesson(lessonKey, lessonData) {
     return;
   }
   
-  // Show loading message
-  document.getElementById('video-title').textContent = 'Loading: ' + lessonKey;
-  document.getElementById('video-container').style.display = 'block';
+  // Show modal and loading message
+  document.getElementById('video-title').textContent = lessonKey;
+  document.getElementById('video-description-text').textContent = lessonData.description || 'No description available for this lesson.';
+  document.getElementById('video-modal').style.display = 'flex';
+  
+  // Prevent body scrolling when modal is open
+  document.body.style.overflow = 'hidden';
   
   // Get video URL from Firebase Storage
   storage.ref('videos/' + videoFile).getDownloadURL()
@@ -169,15 +173,9 @@ function playLesson(lessonKey, lessonData) {
       
       const videoPlayer = document.getElementById('video-player');
       videoPlayer.src = url;
-      document.getElementById('video-title').textContent = lessonKey;
       
       // Initialize custom video player
       initCustomVideoPlayer(videoPlayer, lessonKey);
-      
-      // Scroll to video
-      document.getElementById('video-container').scrollIntoView({ 
-        behavior: 'smooth' 
-      });
       
       // Auto-play the video
       videoPlayer.play().catch(error => {
@@ -187,10 +185,15 @@ function playLesson(lessonKey, lessonData) {
     .catch(error => {
       console.error('Error loading video:', error);
       NotificationManager.showToast('Error loading video: ' + error.message);
+      closeVideoModal(); // Close modal on error
     });
 }
 
 function closeVideo() {
+  closeVideoModal();
+}
+
+function closeVideoModal() {
   const videoPlayer = document.getElementById('video-player');
   
   // Clean up current video player
@@ -207,7 +210,10 @@ function closeVideo() {
   
   videoPlayer.pause();
   videoPlayer.src = '';
-  document.getElementById('video-container').style.display = 'none';
+  document.getElementById('video-modal').style.display = 'none';
+  
+  // Restore body scrolling
+  document.body.style.overflow = '';
 }
 
 function goBack() {
@@ -654,7 +660,7 @@ function initCustomVideoPlayer(videoPlayer, lessonKey) {
   
   // Keyboard controls
   const keydownHandler = function(e) {
-    if (document.getElementById('video-container').style.display === 'block') {
+    if (document.getElementById('video-modal').style.display === 'flex') {
       switch(e.key) {
         case 'ArrowRight':
           e.preventDefault();
@@ -877,3 +883,23 @@ function getLanguageName(code) {
     };
     return languages[code] || code;
   }
+
+// Modal event listeners
+document.addEventListener('DOMContentLoaded', function() {
+  // Close modal when clicking outside the video content
+  const videoModal = document.getElementById('video-modal');
+  if (videoModal) {
+    videoModal.addEventListener('click', function(e) {
+      if (e.target === videoModal) {
+        closeVideoModal();
+      }
+    });
+  }
+  
+  // Close modal with Escape key
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape' && document.getElementById('video-modal').style.display === 'flex') {
+      closeVideoModal();
+    }
+  });
+});

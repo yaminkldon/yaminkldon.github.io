@@ -115,26 +115,162 @@
       }
     }
     body.dark-mode .lesson-description { color: #ccc; }
-    .video-container {
+    
+    /* Video Modal Popup */
+    .video-modal {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: rgba(0, 0, 0, 0.9);
+      z-index: 9999;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      box-sizing: border-box;
+    }
+    
+    .video-modal-content {
       background: #fff;
       border-radius: 12px;
-      padding: 24px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-      margin-top: 24px;
-      display: none;
+      max-width: 900px;
+      max-height: 90vh;
+      width: 100%;
+      overflow-y: auto;
       position: relative;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+    }
+    
+    body.dark-mode .video-modal-content {
+      background: #2d2d2d;
+      color: #fff;
+    }
+    
+    .video-modal-header {
+      padding: 20px 24px 16px;
+      border-bottom: 1px solid #eee;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    
+    body.dark-mode .video-modal-header {
+      border-bottom-color: #444;
+    }
+    
+    .video-modal-title {
+      font-size: 1.5em;
+      font-weight: bold;
+      color: #222c5c;
+      margin: 0;
+      flex: 1;
+    }
+    
+    body.dark-mode .video-modal-title {
+      color: #fff;
+    }
+    
+    .video-close-btn {
+      background: none;
+      border: none;
+      font-size: 24px;
+      cursor: pointer;
+      color: #666;
+      padding: 8px;
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    
+    .video-close-btn:hover {
+      background: #f0f0f0;
+      color: #333;
+    }
+    
+    body.dark-mode .video-close-btn {
+      color: #ccc;
+    }
+    
+    body.dark-mode .video-close-btn:hover {
+      background: #444;
+      color: #fff;
+    }
+    
+    .video-content {
+      padding: 0;
+    }
+    
+    .video-description {
+      padding: 20px 24px;
+      border-top: 1px solid #eee;
+      background: #f8f9fa;
+    }
+    
+    body.dark-mode .video-description {
+      border-top-color: #444;
+      background: #333;
+      color: #ccc;
+    }
+    
+    .video-description h4 {
+      margin: 0 0 12px 0;
+      color: #222c5c;
+      font-size: 1.1em;
+    }
+    
+    body.dark-mode .video-description h4 {
+      color: #fff;
+    }
+    
+    .video-description p {
+      margin: 0;
+      line-height: 1.6;
+      color: #666;
+    }
+    
+    body.dark-mode .video-description p {
+      color: #ccc;
+    }
+    
+    /* Responsive Design */
+    @media (max-width: 768px) {
+      .video-modal {
+        padding: 10px;
+      }
+      
+      .video-modal-content {
+        max-height: 95vh;
+      }
+      
+      .video-modal-header {
+        padding: 16px 20px 12px;
+      }
+      
+      .video-modal-title {
+        font-size: 1.3em;
+      }
+      
+      .video-description {
+        padding: 16px 20px;
+      }
     }
     .video-player-wrapper {
       position: relative;
       background: #000;
-      border-radius: 8px;
+      border-radius: 8px 8px 0 0;
       overflow: hidden;
+      width: 100%;
+      aspect-ratio: 16/9; /* Maintain video aspect ratio */
     }
     .video-player {
       width: 100%;
-      height: auto;
+      height: 100%;
       display: block;
       background: #000;
+      object-fit: contain;
     }
     
     /* Custom Video Controls */
@@ -564,22 +700,11 @@
       width: 100%;
       border-radius: 8px;
     }
-    .video-title {
-      font-size: 20px;
-      font-weight: bold;
-      margin-bottom: 16px;
-      color: #222c5c;
-    }
-    body.dark-mode .video-title { color: #fff; }
+    
+    /* Remove unused styles */
     .close-video {
-      background: #e0e0e0;
-      border: none;
-      padding: 8px 16px;
-      border-radius: 6px;
-      cursor: pointer;
-      margin-top: 16px;
+      display: none; /* Hide old close button */
     }
-    .close-video:hover { background: #d0d0d0; }
   </style>
 </head>
 <body>
@@ -591,19 +716,31 @@
   <div class="main-content">
     <h1 class="unit-title" id="unit-title" data-translate="loading">Loading...</h1>
     <div class="lessons-grid" id="lessons-grid"></div>
-    
-    <div class="video-container" id="video-container">
-      <h3 class="video-title" id="video-title"></h3>
-      <div class="video-player-wrapper">
-        <video class="video-player" id="video-player" preload="metadata" controlsList="nodownload" disablePictureInPicture>
-          Your browser does not support the video tag.
-        </video>
-        
-        <!-- Video Toast for Fullscreen -->
-        <div id="video-toast" class="video-toast"></div>
-        
-        <!-- Custom Video Controls -->
-        <div class="custom-controls" id="custom-controls">
+  </div>
+
+  <!-- Video Modal Popup -->
+  <div class="video-modal" id="video-modal">
+    <div class="video-modal-content">
+      <!-- Modal Header with Title and Close Button -->
+      <div class="video-modal-header">
+        <h3 class="video-modal-title" id="video-title">Lesson Title</h3>
+        <button class="video-close-btn" onclick="closeVideoModal()">
+          <span class="material-icons">close</span>
+        </button>
+      </div>
+      
+      <!-- Video Content -->
+      <div class="video-content">
+        <div class="video-player-wrapper">
+          <video class="video-player" id="video-player" preload="metadata" controlsList="nodownload" disablePictureInPicture>
+            Your browser does not support the video tag.
+          </video>
+          
+          <!-- Video Toast for Fullscreen -->
+          <div id="video-toast" class="video-toast"></div>
+          
+          <!-- Custom Video Controls -->
+          <div class="custom-controls" id="custom-controls">
           <!-- Progress Bar -->
           <div class="progress-container">
             <div class="progress-bar" id="progress-bar">
@@ -664,9 +801,13 @@
             </div>
           </div>
         </div>
-        
       </div>
-      <button class="close-video" onclick="closeVideo()">Close Video</button>
+      
+      <!-- Video Description Section -->
+      <div class="video-description">
+        <h4 data-translate="description">Description</h4>
+        <p id="video-description-text">Loading lesson description...</p>
+      </div>
     </div>
   </div>
 
@@ -704,7 +845,7 @@
     z-index: 1000;
     user-select: none;
     pointer-events: none;
-  ">V2.3</div>
+  ">V2.4</div>
 
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>

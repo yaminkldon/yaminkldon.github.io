@@ -79,7 +79,8 @@ class AdvancedFeatures {
         searchLessons: 'Search Lessons',
         advancedSettings: 'Advanced Settings',
         logout: 'Logout',
-        searchPlaceholder: 'Search lessons...'
+        searchPlaceholder: 'Search lessons...',
+        description: 'Description'
       },
       ar: {
         home: 'الرئيسية',
@@ -141,7 +142,8 @@ class AdvancedFeatures {
         searchLessons: 'البحث في الدروس',
         advancedSettings: 'الإعدادات المتقدمة',
         logout: 'تسجيل الخروج',
-        searchPlaceholder: 'البحث في الدروس...'
+        searchPlaceholder: 'البحث في الدروس...',
+        description: 'الوصف'
       }
     };
     

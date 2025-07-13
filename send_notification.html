@@ -84,14 +84,21 @@
           if (u.token) tokens.push(u.token);
         });
 
-        // Save notification request to a "notifications_to_send" node for your backend to process
+        // Option 1: Save to queue (current approach)
         db.ref('notifications_to_send').push({
           tokens,
           notification: { title, body },
           timestamp: Date.now()
         });
 
-        document.getElementById('result').textContent = "Notification request sent!";
+        // Option 2: Send directly via your backend API (if you have one)
+        // fetch('/send-notification', {
+        //   method: 'POST',
+        //   headers: {'Content-Type': 'application/json'},
+        //   body: JSON.stringify({tokens, title, body})
+        // });
+
+        document.getElementById('result').textContent = "Notification request queued! (Needs backend processor to actually send)";
         document.getElementById('notifForm').reset();
       });
     };
