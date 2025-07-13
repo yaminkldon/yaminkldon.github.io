@@ -28,6 +28,14 @@ class AdvancedFeatures {
         lessons: 'Lessons',
         loading: 'Loading...',
         yourProgress: 'Your Progress',
+        overallStatistics: 'Overall Statistics',
+        unitProgress: 'Unit Progress',
+        studyCalendar: 'Study Calendar',
+        achievements: 'Achievements',
+        accountInformation: 'Account Information',
+        security: 'Security',
+        appSettings: 'App Settings',
+        accountActions: 'Account Actions',
         difficulty: 'Difficulty',
         duration: 'Duration',
         topic: 'Topic',
@@ -49,7 +57,29 @@ class AdvancedFeatures {
         currentStreak: 'Current Streak',
         totalTime: 'Total Time',
         averageSession: 'Average Session',
-        completionRate: 'Completion Rate'
+        completionRate: 'Completion Rate',
+        totalLessons: 'Total Lessons',
+        completed: 'Completed',
+        studyDay: 'Study Day',
+        today: 'Today',
+        firstSteps: 'First Steps',
+        firstStepsDesc: 'Complete your first lesson',
+        unitMaster: 'Unit Master',
+        unitMasterDesc: 'Complete an entire unit',
+        email: 'Email',
+        deviceId: 'Device ID',
+        accountExpires: 'Account Expires',
+        changePassword: 'Change Password',
+        change: 'Change',
+        darkMode: 'Dark Mode',
+        notifications: 'Notifications',
+        signOut: 'Sign Out',
+        deleteAccount: 'Delete Account',
+        delete: 'Delete',
+        searchLessons: 'Search Lessons',
+        advancedSettings: 'Advanced Settings',
+        logout: 'Logout',
+        searchPlaceholder: 'Search lessons...'
       },
       ar: {
         home: 'الرئيسية',
@@ -60,6 +90,14 @@ class AdvancedFeatures {
         lessons: 'الدروس',
         loading: 'جاري التحميل...',
         yourProgress: 'تقدمك',
+        overallStatistics: 'الإحصائيات العامة',
+        unitProgress: 'تقدم الوحدة',
+        studyCalendar: 'تقويم الدراسة',
+        achievements: 'الإنجازات',
+        accountInformation: 'معلومات الحساب',
+        security: 'الأمان',
+        appSettings: 'إعدادات التطبيق',
+        accountActions: 'إجراءات الحساب',
         difficulty: 'الصعوبة',
         duration: 'المدة',
         topic: 'الموضوع',
@@ -81,7 +119,29 @@ class AdvancedFeatures {
         currentStreak: 'السلسلة الحالية',
         totalTime: 'الوقت الإجمالي',
         averageSession: 'متوسط الجلسة',
-        completionRate: 'معدل الإكمال'
+        completionRate: 'معدل الإكمال',
+        totalLessons: 'إجمالي الدروس',
+        completed: 'مكتمل',
+        studyDay: 'يوم الدراسة',
+        today: 'اليوم',
+        firstSteps: 'الخطوات الأولى',
+        firstStepsDesc: 'أكمل درسك الأول',
+        unitMaster: 'سيد الوحدة',
+        unitMasterDesc: 'أكمل وحدة كاملة',
+        email: 'البريد الإلكتروني',
+        deviceId: 'معرف الجهاز',
+        accountExpires: 'انتهاء صلاحية الحساب',
+        changePassword: 'تغيير كلمة المرور',
+        change: 'تغيير',
+        darkMode: 'الوضع الداكن',
+        notifications: 'الإشعارات',
+        signOut: 'تسجيل الخروج',
+        deleteAccount: 'حذف الحساب',
+        delete: 'حذف',
+        searchLessons: 'البحث في الدروس',
+        advancedSettings: 'الإعدادات المتقدمة',
+        logout: 'تسجيل الخروج',
+        searchPlaceholder: 'البحث في الدروس...'
       }
     };
     
@@ -107,6 +167,12 @@ class AdvancedFeatures {
     document.querySelectorAll('[data-translate]').forEach(element => {
       const key = element.getAttribute('data-translate');
       element.textContent = this.translate(key);
+    });
+    
+    // Update placeholder texts
+    document.querySelectorAll('[data-translate-placeholder]').forEach(element => {
+      const key = element.getAttribute('data-translate-placeholder');
+      element.placeholder = this.translate(key);
     });
   }
 
@@ -355,6 +421,12 @@ class AdvancedFeatures {
     document.querySelectorAll('[data-translate]').forEach(element => {
       const key = element.getAttribute('data-translate');
       element.textContent = this.translate(key);
+    });
+    
+    // Update placeholder texts
+    document.querySelectorAll('[data-translate-placeholder]').forEach(element => {
+      const key = element.getAttribute('data-translate-placeholder');
+      element.placeholder = this.translate(key);
     });
   }
 

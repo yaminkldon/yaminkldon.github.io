@@ -176,22 +176,22 @@
   <div class="main-content">
     <!-- Account Information -->
     <div class="settings-section">
-      <div class="section-header">Account Information</div>
+      <div class="section-header" data-translate="accountInformation">Account Information</div>
       <div class="setting-item">
         <div>
-          <div class="setting-label">Email</div>
+          <div class="setting-label" data-translate="email">Email</div>
           <div class="setting-value" id="user-email">Loading...</div>
         </div>
       </div>
       <div class="setting-item">
         <div>
-          <div class="setting-label">Device ID</div>
+          <div class="setting-label" data-translate="deviceId">Device ID</div>
           <div class="setting-value" id="device-id">Loading...</div>
         </div>
       </div>
       <div class="setting-item">
         <div>
-          <div class="setting-label">Account Expires</div>
+          <div class="setting-label" data-translate="accountExpires">Account Expires</div>
           <div class="setting-value" id="expiration-date">Loading...</div>
         </div>
       </div>
@@ -199,24 +199,24 @@
 
     <!-- Security Settings -->
     <div class="settings-section">
-      <div class="section-header">Security</div>
+      <div class="section-header" data-translate="security">Security</div>
       <div class="setting-item">
-        <div class="setting-label">Change Password</div>
-        <button class="setting-button" onclick="openChangePasswordModal()">Change</button>
+        <div class="setting-label" data-translate="changePassword">Change Password</div>
+        <button class="setting-button" onclick="openChangePasswordModal()" data-translate="change">Change</button>
       </div>
     </div>
 
     <!-- App Settings -->
     <div class="settings-section">
-      <div class="section-header">App Settings</div>
+      <div class="section-header" data-translate="appSettings">App Settings</div>
       <div class="setting-item">
-        <div class="setting-label">Dark Mode</div>
+        <div class="setting-label" data-translate="darkMode">Dark Mode</div>
         <div class="toggle-switch" id="dark-mode-toggle" onclick="toggleDarkMode()">
           <div class="toggle-slider"></div>
         </div>
       </div>
       <div class="setting-item">
-        <div class="setting-label">Notifications</div>
+        <div class="setting-label" data-translate="notifications">Notifications</div>
         <div class="toggle-switch" id="notifications-toggle" onclick="toggleNotifications()">
           <div class="toggle-slider"></div>
         </div>
@@ -225,14 +225,14 @@
 
     <!-- Account Actions -->
     <div class="settings-section">
-      <div class="section-header">Account Actions</div>
+      <div class="section-header" data-translate="accountActions">Account Actions</div>
       <div class="setting-item">
-        <div class="setting-label">Sign Out</div>
-        <button class="setting-button" onclick="logout()">Sign Out</button>
+        <div class="setting-label" data-translate="signOut">Sign Out</div>
+        <button class="setting-button" onclick="logout()" data-translate="signOut">Sign Out</button>
       </div>
       <div class="setting-item">
-        <div class="setting-label">Delete Account</div>
-        <button class="setting-button danger" onclick="confirmDeleteAccount()">Delete</button>
+        <div class="setting-label" data-translate="deleteAccount">Delete Account</div>
+        <button class="setting-button danger" onclick="confirmDeleteAccount()" data-translate="delete">Delete</button>
       </div>
     </div>
   </div>
@@ -293,6 +293,6 @@
     z-index: 1000;
     user-select: none;
     pointer-events: none;
-  ">V2.2</div>
+  ">V2.3</div>
 </body>
 </html>

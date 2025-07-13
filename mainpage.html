@@ -390,22 +390,22 @@ body.dark-mode .search-result-description {
     <ul id="units-list">
       <li id="searchMenuItem" onclick="showSearchSection()" style="border-bottom: 1px solid #eee;" data-static="true">
         <span class="material-icons" style="vertical-align: middle; margin-right: 12px;">search</span>
-        Search Lessons
+        <span data-translate="searchLessons">Search Lessons</span>
       </li>
       <li onclick="openProgress()" style="border-bottom: 1px solid #eee;" data-static="true">
         <span class="material-icons" style="vertical-align: middle; margin-right: 12px;">trending_up</span>
-        Progress
+        <span data-translate="progress">Progress</span>
       </li>
       <li onclick="openSettings()" style="border-bottom: 1px solid #eee;" data-static="true">
         <span class="material-icons" style="vertical-align: middle; margin-right: 12px;">settings</span>
-        Settings
+        <span data-translate="settings">Settings</span>
       </li>
       <li onclick="openAdvancedSettings()" style="border-bottom: 1px solid #eee;" data-static="true">
         <span class="material-icons" style="vertical-align: middle; margin-right: 12px;">tune</span>
-        Advanced Settings
+        <span data-translate="advancedSettings">Advanced Settings</span>
       </li>
     </ul>
-    <button onclick="logout()">Logout</button>
+    <button onclick="logout()" data-translate="logout">Logout</button>
   </nav>
   
   <!-- Search Section (outside main-content) -->
@@ -415,11 +415,11 @@ body.dark-mode .search-result-description {
         <button onclick="hideSearchSection()" class="search-back-btn" style="width: 15%;">
           <span class="material-icons">arrow_back</span>
         </button>
-        <h2>Search Lessons</h2>
+        <h2 data-translate="searchLessons">Search Lessons</h2>
       </div>
       <div class="search-box">
         <span class="material-icons search-icon">search</span>
-        <input type="text" id="searchInput" placeholder="Search lessons..." class="search-input">
+        <input type="text" id="searchInput" placeholder="Search lessons..." class="search-input" data-translate-placeholder="searchPlaceholder">
         <button id="clearSearch" class="clear-search" style="display: none;">
           <span class="material-icons">close</span>
         </button>
@@ -499,6 +499,6 @@ body.dark-mode .search-result-description {
     z-index: 1000;
     user-select: none;
     pointer-events: none;
-  ">V2.2</div>
+  ">V2.3</div>
 </body>
 </html>
