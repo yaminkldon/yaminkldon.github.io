@@ -459,16 +459,9 @@ function openAddLessonModal() {
           <textarea class="form-textarea" id="lessonDescription" placeholder="Enter lesson description..."></textarea>
         </div>
         <div class="form-group">
-          <label class="form-label">Video File</label>
-          <input type="file" class="form-input" id="lessonVideo" accept="video/*">
-        </div>
-        <div class="form-group">
           <label class="form-label">Thumbnail (optional)</label>
           <input type="file" class="form-input" id="lessonThumbnail" accept="image/*">
-        </div>
-        <div class="form-group">
-          <label class="form-label">Lesson Order</label>
-          <input type="number" class="form-input" id="lessonOrder" min="1" required>
+          <small style="color: #666; font-size: 12px;">If no thumbnail is provided, one will be generated automatically</small>
         </div>
         <div class="feature-actions">
           <button type="submit" class="action-btn">Create Lesson</button>
@@ -1003,6 +996,7 @@ function uploadVideo() {
   const description = document.getElementById('videoDescription').value.trim();
   const unitName = document.getElementById('videoUnit').value;
   const fileUpload = document.getElementById('videoFileUpload');
+  const thumbnailInput = document.getElementById('videoThumbnail');
   
   if (!title || !unitName || !fileUpload.selectedFile) {
     NotificationManager.showToast('Please fill in all required fields and select a video file');
@@ -1038,19 +1032,67 @@ function uploadVideo() {
       resetUploadForm();
     },
     () => {
-      // Success
+      // Success - now handle thumbnail
       uploadTask.snapshot.ref.getDownloadURL().then((downloadURL) => {
-        // Save lesson data to database
-        saveLessonData(unitName, title, description, fileName, downloadURL);
+        // Check if custom thumbnail was uploaded
+        if (thumbnailInput && thumbnailInput.files && thumbnailInput.files[0]) {
+          // Upload custom thumbnail
+          const thumbnailFile = thumbnailInput.files[0];
+          const thumbnailRef = storage.ref('thumbnails/' + Date.now() + '_' + thumbnailFile.name);
+          thumbnailRef.put(thumbnailFile).then(thumbnailSnapshot => {
+            return thumbnailSnapshot.ref.getDownloadURL();
+          }).then(thumbnailURL => {
+            saveLessonDataWithCustomThumbnail(unitName, title, description, fileName, downloadURL, thumbnailURL);
+          }).catch(error => {
+            console.error('Thumbnail upload error:', error);
+            // Fall back to generated thumbnail
+            saveLessonData(unitName, title, description, fileName, downloadURL);
+          });
+        } else {
+          // Use generated thumbnail
+          saveLessonData(unitName, title, description, fileName, downloadURL);
+        }
       });
     }
   );
 }
 
+// Helper function to save lesson data with custom thumbnail
+function saveLessonDataWithCustomThumbnail(unitName, title, description, fileName, downloadURL, thumbnailURL) {
+  const lessonData = {
+    title: title,
+    description: description,
+    fileName: fileName,
+    downloadURL: downloadURL,
+    thumbnailURL: thumbnailURL,
+    uploadDate: new Date().toISOString(),
+    type: 'video'
+  };
+  
+  // Save to database
+  database.ref('lessons/' + unitName + '/' + Date.now()).set(lessonData)
+    .then(() => {
+      NotificationManager.showToast('Video uploaded successfully!');
+      resetUploadForm();
+      // Refresh the video management view if it's open
+      if (document.getElementById('videoManagementModal').classList.contains('show')) {
+        loadVideoManagementData();
+      }
+    })
+    .catch(error => {
+      console.error('Database error:', error);
+      NotificationManager.showToast('Upload completed but failed to save to database');
+      resetUploadForm();
+    });
+}
+
 function saveLessonData(unitName, title, description, fileName, downloadURL) {
+  // Generate thumbnail if none provided
+  const generatedThumbnail = generateLessonThumbnail(title);
+  
   const lessonData = {
     description: description,
-    thumbnailURL: '', // Can be set later if needed
+    thumbnailURL: generatedThumbnail, // Use generated thumbnail
     videoURL: fileName // Store filename instead of full URL
   };
   
@@ -2544,31 +2586,56 @@ function loadUnitsForLessonSelect() {
 }
 
 function addNewLesson() {
-  const title = document.getElementById('lessonTitle').value;
+  const title = document.getElementById('lessonTitle').value.trim();
   const unit = document.getElementById('lessonUnit').value;
-  const description = document.getElementById('lessonDescription').value;
-  const order = document.getElementById('lessonOrder').value;
+  const description = document.getElementById('lessonDescription').value.trim();
+  const thumbnailFile = document.getElementById('lessonThumbnail').files[0];
   
   if (!title || !unit) {
     NotificationManager.showToast('Please fill in required fields');
     return;
   }
   
+  // Handle thumbnail upload or generation
+  if (thumbnailFile) {
+    // Upload thumbnail to Firebase Storage
+    const thumbnailRef = storage.ref('thumbnails/' + Date.now() + '_' + thumbnailFile.name);
+    thumbnailRef.put(thumbnailFile).then(snapshot => {
+      return snapshot.ref.getDownloadURL();
+    }).then(thumbnailURL => {
+      // Save lesson with uploaded thumbnail
+      saveLessonWithThumbnail(unit, title, description, thumbnailURL);
+    }).catch(error => {
+      console.error('Error uploading thumbnail:', error);
+      // Fall back to generated thumbnail
+      const generatedThumbnail = generateLessonThumbnail(title);
+      saveLessonWithThumbnail(unit, title, description, generatedThumbnail);
+    });
+  } else {
+    // Generate thumbnail automatically
+    const generatedThumbnail = generateLessonThumbnail(title);
+    saveLessonWithThumbnail(unit, title, description, generatedThumbnail);
+  }
+}
+
+function saveLessonWithThumbnail(unit, title, description, thumbnailURL) {
   const lessonData = {
     description: description,
-    order: parseInt(order),
-    createdAt: new Date().toISOString(),
-    createdBy: currentUser.email
+    thumbnailURL: thumbnailURL,
+    videoURL: '' // No video for manual lessons
   };
   
-  db.ref(`units/${unit}/lessons/${title}`).set(lessonData)
+  // Save directly to units/unit/title (same structure as video upload)
+  db.ref(`units/${unit}/${title}`).set(lessonData)
     .then(() => {
       NotificationManager.showToast('Lesson added successfully');
+      document.getElementById('addLessonForm').reset();
       closeModal('addLessonModal');
+      loadQuickStats(); // Refresh stats
     })
     .catch(error => {
       console.error('Error adding lesson:', error);
-      NotificationManager.showToast('Error adding lesson');
+      NotificationManager.showToast('Error adding lesson: ' + error.message);
     });
 }
 
@@ -2674,19 +2741,20 @@ function loadVideoManagementData() {
         let videoCount = 0;
         
         Object.entries(units).forEach(([unitKey, unitData]) => {
-          // Process videos from lessons subfolder
+          // Process lessons from lessons subfolder
           if (unitData.lessons) {
             Object.entries(unitData.lessons).forEach(([lessonKey, lessonData]) => {
-              if (lessonData.videoURL || lessonData.videoFile) {
+              if (lessonData && typeof lessonData === 'object') {
                 videoCount++;
                 createVideoCard(videosGrid, unitKey, lessonKey, lessonData, 'lessons');
               }
             });
           }
           
-          // Process videos from direct lesson structure
+          // Process lessons from direct structure (new format)
           Object.entries(unitData).forEach(([lessonKey, lessonData]) => {
-            if (lessonKey.startsWith('Lesson-') && lessonData.videoURL) {
+            if (lessonKey !== 'lessons' && lessonKey !== 'name' && lessonKey !== 'description' && 
+                lessonKey !== 'order' && lessonKey !== 'createdAt' && lessonData && typeof lessonData === 'object') {
               videoCount++;
               createVideoCard(videosGrid, unitKey, lessonKey, lessonData, 'direct');
             }
@@ -2694,7 +2762,7 @@ function loadVideoManagementData() {
         });
         
         if (videoCount === 0) {
-          videosGrid.innerHTML = '<div style="text-align: center; padding: 20px; color: #666;">No videos found</div>';
+          videosGrid.innerHTML = '<div style="text-align: center; padding: 20px; color: #666;">No lessons found</div>';
         }
         
         // Setup video filters
@@ -2716,7 +2784,12 @@ function createVideoCard(container, unitKey, lessonKey, lessonData, type) {
   videoCard.setAttribute('data-lesson', lessonKey);
   videoCard.style.cssText = 'padding: 16px; border-radius: 8px; border: 1px solid #e0e0e0; margin-bottom: 12px;';
   
-  const thumbnail = lessonData.thumbnail || lessonData.thumbnailURL || 'https://via.placeholder.com/150x100?text=Video';
+  // Use thumbnail or generate one if missing
+  let thumbnail = lessonData.thumbnail || lessonData.thumbnailURL;
+  if (!thumbnail || thumbnail === '') {
+    thumbnail = generateLessonThumbnail(lessonKey);
+  }
+  
   const title = lessonData.title || lessonKey;
   const description = lessonData.description || 'No description available';
   const videoFile = lessonData.videoFile || lessonData.videoURL || '';
@@ -2725,7 +2798,7 @@ function createVideoCard(container, unitKey, lessonKey, lessonData, type) {
   videoCard.innerHTML = `
     <div style="display: flex; gap: 12px;">
       <img src="${thumbnail}" alt="Video thumbnail" style="width: 100px; height: 70px; object-fit: cover; border-radius: 6px;" 
-           onerror="this.src='https://via.placeholder.com/100x70?text=Video'">
+           onerror="this.src='${generateLessonThumbnail(lessonKey)}'">
       <div style="flex: 1;">
         <h4 style="margin: 0 0 4px 0; font-size: 14px;">${title}</h4>
         <p style="margin: 0 0 8px 0; font-size: 12px; color: #666; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">${description}</p>
@@ -2734,10 +2807,10 @@ function createVideoCard(container, unitKey, lessonKey, lessonData, type) {
           <span>Type: ${type}</span> | 
           <span>Created: ${createdAt}</span>
         </div>
-        ${videoFile ? `<div style="font-size: 10px; color: #888; margin-top: 4px;">File: ${videoFile.split('_').pop()}</div>` : ''}
+        ${videoFile ? `<div style="font-size: 10px; color: #888; margin-top: 4px;">File: ${videoFile.split('_').pop()}</div>` : '<div style="font-size: 10px; color: #888; margin-top: 4px;">No video file</div>'}
       </div>
       <div style="display: flex; flex-direction: column; gap: 4px;">
-        <button onclick="previewVideo('${unitKey}', '${lessonKey}', '${type}')" style="padding: 4px 8px; background: #6c4fc1; color: white; border: none; border-radius: 4px; font-size: 11px;">Preview</button>
+        ${videoFile ? `<button onclick="previewVideo('${unitKey}', '${lessonKey}', '${type}')" style="padding: 4px 8px; background: #6c4fc1; color: white; border: none; border-radius: 4px; font-size: 11px;">Preview</button>` : ''}
         <button onclick="editVideo('${unitKey}', '${lessonKey}', '${type}')" style="padding: 4px 8px; background: #28a745; color: white; border: none; border-radius: 4px; font-size: 11px;">Edit</button>
         <button onclick="deleteVideo('${unitKey}', '${lessonKey}', '${type}')" style="padding: 4px 8px; background: #dc3545; color: white; border: none; border-radius: 4px; font-size: 11px;">Delete</button>
       </div>
@@ -3540,6 +3613,68 @@ function exportUserList() {
 }
 
 // Utility Functions
+function generateLessonThumbnail(lessonTitle) {
+  // Create a canvas to generate thumbnail
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d');
+  
+  // Set canvas size
+  canvas.width = 320;
+  canvas.height = 180;
+  
+  // Create gradient background
+  const gradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
+  gradient.addColorStop(0, '#6c4fc1');
+  gradient.addColorStop(1, '#4834d4');
+  
+  // Fill background
+  ctx.fillStyle = gradient;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  
+  // Add lesson title text
+  ctx.fillStyle = '#ffffff';
+  ctx.font = 'bold 24px Arial';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  
+  // Word wrap for long titles
+  const words = lessonTitle.split(' ');
+  const lines = [];
+  let currentLine = words[0];
+  
+  for (let i = 1; i < words.length; i++) {
+    const word = words[i];
+    const width = ctx.measureText(currentLine + ' ' + word).width;
+    if (width < canvas.width - 40) {
+      currentLine += ' ' + word;
+    } else {
+      lines.push(currentLine);
+      currentLine = word;
+    }
+  }
+  lines.push(currentLine);
+  
+  // Draw lines
+  const lineHeight = 30;
+  const startY = (canvas.height - (lines.length * lineHeight)) / 2 + lineHeight / 2;
+  
+  lines.forEach((line, index) => {
+    ctx.fillText(line, canvas.width / 2, startY + (index * lineHeight));
+  });
+  
+  // Add play icon
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+  ctx.beginPath();
+  ctx.moveTo(canvas.width / 2 - 15, canvas.height - 40);
+  ctx.lineTo(canvas.width / 2 + 15, canvas.height - 25);
+  ctx.lineTo(canvas.width / 2 - 15, canvas.height - 10);
+  ctx.closePath();
+  ctx.fill();
+  
+  // Convert to data URL
+  return canvas.toDataURL('image/png');
+}
+
 function editUser(userId) {
   // Fetch user data
   db.ref(`users/${userId}`).once('value').then(snapshot => {

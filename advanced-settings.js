@@ -1,4 +1,4 @@
-// Advanced Settings JavaScript - V3.2.0
+// Advanced Settings JavaScript - V3.3 Teacher.0
 // Handles all advanced features settings and UI interactions
 
 class AdvancedSettingsManager {
