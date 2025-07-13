@@ -16,21 +16,27 @@ class AdvancedSettingsManager {
   loadCurrentSettings() {
     // Load current language
     const currentLanguage = this.advancedFeatures.getCurrentLanguage();
-    document.getElementById(`lang-${currentLanguage}`).classList.add('active');
-
-    // Load current theme
-    const currentTheme = this.advancedFeatures.getCurrentTheme();
-    document.getElementById(`theme-${currentTheme}`).classList.add('active');
+    const langElement = document.getElementById(`lang-${currentLanguage}`);
+    if (langElement) {
+      langElement.classList.add('active');
+    }
 
     // Load current font size
     const currentFontSize = this.advancedFeatures.getCurrentFontSize();
-    document.getElementById(`font-${currentFontSize}`).classList.add('active');
+    const fontElement = document.getElementById(`font-${currentFontSize}`);
+    if (fontElement) {
+      fontElement.classList.add('active');
+    }
 
     // Load current layout
     const currentLayout = this.advancedFeatures.getCurrentLayout();
-    document.getElementById(`layout-${currentLayout}`).classList.add('active');
+    const layoutElement = document.getElementById(`layout-${currentLayout}`);
+    if (layoutElement) {
+      layoutElement.classList.add('active');
+    }
 
-    // Apply dark mode if enabled
+    // Apply current theme to body
+    const currentTheme = this.advancedFeatures.getCurrentTheme();
     if (currentTheme === 'dark') {
       document.body.classList.add('dark-mode');
     }
@@ -95,35 +101,6 @@ function setLanguage(lang) {
     console.log(`Language set to: ${lang}`);
   } catch (error) {
     console.error('Error setting language:', error);
-  }
-}
-
-function setTheme(theme) {
-  try {
-    if (!window.settingsManager) {
-      console.error('Settings manager not initialized');
-      return;
-    }
-    
-    // Remove active class from all theme buttons
-    document.querySelectorAll('[id^="theme-"]').forEach(btn => btn.classList.remove('active'));
-    
-    // Add active class to selected theme
-    document.getElementById(`theme-${theme}`).classList.add('active');
-    
-    // Apply theme
-    window.settingsManager.advancedFeatures.setTheme(theme);
-    
-    // Update body class for dark mode
-    if (theme === 'dark') {
-      document.body.classList.add('dark-mode');
-    } else {
-      document.body.classList.remove('dark-mode');
-    }
-    
-    console.log(`Theme set to: ${theme}`);
-  } catch (error) {
-    console.error('Error setting theme:', error);
   }
 }
 
