@@ -89,7 +89,7 @@ class AdvancedFeatures {
         avgProgress: 'Avg Progress',
         userManagement: 'User Management',
         userManagementDesc: 'Add, remove, and manage student accounts. View student progress and analytics.',
-        addStudent: 'Add Student',
+        addStudent: 'Add User',
         viewAll: 'View All',
         contentManagement: 'Content Management',
         contentManagementDesc: 'Create and manage units, lessons, and course materials.',
@@ -126,7 +126,9 @@ class AdvancedFeatures {
         videoFile: 'Video File',
         dragDropVideo: 'Drag & drop video file or click to browse',
         videoThumbnail: 'Video Thumbnail (Optional)',
-        thumbnailHelp: 'Upload a thumbnail image for the video (optional)'
+        thumbnailHelp: 'Upload a thumbnail image for the video (optional)',
+        userType: 'User Type',
+        addUser: 'Add User'
       },
       ar: {
         home: 'الرئيسية',
@@ -198,7 +200,7 @@ class AdvancedFeatures {
         avgProgress: 'متوسط التقدم',
         userManagement: 'إدارة المستخدمين',
         userManagementDesc: 'إضافة وإزالة وإدارة حسابات الطلاب. عرض تقدم الطلاب والتحليلات.',
-        addStudent: 'إضافة طالب',
+        addStudent: 'إضافة مستخدم',
         viewAll: 'عرض الكل',
         contentManagement: 'إدارة المحتوى',
         contentManagementDesc: 'إنشاء وإدارة الوحدات والدروس والمواد التعليمية.',
@@ -235,7 +237,9 @@ class AdvancedFeatures {
         videoFile: 'ملف الفيديو',
         dragDropVideo: 'اسحب وأفلت ملف الفيديو أو انقر للتصفح',
         videoThumbnail: 'صورة مصغرة للفيديو (اختياري)',
-        thumbnailHelp: 'إذا لم يتم تحميل صورة مصغرة، فسيتم إنشاء واحدة تلقائيًا'
+        thumbnailHelp: 'إذا لم يتم تحميل صورة مصغرة، فسيتم إنشاء واحدة تلقائيًا',
+        userType: 'نوع المستخدم',
+        addUser: 'إضافة مستخدم'
       }
     };
     
