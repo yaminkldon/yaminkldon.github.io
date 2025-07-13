@@ -657,7 +657,8 @@ function exportData() {
         </div>
         
         <div class="feature-actions">
-          <button class="action-btn" onclick="processDataExport()">Export Data</button>
+          <button class="action-btn" onclick="processDataExport()">Preview & Export</button>
+          <button class="action-btn secondary" onclick="viewAllData()">View All Data</button>
           <button class="action-btn secondary" onclick="closeModal('exportModal')">Cancel</button>
         </div>
         
@@ -1955,19 +1956,312 @@ function processDataExport() {
   Promise.all(exportPromises).then(() => {
     // Complete export
     progressFill.style.width = '100%';
-    statusDiv.textContent = 'Export completed!';
+    statusDiv.textContent = 'Data loaded! Ready to preview...';
     
-    // Download the data
-    downloadExportedData(exportData, format);
-    
-    NotificationManager.showToast(`Data exported in ${format} format`);
+    // Show data preview instead of immediate download
     setTimeout(() => {
-      closeModal('exportModal');
-    }, 1000);
+      showDataPreview(exportData, format);
+    }, 500);
   }).catch(error => {
     console.error('Export error:', error);
     statusDiv.textContent = 'Export failed!';
     NotificationManager.showToast('Export failed: ' + error.message);
+  });
+}
+
+function showDataPreview(exportData, format) {
+  // Close the export modal
+  closeModal('exportModal');
+  
+  // Create data preview modal
+  const modal = document.createElement('div');
+  modal.className = 'modal';
+  modal.id = 'dataPreviewModal';
+  modal.style.display = 'flex';
+  
+  // Calculate data size and summary
+  const dataSize = new Blob([JSON.stringify(exportData)]).size;
+  const dataSizeFormatted = dataSize > 1024 * 1024 ? 
+    `${(dataSize / 1024 / 1024).toFixed(2)} MB` : 
+    `${(dataSize / 1024).toFixed(2)} KB`;
+  
+  const summary = {
+    users: exportData.users ? Object.keys(exportData.users).length : 0,
+    units: exportData.units ? Object.keys(exportData.units).length : 0,
+    progressEntries: exportData.progress ? Object.keys(exportData.progress).length : 0,
+    videoMetadata: exportData.videoMetadata ? 
+      Object.values(exportData.videoMetadata).reduce((total, unit) => total + Object.keys(unit).length, 0) : 0
+  };
+  
+  modal.innerHTML = `
+    <div class="modal-content" style="max-width: 1000px; width: 95%; max-height: 90vh;">
+      <div class="modal-header">
+        <h3 class="modal-title">Data Preview</h3>
+        <button class="modal-close" onclick="closeModal('dataPreviewModal')" style="width: 15%;">&times;</button>
+      </div>
+      
+      <div class="data-preview-content" style="padding: 20px;">
+        <div class="preview-summary" style="background: #f8f9fa; padding: 16px; border-radius: 8px; margin-bottom: 20px;">
+          <h4 style="margin: 0 0 12px 0;">Export Summary</h4>
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 16px;">
+            <div><strong>Users:</strong> ${summary.users}</div>
+            <div><strong>Units:</strong> ${summary.units}</div>
+            <div><strong>Progress Records:</strong> ${summary.progressEntries}</div>
+            <div><strong>Video Files:</strong> ${summary.videoMetadata}</div>
+            <div><strong>Format:</strong> ${format.toUpperCase()}</div>
+            <div><strong>Size:</strong> ${dataSizeFormatted}</div>
+          </div>
+        </div>
+        
+        <div class="preview-tabs" style="display: flex; border-bottom: 1px solid #ddd; margin-bottom: 16px;">
+          ${exportData.users ? '<button class="preview-tab-btn active" data-tab="users">Users</button>' : ''}
+          ${exportData.units ? '<button class="preview-tab-btn" data-tab="units">Units</button>' : ''}
+          ${exportData.progress ? '<button class="preview-tab-btn" data-tab="progress">Progress</button>' : ''}
+          ${exportData.analytics ? '<button class="preview-tab-btn" data-tab="analytics">Analytics</button>' : ''}
+          ${exportData.videoMetadata ? '<button class="preview-tab-btn" data-tab="videos">Videos</button>' : ''}
+          <button class="preview-tab-btn" data-tab="raw">Raw Data</button>
+        </div>
+        
+        <div class="preview-content" style="max-height: 400px; overflow-y: auto; border: 1px solid #ddd; border-radius: 4px; padding: 12px; background: #fff;">
+          <div id="preview-panel" style="font-family: monospace; font-size: 12px; white-space: pre-wrap;"></div>
+        </div>
+        
+        <div class="preview-actions" style="margin-top: 20px; display: flex; gap: 12px; justify-content: center;">
+          <button class="action-btn" onclick="downloadPreviewedData()">
+            <span class="material-icons" style="margin-right: 8px;">download</span>
+            Export Data
+          </button>
+          <button class="action-btn secondary" onclick="viewRawData()">
+            <span class="material-icons" style="margin-right: 8px;">code</span>
+            View Full JSON
+          </button>
+          <button class="action-btn secondary" onclick="closeModal('dataPreviewModal')">
+            <span class="material-icons" style="margin-right: 8px;">close</span>
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
+  `;
+  
+  document.body.appendChild(modal);
+  document.body.style.overflow = 'hidden';
+  
+  // Store export data globally for download
+  window.previewExportData = exportData;
+  window.previewExportFormat = format;
+  
+  // Setup tab functionality
+  setupPreviewTabs();
+  
+  // Show first available tab
+  const firstTab = modal.querySelector('.preview-tab-btn');
+  if (firstTab) {
+    firstTab.click();
+  }
+}
+
+function setupPreviewTabs() {
+  const tabButtons = document.querySelectorAll('.preview-tab-btn');
+  
+  tabButtons.forEach(button => {
+    button.style.cssText = 'padding: 8px 16px; border: none; background: transparent; cursor: pointer; border-bottom: 2px solid transparent;';
+    
+    button.addEventListener('click', () => {
+      // Remove active class from all tabs
+      tabButtons.forEach(btn => {
+        btn.classList.remove('active');
+        btn.style.borderBottomColor = 'transparent';
+        btn.style.backgroundColor = 'transparent';
+      });
+      
+      // Add active class to clicked tab
+      button.classList.add('active');
+      button.style.borderBottomColor = '#6c4fc1';
+      button.style.backgroundColor = '#f8f9fa';
+      
+      // Show corresponding content
+      showPreviewTab(button.dataset.tab);
+    });
+  });
+}
+
+function showPreviewTab(tabName) {
+  const panel = document.getElementById('preview-panel');
+  const data = window.previewExportData;
+  
+  switch(tabName) {
+    case 'users':
+      panel.textContent = formatPreviewData('Users Data', data.users);
+      break;
+    case 'units':
+      panel.textContent = formatPreviewData('Units Data', data.units);
+      break;
+    case 'progress':
+      panel.textContent = formatPreviewData('Progress Data', data.progress);
+      break;
+    case 'analytics':
+      panel.textContent = formatPreviewData('Analytics Data', data.analytics);
+      break;
+    case 'videos':
+      panel.textContent = formatPreviewData('Video Metadata', data.videoMetadata);
+      break;
+    case 'raw':
+      panel.textContent = JSON.stringify(data, null, 2);
+      break;
+  }
+}
+
+function formatPreviewData(title, data) {
+  if (!data) return `${title}: No data available`;
+  
+  let formatted = `${title}:\n\n`;
+  
+  if (typeof data === 'object') {
+    const keys = Object.keys(data);
+    formatted += `Total entries: ${keys.length}\n\n`;
+    
+    // Show first few entries as samples
+    const sampleCount = Math.min(3, keys.length);
+    for (let i = 0; i < sampleCount; i++) {
+      const key = keys[i];
+      formatted += `Sample ${i + 1} - "${key}":\n`;
+      formatted += JSON.stringify(data[key], null, 2);
+      formatted += '\n\n';
+    }
+    
+    if (keys.length > sampleCount) {
+      formatted += `... and ${keys.length - sampleCount} more entries`;
+    }
+  } else {
+    formatted += JSON.stringify(data, null, 2);
+  }
+  
+  return formatted;
+}
+
+function downloadPreviewedData() {
+  const data = window.previewExportData;
+  const format = window.previewExportFormat;
+  
+  if (data && format) {
+    downloadExportedData(data, format);
+    NotificationManager.showToast(`Data exported in ${format} format`);
+    closeModal('dataPreviewModal');
+  }
+}
+
+function viewRawData() {
+  const data = window.previewExportData;
+  
+  // Create full data view modal
+  const modal = document.createElement('div');
+  modal.className = 'modal';
+  modal.id = 'rawDataModal';
+  modal.style.display = 'flex';
+  
+  modal.innerHTML = `
+    <div class="modal-content" style="max-width: 1200px; width: 95%; max-height: 90vh;">
+      <div class="modal-header">
+        <h3 class="modal-title">Raw Data View</h3>
+        <button class="modal-close" onclick="closeModal('rawDataModal')" style="width: 15%;">&times;</button>
+      </div>
+      
+      <div style="padding: 20px;">
+        <div style="margin-bottom: 16px;">
+          <button class="action-btn secondary" onclick="copyRawData()" style="margin-right: 8px;">
+            <span class="material-icons" style="margin-right: 4px;">content_copy</span>
+            Copy to Clipboard
+          </button>
+          <button class="action-btn secondary" onclick="downloadPreviewedData()">
+            <span class="material-icons" style="margin-right: 4px;">download</span>
+            Download
+          </button>
+        </div>
+        
+        <div style="max-height: 70vh; overflow: auto; border: 1px solid #ddd; border-radius: 4px; padding: 16px; background: #f8f9fa;">
+          <pre style="margin: 0; font-family: 'Courier New', monospace; font-size: 12px; white-space: pre-wrap;" id="rawDataContent">${JSON.stringify(data, null, 2)}</pre>
+        </div>
+      </div>
+    </div>
+  `;
+  
+  document.body.appendChild(modal);
+}
+
+function copyRawData() {
+  const content = document.getElementById('rawDataContent').textContent;
+  navigator.clipboard.writeText(content).then(() => {
+    NotificationManager.showToast('Data copied to clipboard');
+  }).catch(err => {
+    console.error('Failed to copy data:', err);
+    NotificationManager.showToast('Failed to copy data');
+  });
+}
+
+function viewAllData() {
+  NotificationManager.showToast('Loading all data for viewing...');
+  
+  // Load all data from Firebase
+  const dataPromises = [
+    db.ref('users').once('value'),
+    db.ref('units').once('value'),
+    db.ref('progress').once('value')
+  ];
+  
+  Promise.all(dataPromises).then(([usersSnapshot, unitsSnapshot, progressSnapshot]) => {
+    const allData = {
+      exportDate: new Date().toISOString(),
+      users: usersSnapshot.val() || {},
+      units: unitsSnapshot.val() || {},
+      progress: progressSnapshot.val() || {},
+      analytics: {
+        generatedAt: new Date().toISOString(),
+        totalUsers: Object.keys(usersSnapshot.val() || {}).length,
+        totalUnits: Object.keys(unitsSnapshot.val() || {}).length,
+        summary: 'All available data from the database'
+      }
+    };
+    
+    // Add video metadata
+    const units = unitsSnapshot.val() || {};
+    const videoMetadata = {};
+    Object.entries(units).forEach(([unitKey, unitData]) => {
+      videoMetadata[unitKey] = {};
+      
+      if (unitData.lessons) {
+        Object.entries(unitData.lessons).forEach(([lessonKey, lessonData]) => {
+          if (lessonData.videoURL || lessonData.videoFile) {
+            videoMetadata[unitKey][lessonKey] = {
+              title: lessonData.title,
+              videoFile: lessonData.videoFile,
+              videoURL: lessonData.videoURL,
+              thumbnail: lessonData.thumbnail || lessonData.thumbnailURL,
+              createdAt: lessonData.createdAt
+            };
+          }
+        });
+      }
+      
+      Object.entries(unitData).forEach(([lessonKey, lessonData]) => {
+        if (lessonKey.startsWith('Lesson-') && lessonData && lessonData.videoURL) {
+          videoMetadata[unitKey][lessonKey] = {
+            description: lessonData.description,
+            videoURL: lessonData.videoURL,
+            thumbnailURL: lessonData.thumbnailURL
+          };
+        }
+      });
+    });
+    
+    allData.videoMetadata = videoMetadata;
+    
+    // Show data preview
+    showDataPreview(allData, 'json');
+    closeModal('exportModal');
+  }).catch(error => {
+    console.error('Error loading data:', error);
+    NotificationManager.showToast('Error loading data: ' + error.message);
   });
 }
 
