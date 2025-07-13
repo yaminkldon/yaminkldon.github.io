@@ -440,32 +440,32 @@ function openAddLessonModal() {
   modal.innerHTML = `
     <div class="modal-content">
       <div class="modal-header">
-        <h3 class="modal-title">Add New Lesson</h3>
+        <h3 class="modal-title" data-translate="addLesson">Add Lesson</h3>
         <button class="modal-close" onclick="closeModal('addLessonModal')" style="width: 15%;">&times;</button>
       </div>
       <form id="addLessonForm">
         <div class="form-group">
-          <label class="form-label">Lesson Title</label>
+          <label class="form-label" data-translate="lessonTitle">Lesson Title</label>
           <input type="text" class="form-input" id="lessonTitle" required>
         </div>
         <div class="form-group">
-          <label class="form-label">Unit</label>
-          <select class="form-input" id="lessonUnit" required>
-            <option value="">Select a unit...</option>
-          </select>
-        </div>
-        <div class="form-group">
-          <label class="form-label">Description</label>
+          <label class="form-label" data-translate="lessonDescription">Lesson Description</label>
           <textarea class="form-textarea" id="lessonDescription" placeholder="Enter lesson description..."></textarea>
         </div>
         <div class="form-group">
-          <label class="form-label">Thumbnail (optional)</label>
+          <label class="form-label" data-translate="selectUnit">Select Unit</label>
+          <select class="form-input" id="lessonUnit" required>
+            <option value="">Choose a unit...</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label" data-translate="lessonThumbnail">Lesson Thumbnail (Optional)</label>
           <input type="file" class="form-input" id="lessonThumbnail" accept="image/*">
-          <small style="color: #666; font-size: 12px;">If no thumbnail is provided, one will be generated automatically</small>
+          <small class="form-help" data-translate="thumbnailHelp">If no thumbnail is uploaded, one will be generated automatically</small>
         </div>
         <div class="feature-actions">
-          <button type="submit" class="action-btn">Create Lesson</button>
-          <button type="button" class="action-btn secondary" onclick="closeModal('addLessonModal')">Cancel</button>
+          <button type="submit" class="action-btn" id="addLessonBtn" data-translate="addLesson">Add Lesson</button>
+          <button type="button" class="action-btn secondary" onclick="closeModal('addLessonModal')" data-translate="cancel">Cancel</button>
         </div>
       </form>
     </div>
@@ -2332,7 +2332,7 @@ function showReportPreview(reportData, reportType, format) {
       </div>
       
       <div class="report-preview-content" style="padding: 20px;">
-        <div class="report-summary" style="background: #f8f9fa; padding: 16px; border-radius: 8px; margin-bottom: 20px;">
+        <div class="report-summary" style="padding: 16px; border-radius: 8px; margin-bottom: 20px;">
           <h4 style="margin: 0 0 12px 0;">Report Summary</h4>
           <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 16px;">
             <div><strong>Total Users:</strong> ${totalUsers}</div>
@@ -2350,7 +2350,7 @@ function showReportPreview(reportData, reportType, format) {
           <button class="report-tab-btn" data-tab="all-users">All Users</button>
         </div>
         
-        <div class="report-content" style="max-height: 400px; overflow-y: auto; border: 1px solid #ddd; border-radius: 4px; padding: 12px; background: #f8f9fa;">
+        <div class="report-content" style="max-height: 400px; overflow-y: auto; border: 1px solid #ddd; border-radius: 4px; padding: 12px;">
           <div id="report-panel" style="font-family: monospace; font-size: 12px; white-space: pre-wrap;"></div>
         </div>
         

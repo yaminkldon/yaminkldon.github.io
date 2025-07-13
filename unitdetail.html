@@ -42,7 +42,7 @@
     .lessons-grid {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
-      gap: 20px;
+      gap: 30px;
       margin-bottom: 32px;
     }
     
@@ -50,7 +50,7 @@
     @media (max-width: 768px) {
       .lessons-grid {
         grid-template-columns: repeat(2, 1fr);
-        gap: 15px;
+        gap: 25px;
       }
     }
     
@@ -58,13 +58,14 @@
     @media (max-width: 480px) {
       .lessons-grid {
         grid-template-columns: 1fr;
-        gap: 15px;
+        gap: 20px;
       }
     }
     .lesson-card {
       background: #fff;
       border-radius: 12px;
       padding: 16px;
+      margin-bottom: 20px;
       box-shadow: 0 2px 8px rgba(0,0,0,0.08);
       cursor: pointer;
       transition: box-shadow 0.2s;
@@ -845,7 +846,7 @@
     z-index: 1000;
     user-select: none;
     pointer-events: none;
-  ">V3.3 Teacher</div>
+  ">V3</div>
 
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>

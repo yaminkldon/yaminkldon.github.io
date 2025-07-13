@@ -124,7 +124,9 @@ class AdvancedFeatures {
         videoDescription: 'Video Description',
         selectUnit: 'Select Unit',
         videoFile: 'Video File',
-        dragDropVideo: 'Drag & drop video file or click to browse'
+        dragDropVideo: 'Drag & drop video file or click to browse',
+        videoThumbnail: 'Video Thumbnail (Optional)',
+        thumbnailHelp: 'Upload a thumbnail image for the video (optional)'
       },
       ar: {
         home: 'الرئيسية',
@@ -231,7 +233,9 @@ class AdvancedFeatures {
         videoDescription: 'وصف الفيديو',
         selectUnit: 'اختر وحدة',
         videoFile: 'ملف الفيديو',
-        dragDropVideo: 'اسحب وأفلت ملف الفيديو أو انقر للتصفح'
+        dragDropVideo: 'اسحب وأفلت ملف الفيديو أو انقر للتصفح',
+        videoThumbnail: 'صورة مصغرة للفيديو (اختياري)',
+        thumbnailHelp: 'إذا لم يتم تحميل صورة مصغرة، فسيتم إنشاء واحدة تلقائيًا'
       }
     };
     
