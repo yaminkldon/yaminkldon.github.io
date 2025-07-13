@@ -16,6 +16,17 @@
     body.dark-mode .drawer li { color: #fff; }
     body.dark-mode .drawer li:hover { background: #333; }
     body.dark-mode #home-fragment-msg { color: #fff !important; }
+    
+    /* Loading spinner animation */
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    
+    /* Dark mode for loading overlay */
+    body.dark-mode #loading-overlay {
+      background: #1a1a1a !important;
+    }
     .appbar {
       height: 56px;
       background: #6c4fc1;
@@ -381,10 +392,52 @@ body.dark-mode .search-result-description {
   </style>
 </head>
 <body>
-  <div class="appbar">
-    <span class="material-icons" onclick="toggleDrawer()" style="z-index:1101;position:relative;">menu</span>
-    <span style="font-size:1.2em;flex:1;" data-translate="home">Home</span>
+  <!-- Loading overlay that shows first -->
+  <div id="loading-overlay" style="
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: #f7f4fb;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 10000;
+    transition: opacity 0.5s ease;
+  ">
+    <div style="display: flex; flex-direction: column; align-items: center; gap: 24px;">
+      <div style="
+        width: 60px;
+        height: 60px;
+        border: 4px solid #e0e0e0;
+        border-top: 4px solid #6c4fc1;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+      "></div>
+      <div style="
+        font-size: 18px;
+        color: #6c4fc1;
+        font-weight: 500;
+        text-align: center;
+      " data-translate="loadingApp">Loading Application...</div>
+      <div style="
+        font-size: 14px;
+        color: #666;
+        text-align: center;
+        max-width: 300px;
+        line-height: 1.4;
+      " id="loading-status">Initializing settings and content...</div>
+    </div>
   </div>
+
+  <!-- Main app content (hidden initially) -->
+  <div id="main-app" style="opacity: 0; transition: opacity 0.5s ease;">
+    <div class="appbar">
+      <span class="material-icons" onclick="toggleDrawer()" style="z-index:1101;position:relative;">menu</span>
+      <span style="font-size:1.2em;flex:1;" data-translate="home">Home</span>
+    </div>
   <div class="drawer-backdrop" id="drawer-backdrop" onclick="closeDrawer()"></div>
   <nav class="drawer" id="drawer">
     <ul id="units-list">
@@ -460,7 +513,175 @@ body.dark-mode .search-result-description {
   <script src="advanced-features.js"></script>
   <script src="mainpage.js"></script>
   <script>
+    // Initialize app with preloading
+    let isAppInitialized = false;
+    
+    function updateLoadingStatus(message) {
+      const statusElement = document.getElementById('loading-status');
+      if (statusElement) {
+        statusElement.textContent = message;
+      }
+    }
+    
+    async function initializeApp() {
+      try {
+        updateLoadingStatus('Checking authentication...');
+        
+        // Wait for Firebase to initialize
+        await new Promise(resolve => {
+          if (window.firebase && window.db) {
+            resolve();
+          } else {
+            const checkFirebase = setInterval(() => {
+              if (window.firebase && window.db) {
+                clearInterval(checkFirebase);
+                resolve();
+              }
+            }, 100);
+          }
+        });
+        
+        updateLoadingStatus('Loading user settings...');
+        
+        // Load user settings first
+        await loadUserSettings();
+        
+        updateLoadingStatus('Loading course content...');
+        
+        // Load units and content
+        await loadUnitsData();
+        
+        updateLoadingStatus('Applying preferences...');
+        
+        // Apply any saved preferences (theme, language, etc.)
+        await applyUserPreferences();
+        
+        updateLoadingStatus('Finalizing setup...');
+        
+        // Small delay to ensure everything is loaded
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+        // Hide loading overlay and show main app
+        showMainApp();
+        
+        isAppInitialized = true;
+        
+      } catch (error) {
+        console.error('App initialization error:', error);
+        updateLoadingStatus('Error loading application. Please refresh the page.');
+      }
+    }
+    
+    function loadUserSettings() {
+      return new Promise((resolve) => {
+        // Load user preferences and settings
+        const userId = UserManager.getCurrentUserId();
+        if (userId && window.db) {
+          window.db.ref(`users/${userId}/settings`).once('value')
+            .then(snapshot => {
+              const settings = snapshot.val();
+              if (settings) {
+                // Apply settings like theme, language, etc.
+                if (settings.theme === 'dark') {
+                  document.body.classList.add('dark-mode');
+                }
+                if (settings.language) {
+                  // Apply language if translation system is available
+                  LanguageManager?.setLanguage(settings.language);
+                }
+              }
+              resolve();
+            })
+            .catch(() => resolve()); // Continue even if settings fail to load
+        } else {
+          resolve();
+        }
+      });
+    }
+    
+    function loadUnitsData() {
+      return new Promise((resolve) => {
+        if (window.db) {
+          window.db.ref('units').once('value')
+            .then(snapshot => {
+              const units = snapshot.val();
+              if (units) {
+                // Store units data globally for immediate access
+                window.unitsData = units;
+                // Populate the drawer menu
+                populateUnitsMenu(units);
+              }
+              resolve();
+            })
+            .catch(() => resolve()); // Continue even if units fail to load
+        } else {
+          resolve();
+        }
+      });
+    }
+    
+    function populateUnitsMenu(units) {
+      const unitsList = document.getElementById('units-list');
+      if (!unitsList) return;
+      
+      // Remove existing unit items (keep static items)
+      const staticItems = unitsList.querySelectorAll('[data-static="true"]');
+      unitsList.innerHTML = '';
+      
+      // Re-add static items
+      staticItems.forEach(item => unitsList.appendChild(item));
+      
+      // Add units
+      Object.keys(units).forEach(unitKey => {
+        const unit = units[unitKey];
+        const li = document.createElement('li');
+        li.onclick = () => openUnit(unitKey);
+        li.innerHTML = `
+          <span class="material-icons" style="vertical-align: middle; margin-right: 12px;">folder</span>
+          <span>${unit.name || unitKey}</span>
+        `;
+        unitsList.appendChild(li);
+      });
+    }
+    
+    function applyUserPreferences() {
+      return new Promise((resolve) => {
+        // Apply any additional preferences
+        // This can include saved scroll positions, last visited unit, etc.
+        resolve();
+      });
+    }
+    
+    function showMainApp() {
+      const loadingOverlay = document.getElementById('loading-overlay');
+      const mainApp = document.getElementById('main-app');
+      
+      if (loadingOverlay && mainApp) {
+        // Fade out loading overlay
+        loadingOverlay.style.opacity = '0';
+        
+        setTimeout(() => {
+          loadingOverlay.style.display = 'none';
+          // Fade in main app
+          mainApp.style.opacity = '1';
+          
+          // Initialize main page functionality if it exists
+          if (typeof initializeMainPage === 'function') {
+            initializeMainPage();
+          }
+        }, 500);
+      }
+    }
+    
+    // Start initialization when DOM is ready
+    document.addEventListener('DOMContentLoaded', function() {
+      // Small delay to ensure all scripts are loaded
+      setTimeout(initializeApp, 100);
+    });
+    
+    // Drawer functions (moved here to ensure they're available immediately)
     function openDrawer() {
+      if (!isAppInitialized) return;
       document.getElementById('drawer').classList.add('open');
       document.getElementById('drawer-backdrop').style.display = 'block';
     }
@@ -469,21 +690,24 @@ body.dark-mode .search-result-description {
       document.getElementById('drawer-backdrop').style.display = 'none';
     }
     function toggleDrawer() {
-  const drawer = document.getElementById('drawer');
-  const backdrop = document.getElementById('drawer-backdrop');
-  if (drawer.classList.contains('open')) {
-    drawer.classList.remove('open');
-    backdrop.style.display = 'none';
-  } else {
-    drawer.classList.add('open');
-    backdrop.style.display = 'block';
-  }
-}
+      if (!isAppInitialized) return;
+      const drawer = document.getElementById('drawer');
+      const backdrop = document.getElementById('drawer-backdrop');
+      if (drawer.classList.contains('open')) {
+        drawer.classList.remove('open');
+        backdrop.style.display = 'none';
+      } else {
+        drawer.classList.add('open');
+        backdrop.style.display = 'block';
+      }
+    }
     function onFabClick() {
+      if (!isAppInitialized) return;
       // Example: open mail or show a message
       alert("FAB clicked!");
     }
   </script>
+  </div> <!-- End main-app -->
   
   <!-- Version Indicator -->
   <div id="version-indicator" style="
@@ -499,6 +723,6 @@ body.dark-mode .search-result-description {
     z-index: 1000;
     user-select: none;
     pointer-events: none;
-  ">V3</div>
+  ">V4</div>
 </body>
 </html>
