@@ -599,7 +599,6 @@ function generateReport() {
         <div class="form-group">
           <label class="form-label">Format</label>
           <select id="reportFormat" class="form-input">
-            <option value="pdf">PDF</option>
             <option value="json">JSON</option>
             <option value="csv">CSV</option>
           </select>
@@ -1543,10 +1542,12 @@ function generateUserProgressReport(users, units, progress, options) {
       }
     };
     
-    // Calculate total available lessons across all units (using progress.js logic)
+    // Calculate total available lessons using progress.js logic
     let totalAvailableLessons = 0;
-    Object.values(units).forEach(unit => {
-      // Count lessons directly under unit (not under unit.lessons)
+    Object.keys(units).forEach(unitId => {
+      const unit = units[unitId];
+      
+      // Count lessons directly under unit (not under unit.lessons) - progress.js logic
       Object.keys(unit).forEach(key => {
         const item = unit[key];
         // Check if this is a lesson (has videoURL or videoFile)
@@ -1558,38 +1559,62 @@ function generateUserProgressReport(users, units, progress, options) {
     
     Object.entries(users).forEach(([userId, userData]) => {
       const userProgress = progress[userId] || {};
+      
+      // Calculate completed lessons using progress.js logic
+      let completedLessons = 0;
+      Object.keys(units).forEach(unitId => {
+        const unit = units[unitId];
+        
+        // Count lessons directly under unit
+        Object.keys(unit).forEach(key => {
+          const item = unit[key];
+          // Check if this is a lesson (has videoURL or videoFile)
+          if (item && typeof item === 'object' && (item.videoURL || item.videoFile)) {
+            // Check if this lesson is completed - progress.js logic
+            if (userProgress[unitId] && userProgress[unitId][key] && userProgress[unitId][key].completed) {
+              completedLessons++;
+            }
+          }
+        });
+      });
+      
+      // Calculate completion percentage using progress.js logic
+      const completionRate = totalAvailableLessons > 0 ? Math.round((completedLessons / totalAvailableLessons) * 100) : 0;
+      
+      // Calculate streak using progress.js logic
+      let streak = 0;
+      if (userProgress.lastStudyDates && Array.isArray(userProgress.lastStudyDates)) {
+        const dates = userProgress.lastStudyDates.sort().reverse();
+        let currentDate = new Date();
+        currentDate.setHours(0, 0, 0, 0);
+        
+        for (let i = 0; i < dates.length; i++) {
+          const studyDate = new Date(dates[i]);
+          studyDate.setHours(0, 0, 0, 0);
+          
+          const diffDays = Math.floor((currentDate - studyDate) / (1000 * 60 * 60 * 24));
+          
+          if (diffDays === streak) {
+            streak++;
+            currentDate.setDate(currentDate.getDate() - 1);
+          } else {
+            break;
+          }
+        }
+      }
+      
       const userDetail = {
         email: userData.email,
         type: userData.type,
         expiration: userData.expirationDate ? new Date(userData.expirationDate).toLocaleDateString() : 'No expiration',
         unitsStarted: Object.keys(userProgress).filter(key => key !== 'lastStudyDates').length,
-        lastStudyDates: ''
+        completionRate: completionRate,
+        totalLessons: totalAvailableLessons,
+        completedLessons: completedLessons,
+        studyStreak: streak,
+        lastStudyDates: userProgress.lastStudyDates && Array.isArray(userProgress.lastStudyDates) ? 
+          userProgress.lastStudyDates.slice(-3).join(', ') : 'No study dates'
       };
-      
-      // Get last study dates (using progress.js logic)
-      if (userProgress.lastStudyDates && Array.isArray(userProgress.lastStudyDates)) {
-        userDetail.lastStudyDates = userProgress.lastStudyDates.slice(-3).join(', '); // Show last 3 dates
-      } else {
-        userDetail.lastStudyDates = 'No study dates';
-      }
-      
-      // Calculate completion stats for this user
-      let completedLessons = 0;
-      
-      // Count completed lessons for this user
-      Object.entries(userProgress).forEach(([unitKey, unitProgress]) => {
-        if (unitKey !== 'lastStudyDates' && typeof unitProgress === 'object') {
-          Object.entries(unitProgress).forEach(([lessonKey, lessonData]) => {
-            if (lessonData && lessonData.completed === true) {
-              completedLessons++;
-            }
-          });
-        }
-      });
-      
-      userDetail.completionRate = totalAvailableLessons > 0 ? Math.round((completedLessons / totalAvailableLessons) * 100) : 0;
-      userDetail.totalLessons = totalAvailableLessons;
-      userDetail.completedLessons = completedLessons;
       
       report.data.userDetails.push(userDetail);
     });
@@ -1779,13 +1804,6 @@ function downloadReport(reportData, reportType, format) {
       filename = `${reportType}_report_${new Date().toISOString().split('T')[0]}.csv`;
       break;
       
-    case 'pdf':
-      // Create a formatted text version for PDF (text/plain instead of application/pdf)
-      const pdfData = convertToPDFText(reportData);
-      blob = new Blob([pdfData], {type: 'text/plain'});
-      filename = `${reportType}_report_${new Date().toISOString().split('T')[0]}.txt`;
-      break;
-      
     default:
       blob = new Blob([JSON.stringify(reportData, null, 2)], {type: 'application/json'});
       filename = `${reportType}_report_${new Date().toISOString().split('T')[0]}.json`;
@@ -1804,17 +1822,17 @@ function convertToCSV(data) {
   
   if (data.data && data.data.userDetails) {
     csv += `${data.title}\n`;
-    csv += 'Email,Type,Expiration,Units Started,Completion Rate,Total Lessons,Completed Lessons,Last Study Dates\n';
+    csv += 'Email,Type,Expiration,Units Started,Completion Rate,Total Lessons,Completed Lessons,Study Streak,Last Study Dates\n';
     
     data.data.userDetails.forEach(user => {
-      csv += `"${user.email}","${user.type}","${user.expiration}",${user.unitsStarted},${user.completionRate}%,${user.totalLessons},${user.completedLessons},"${user.lastStudyDates}"\n`;
+      csv += `"${user.email}","${user.type}","${user.expiration}",${user.unitsStarted},${user.completionRate}%,${user.totalLessons},${user.completedLessons},${user.studyStreak || 0},"${user.lastStudyDates}"\n`;
     });
   } else if (data.userProgress && data.userProgress.userDetails) {
     csv += 'User Progress Report\n';
-    csv += 'Email,Type,Expiration,Units Started,Completion Rate,Total Lessons,Completed Lessons,Last Study Dates\n';
+    csv += 'Email,Type,Expiration,Units Started,Completion Rate,Total Lessons,Completed Lessons,Study Streak,Last Study Dates\n';
     
     data.userProgress.userDetails.forEach(user => {
-      csv += `"${user.email}","${user.type}","${user.expiration}",${user.unitsStarted},${user.completionRate}%,${user.totalLessons},${user.completedLessons},"${user.lastStudyDates}"\n`;
+      csv += `"${user.email}","${user.type}","${user.expiration}",${user.unitsStarted},${user.completionRate}%,${user.totalLessons},${user.completedLessons},${user.studyStreak || 0},"${user.lastStudyDates}"\n`;
     });
   }
   
@@ -1830,34 +1848,6 @@ function convertToText(data) {
   }
   
   text += JSON.stringify(data, null, 2);
-  return text;
-}
-
-function convertToPDFText(data) {
-  let text = '';
-  
-  if (data.title) {
-    text += `${data.title}\n`;
-    text += `Generated: ${data.generatedAt}\n`;
-    text += '='.repeat(50) + '\n\n';
-  }
-  
-  if (data.data && data.data.userDetails) {
-    text += 'USER PROGRESS DETAILS:\n';
-    text += '-'.repeat(30) + '\n';
-    
-    data.data.userDetails.forEach((user, index) => {
-      text += `${index + 1}. ${user.email}\n`;
-      text += `   Type: ${user.type}\n`;
-      text += `   Expiration: ${user.expiration}\n`;
-      text += `   Units Started: ${user.unitsStarted}\n`;
-      text += `   Completion Rate: ${user.completionRate}%\n`;
-      text += `   Total Lessons: ${user.totalLessons}\n`;
-      text += `   Completed Lessons: ${user.completedLessons}\n`;
-      text += `   Last Study Dates: ${user.lastStudyDates}\n\n`;
-    });
-  }
-  
   return text;
 }
 
