@@ -24,6 +24,10 @@ class AdvancedFeatures {
         settings: 'Settings',
         progress: 'Progress',
         search: 'Search',
+        unitDetail: 'Unit Detail',
+        lessons: 'Lessons',
+        loading: 'Loading...',
+        yourProgress: 'Your Progress',
         difficulty: 'Difficulty',
         duration: 'Duration',
         topic: 'Topic',
@@ -52,6 +56,10 @@ class AdvancedFeatures {
         settings: 'الإعدادات',
         progress: 'التقدم',
         search: 'البحث',
+        unitDetail: 'تفاصيل الوحدة',
+        lessons: 'الدروس',
+        loading: 'جاري التحميل...',
+        yourProgress: 'تقدمك',
         difficulty: 'الصعوبة',
         duration: 'المدة',
         topic: 'الموضوع',
@@ -176,7 +184,7 @@ class AdvancedFeatures {
   applyFontSize(size) {
     if (!this.fontSizes[size]) return;
     
-    document.documentElement.style.setProperty('--base-font-size', this.fontSizes[size]);
+    document.documentElement.style.setProperty('font-size', this.fontSizes[size]);
     this.currentFontSize = size;
     localStorage.setItem('fontSize', size);
   }

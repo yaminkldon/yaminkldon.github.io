@@ -585,11 +585,11 @@
 <body>
   <div class="appbar">
     <span class="material-icons" onclick="goBack()">arrow_back</span>
-    <span style="font-size:1.2em;flex:1;" id="unit-title-header">Unit Detail</span>
+    <span style="font-size:1.2em;flex:1;" id="unit-title-header" data-translate="unitDetail">Unit Detail</span>
   </div>
 
   <div class="main-content">
-    <h1 class="unit-title" id="unit-title">Loading...</h1>
+    <h1 class="unit-title" id="unit-title" data-translate="loading">Loading...</h1>
     <div class="lessons-grid" id="lessons-grid"></div>
     
     <div class="video-container" id="video-container">
@@ -704,7 +704,7 @@
     z-index: 1000;
     user-select: none;
     pointer-events: none;
-  ">V2.1</div>
+  ">V2.2</div>
 
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
