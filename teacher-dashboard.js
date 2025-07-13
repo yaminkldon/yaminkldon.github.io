@@ -520,7 +520,7 @@ function viewAllUsers() {
         
         <div class="users-table" style="max-height: 400px; overflow-y: auto; border: 1px solid #ddd; border-radius: 8px;">
           <table style="width: 100%; border-collapse: collapse;">
-            <thead style="background: #f8f9fa; position: sticky; top: 0;">
+            <thead style="position: sticky; top: 0;">
               <tr>
                 <th style="padding: 12px; border-bottom: 1px solid #ddd; text-align: left;">Email</th>
                 <th style="padding: 12px; border-bottom: 1px solid #ddd; text-align: left;">Status</th>
