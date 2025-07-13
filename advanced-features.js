@@ -76,16 +76,13 @@ class AdvancedFeatures {
         completionRate: 'معدل الإكمال'
       }
     };
+    
+    // Apply current language settings
+    this.updateUITexts();
   }
 
   translate(key) {
     return this.translations[this.currentLanguage][key] || key;
-  }
-
-  setLanguage(language) {
-    this.currentLanguage = language;
-    localStorage.setItem('preferredLanguage', language);
-    this.updateUITexts();
   }
 
   updateUITexts() {
