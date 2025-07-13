@@ -48,11 +48,25 @@
         window.location.href = "index.html";
         return;
       }
-      db.ref('users/' + user.uid).once('value').then(snap => {
-        if (!snap.exists() || snap.val().type !== 'teacher') {
+      
+      // Search for user by email in database
+      db.ref('users').orderByChild('email').equalTo(user.email).once('value').then(snapshot => {
+        if (!snapshot.exists()) {
+          alert('User not found in database.');
+          window.location.href = "mainpage.html";
+          return;
+        }
+        
+        // Get the first (and should be only) matching user
+        const userData = Object.values(snapshot.val())[0];
+        if (!userData || userData.type !== 'teacher') {
           alert('Access denied. Teachers only.');
           window.location.href = "mainpage.html";
         }
+      }).catch(error => {
+        console.error('Error checking user type:', error);
+        alert('Error verifying access permissions.');
+        window.location.href = "mainpage.html";
       });
     });
 
