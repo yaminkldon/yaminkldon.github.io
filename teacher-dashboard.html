@@ -448,6 +448,20 @@
         </div>
       </div>
 
+      <!-- Token Generation -->
+      <div class="feature-card" onclick="openTokenGeneration()">
+        <div class="feature-icon">
+          <span class="material-icons">vpn_key</span>
+        </div>
+        <h3 class="feature-title" data-translate="tokenGeneration">Token Generation</h3>
+        <p class="feature-description" data-translate="tokenGenerationDesc">Generate access tokens for temporary user authentication.</p>
+        <div class="feature-actions">
+          <button class="action-btn" onclick="event.stopPropagation(); openGenerateTokenModal()" data-translate="generateToken">Generate Token</button>
+          <button class="action-btn secondary" onclick="event.stopPropagation(); viewAllTokens()" data-translate="viewTokens">View Tokens</button>
+          <button class="action-btn secondary" onclick="event.stopPropagation(); manageTokens()" data-translate="manageTokens">Manage Tokens</button>
+        </div>
+      </div>
+
       <!-- Settings -->
       <div class="feature-card" onclick="openTeacherSettings()">
         <div class="feature-icon">
@@ -576,6 +590,40 @@
           <button type="button" class="action-btn secondary" onclick="closeModal('uploadVideoModal')" data-translate="cancel">Cancel</button>
         </div>
       </form>
+    </div>
+  </div>
+
+  <!-- Generate Token Modal -->
+  <div id="generateTokenModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 class="modal-title" data-translate="generateToken">Generate Token</h3>
+        <button class="modal-close" onclick="closeModal('generateTokenModal')" style="width: 15%;">&times;</button>
+      </div>
+      <form id="generateTokenForm">
+        <div class="form-group">
+          <label class="form-label" data-translate="tokenDuration">Token Duration (Days)</label>
+          <input type="number" class="form-input" id="tokenDuration" min="1" max="365" value="30" required>
+          <small class="form-help" data-translate="tokenDurationHelp">Enter the number of days this token should remain valid</small>
+        </div>
+        <div class="feature-actions">
+          <button type="submit" class="action-btn" data-translate="generateToken">Generate Token</button>
+          <button type="button" class="action-btn secondary" onclick="closeModal('generateTokenModal')" data-translate="cancel">Cancel</button>
+        </div>
+      </form>
+      
+      <!-- Token Display Area -->
+      <div id="tokenDisplay" style="display: none; margin-top: 20px; padding: 16px; background: #f8f9fa; border-radius: 8px; border: 1px solid #e0e0e0;">
+        <h4 style="margin-top: 0; color: #28a745;">Token Generated Successfully!</h4>
+        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
+          <input type="text" id="generatedToken" readonly style="flex: 1; padding: 8px; border: 1px solid #ddd; border-radius: 4px; background: #fff; font-family: monospace;">
+          <button onclick="copyToken()" class="action-btn secondary" style="padding: 8px 12px;">Copy</button>
+        </div>
+        <p style="margin: 0; font-size: 14px; color: #666;">
+          <strong>Expires:</strong> <span id="tokenExpiry"></span><br>
+          <small>Save this token securely. It cannot be retrieved again once this dialog is closed.</small>
+        </p>
+      </div>
     </div>
   </div>
 

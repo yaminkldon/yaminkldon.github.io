@@ -619,15 +619,14 @@ function exportData() {
       <div class="modal-header">
         <h3 class="modal-title">Export Data</h3>
         <button class="modal-close" onclick="closeModal('exportModal')" style="width: 15%;">&times;</button>
-      </div>
-      
-      <div class="export-options">
+      </div>        <div class="export-options">
         <div class="form-group">
           <label class="form-label">Data to Export</label>
           <div class="checkbox-group">
             <label><input type="checkbox" id="exportUsers" checked> User Data</label><br>
             <label><input type="checkbox" id="exportUnits" checked> Units & Lessons</label><br>
             <label><input type="checkbox" id="exportProgress" checked> User Progress</label><br>
+            <label><input type="checkbox" id="exportTokens" checked> Tokens</label><br>
             <label><input type="checkbox" id="exportAnalytics"> Analytics Data</label><br>
             <label><input type="checkbox" id="exportVideos"> Video Metadata</label>
           </div>
@@ -848,6 +847,15 @@ document.addEventListener('DOMContentLoaded', function() {
   
   // File upload handling
   setupFileUpload();
+  
+  // Generate Token Form
+  const generateTokenForm = document.getElementById('generateTokenForm');
+  if (generateTokenForm) {
+    generateTokenForm.addEventListener('submit', function(e) {
+      e.preventDefault();
+      generateNewToken();
+    });
+  }
 });
 
 function addNewUser() {
@@ -1137,6 +1145,731 @@ function resetUploadForm() {
 
 function generateDeviceId() {
   return 'web-' + Math.random().toString(36).substr(2, 10);
+}
+
+// Token Generation Functions
+function openTokenGeneration() {
+  console.log('Opening Token Generation');
+  openGenerateTokenModal();
+}
+
+function manageTokens() {
+  console.log('Managing Tokens');
+  
+  // Create token management modal
+  const modal = document.createElement('div');
+  modal.className = 'modal';
+  modal.id = 'manageTokensModal';
+  modal.style.display = 'flex';
+  
+  modal.innerHTML = `
+    <div class="modal-content" style="max-width: 900px; width: 95%;">
+      <div class="modal-header">
+        <h3 class="modal-title">Token Management</h3>
+        <button class="modal-close" onclick="closeModal('manageTokensModal')" style="width: 15%;">&times;</button>
+      </div>
+      
+      <div class="token-management-tools">
+        <div class="feature-actions" style="margin-bottom: 20px;">
+          <button class="action-btn" onclick="openGenerateTokenModal(); closeModal('manageTokensModal')">Generate New Token</button>
+          <button class="action-btn secondary" onclick="refreshTokensManagement()">Refresh List</button>
+          <button class="action-btn secondary" onclick="exportTokensData()">Export Tokens</button>
+          <button class="action-btn secondary" onclick="bulkTokenActions()">Bulk Actions</button>
+        </div>
+        
+        <div class="token-stats" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 16px; margin-bottom: 20px;">
+          <div class="stat-card" style="padding: 12px; text-align: center;">
+            <div class="stat-number" id="totalTokensCount">0</div>
+            <div class="stat-label">Total Tokens</div>
+          </div>
+          <div class="stat-card" style="padding: 12px; text-align: center;">
+            <div class="stat-number" id="activeTokensCount">0</div>
+            <div class="stat-label">Active Tokens</div>
+          </div>
+          <div class="stat-card" style="padding: 12px; text-align: center;">
+            <div class="stat-number" id="usedTokensCount">0</div>
+            <div class="stat-label">Used Tokens</div>
+          </div>
+          <div class="stat-card" style="padding: 12px; text-align: center;">
+            <div class="stat-number" id="expiredTokensCount">0</div>
+            <div class="stat-label">Expired Tokens</div>
+          </div>
+        </div>
+        
+        <div class="token-filters" style="display: flex; gap: 12px; margin-bottom: 16px; flex-wrap: wrap;">
+          <select id="tokenStatusFilterManage" style="padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+            <option value="">All Status</option>
+            <option value="active">Active</option>
+            <option value="used">Used</option>
+            <option value="expired">Expired</option>
+          </select>
+          <select id="tokenDurationFilter" style="padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+            <option value="">All Durations</option>
+            <option value="1-7">1-7 days</option>
+            <option value="8-30">8-30 days</option>
+            <option value="31-90">31-90 days</option>
+            <option value="91-365">91-365 days</option>
+          </select>
+          <input type="text" id="tokenSearchManage" placeholder="Search tokens..." style="flex: 1; min-width: 200px; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+        </div>
+        
+        <div class="tokens-grid" id="tokensManagementGrid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(350px, 1fr)); gap: 16px; max-height: 500px; overflow-y: auto;">
+          <div style="text-align: center; padding: 20px; color: #666;">Loading tokens...</div>
+        </div>
+      </div>
+    </div>
+  `;
+  
+  document.body.appendChild(modal);
+  document.body.style.overflow = 'hidden';
+  
+  // Load tokens for management
+  loadTokensManagement();
+}
+
+function openGenerateTokenModal() {
+  // Reset form and hide token display
+  const form = document.getElementById('generateTokenForm');
+  if (form) form.reset();
+  
+  const tokenDisplay = document.getElementById('tokenDisplay');
+  if (tokenDisplay) tokenDisplay.style.display = 'none';
+  
+  // Set default duration
+  const durationInput = document.getElementById('tokenDuration');
+  if (durationInput) durationInput.value = 30;
+  
+  openModal('generateTokenModal');
+}
+
+function generateNewToken() {
+  const duration = parseInt(document.getElementById('tokenDuration').value);
+  
+  if (!duration || duration < 1 || duration > 365) {
+    NotificationManager.showToast('Please enter a valid duration (1-365 days)');
+    return;
+  }
+  
+  // Generate token with format: raed-BpM0kX2 (7 random characters)
+  const token = 'raed-' + generateRandomString(7);
+  
+  // Create simplified token data
+  const tokenData = {
+    duration: duration.toString(),
+    used: false,
+    createdAt: Date.now(),
+    createdBy: firebase.auth().currentUser?.email || 'Unknown'
+  };
+  
+  // Save to database
+  db.ref('tokens/' + token).set(tokenData)
+    .then(() => {
+      NotificationManager.showToast('Token generated successfully!');
+      
+      // Calculate expiration date for display
+      const expirationDate = new Date();
+      expirationDate.setDate(expirationDate.getDate() + duration);
+      
+      // Display the generated token
+      displayGeneratedToken(token, expirationDate);
+      
+      // Clear form
+      document.getElementById('generateTokenForm').reset();
+    })
+    .catch(error => {
+      console.error('Error generating token:', error);
+      NotificationManager.showToast('Error generating token: ' + error.message);
+    });
+}
+
+function generateRandomString(length) {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+  let result = '';
+  for (let i = 0; i < length; i++) {
+    result += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return result;
+}
+
+function displayGeneratedToken(token, expirationDate) {
+  const tokenDisplay = document.getElementById('tokenDisplay');
+  const generatedTokenInput = document.getElementById('generatedToken');
+  const tokenExpiry = document.getElementById('tokenExpiry');
+  
+  if (tokenDisplay && generatedTokenInput && tokenExpiry) {
+    generatedTokenInput.value = token;
+    tokenExpiry.textContent = expirationDate.toLocaleDateString() + ' at ' + expirationDate.toLocaleTimeString();
+    tokenDisplay.style.display = 'block';
+  }
+}
+
+function copyToken() {
+  const tokenInput = document.getElementById('generatedToken');
+  if (tokenInput) {
+    tokenInput.select();
+    tokenInput.setSelectionRange(0, 99999); // For mobile devices
+    
+    try {
+      document.execCommand('copy');
+      NotificationManager.showToast('Token copied to clipboard!');
+    } catch (err) {
+      console.error('Failed to copy token:', err);
+      NotificationManager.showToast('Failed to copy token. Please copy manually.');
+    }
+  }
+}
+
+function viewAllTokens() {
+  console.log('Viewing All Tokens');
+  
+  // Create tokens list modal
+  const modal = document.createElement('div');
+  modal.className = 'modal';
+  modal.id = 'tokensListModal';
+  modal.style.display = 'flex';
+  
+  modal.innerHTML = `
+    <div class="modal-content" style="max-width: 800px; width: 95%;">
+      <div class="modal-header">
+        <h3 class="modal-title">All Tokens</h3>
+        <button class="modal-close" onclick="closeModal('tokensListModal')" style="width: 15%;">&times;</button>
+      </div>
+      
+      <div class="tokens-list-tools">
+        <div class="feature-actions" style="margin-bottom: 16px;">
+          <button class="action-btn" onclick="openGenerateTokenModal(); closeModal('tokensListModal')">Generate New Token</button>
+          <button class="action-btn secondary" onclick="refreshTokensList()">Refresh</button>
+          <button class="action-btn secondary" onclick="exportTokensList()">Export List</button>
+        </div>
+        
+        <div class="tokens-filters" style="display: flex; gap: 12px; margin-bottom: 16px;">
+          <input type="text" id="tokenSearchInput" placeholder="Search tokens..." style="flex: 1; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+          <select id="tokenStatusFilter" style="padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+            <option value="">All Status</option>
+            <option value="active">Active</option>
+            <option value="expired">Expired</option>
+          </select>
+        </div>
+        
+        <div class="tokens-table" style="max-height: 400px; overflow-y: auto; border: 1px solid #ddd; border-radius: 8px;">
+          <table style="width: 100%; border-collapse: collapse;">
+            <thead style="position: sticky; top: 0; background: #f8f9fa;">
+              <tr>
+                <th style="padding: 12px; border-bottom: 1px solid #ddd; text-align: left;">Token</th>
+                <th style="padding: 12px; border-bottom: 1px solid #ddd; text-align: left;">Duration</th>
+                <th style="padding: 12px; border-bottom: 1px solid #ddd; text-align: left;">Status</th>
+                <th style="padding: 12px; border-bottom: 1px solid #ddd; text-align: left;">Expires</th>
+                <th style="padding: 12px; border-bottom: 1px solid #ddd; text-align: left;">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="tokensTableBody">
+              <tr>
+                <td colspan="5" style="padding: 20px; text-align: center; color: #666;">Loading tokens...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  `;
+  
+  document.body.appendChild(modal);
+  document.body.style.overflow = 'hidden';
+  
+  // Load tokens
+  loadTokensList();
+}
+
+function loadTokensList() {
+  db.ref('tokens').once('value').then(snapshot => {
+    const tokensTableBody = document.getElementById('tokensTableBody');
+    if (!tokensTableBody) return;
+    
+    tokensTableBody.innerHTML = '';
+    
+    if (snapshot.exists()) {
+      Object.entries(snapshot.val()).forEach(([tokenKey, tokenData]) => {
+        // Calculate expiration date from duration and createdAt
+        const createdDate = new Date(tokenData.createdAt || Date.now());
+        const expirationDate = new Date(createdDate);
+        expirationDate.setDate(expirationDate.getDate() + parseInt(tokenData.duration || 30));
+        
+        const isExpired = expirationDate < new Date();
+        const isActive = !tokenData.used && !isExpired;
+        
+        const row = document.createElement('tr');
+        row.setAttribute('data-token', tokenKey);
+        row.setAttribute('data-status', isActive ? 'active' : 'expired');
+        
+        row.innerHTML = `
+          <td style="padding: 12px; border-bottom: 1px solid #eee; font-family: monospace; font-size: 12px;">
+            ${tokenKey}
+            <button onclick="copyToClipboard('${tokenKey}')" style="margin-left: 8px; padding: 2px 6px; font-size: 10px; background: #6c4fc1; color: white; border: none; border-radius: 3px; cursor: pointer;">Copy</button>
+          </td>
+          <td style="padding: 12px; border-bottom: 1px solid #eee;">${tokenData.duration} days</td>
+          <td style="padding: 12px; border-bottom: 1px solid #eee;">
+            <span style="background: ${isActive ? '#28a745' : (tokenData.used ? '#ffc107' : '#dc3545')}; color: ${tokenData.used ? '#000' : 'white'}; padding: 2px 8px; border-radius: 12px; font-size: 11px;">
+              ${tokenData.used ? 'Used' : (isActive ? 'Active' : 'Expired')}
+            </span>
+          </td>
+          <td style="padding: 12px; border-bottom: 1px solid #eee; font-size: 12px;">
+            ${expirationDate.toLocaleDateString()}<br>
+            <small style="color: #666;">${expirationDate.toLocaleTimeString()}</small>
+          </td>
+          <td style="padding: 12px; border-bottom: 1px solid #eee;">
+            <div style="display: flex; gap: 4px;">
+              ${!tokenData.used ? `<button onclick="markTokenAsUsed('${tokenKey}')" style="padding: 4px 8px; background: #ffc107; color: #000; border: none; border-radius: 4px; font-size: 10px;">Mark Used</button>` : ''}
+              <button onclick="deleteToken('${tokenKey}')" style="padding: 4px 8px; background: #6c757d; color: white; border: none; border-radius: 4px; font-size: 10px;">Delete</button>
+            </div>
+          </td>
+        `;
+        
+        tokensTableBody.appendChild(row);
+      });
+      
+      // Setup search functionality
+      setupTokensSearch();
+    } else {
+      tokensTableBody.innerHTML = '<tr><td colspan="5" style="padding: 20px; text-align: center; color: #666;">No tokens found</td></tr>';
+    }
+  }).catch(error => {
+    console.error('Error loading tokens:', error);
+    const tokensTableBody = document.getElementById('tokensTableBody');
+    if (tokensTableBody) {
+      tokensTableBody.innerHTML = '<tr><td colspan="5" style="padding: 20px; text-align: center; color: #dc3545;">Error loading tokens</td></tr>';
+    }
+  });
+}
+
+function setupTokensSearch() {
+  const searchInput = document.getElementById('tokenSearchInput');
+  const statusFilter = document.getElementById('tokenStatusFilter');
+  
+  function filterTokens() {
+    const searchTerm = searchInput?.value.toLowerCase() || '';
+    const statusFilter = document.getElementById('tokenStatusFilter')?.value || '';
+    
+    const tokenRows = document.querySelectorAll('#tokensTableBody tr');
+    tokenRows.forEach(row => {
+      const token = row.getAttribute('data-token')?.toLowerCase() || '';
+      const status = row.getAttribute('data-status') || '';
+      const description = row.textContent.toLowerCase();
+      
+      const matchesSearch = token.includes(searchTerm) || description.includes(searchTerm);
+      const matchesStatus = !statusFilter || status === statusFilter;
+      
+      row.style.display = (matchesSearch && matchesStatus) ? 'table-row' : 'none';
+    });
+  }
+  
+  if (searchInput) {
+    searchInput.addEventListener('input', filterTokens);
+  }
+  
+  if (statusFilter) {
+    statusFilter.addEventListener('change', filterTokens);
+  }
+}
+
+function copyToClipboard(text) {
+  navigator.clipboard.writeText(text).then(() => {
+    NotificationManager.showToast('Token copied to clipboard!');
+  }).catch(err => {
+    console.error('Failed to copy:', err);
+    NotificationManager.showToast('Failed to copy token');
+  });
+}
+
+function markTokenAsUsed(token) {
+  if (confirm('Are you sure you want to mark this token as used?')) {
+    db.ref('tokens/' + token + '/used').set(true)
+      .then(() => {
+        NotificationManager.showToast('Token marked as used successfully');
+        loadTokensList(); // Refresh the list
+      })
+      .catch(error => {
+        console.error('Error marking token as used:', error);
+        NotificationManager.showToast('Error marking token as used');
+      });
+  }
+}
+
+function deleteToken(token) {
+  if (confirm('Are you sure you want to delete this token? This action cannot be undone.')) {
+    db.ref('tokens/' + token).remove()
+      .then(() => {
+        NotificationManager.showToast('Token deleted successfully');
+        loadTokensList(); // Refresh the list
+      })
+      .catch(error => {
+        console.error('Error deleting token:', error);
+        NotificationManager.showToast('Error deleting token');
+      });
+  }
+}
+
+function refreshTokensList() {
+  loadTokensList();
+  NotificationManager.showToast('Tokens list refreshed');
+}
+
+function exportTokensList() {
+  db.ref('tokens').once('value').then(snapshot => {
+    if (snapshot.exists()) {
+      const tokens = snapshot.val();
+      const dataStr = JSON.stringify(tokens, null, 2);
+      const dataBlob = new Blob([dataStr], {type: 'application/json'});
+      const url = URL.createObjectURL(dataBlob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `tokens_export_${new Date().toISOString().split('T')[0]}.json`;
+      link.click();
+      URL.revokeObjectURL(url);
+      NotificationManager.showToast('Tokens data exported successfully');
+    }
+  });
+}
+
+function loadTokensManagement() {
+  db.ref('tokens').once('value').then(snapshot => {
+    const tokensGrid = document.getElementById('tokensManagementGrid');
+    if (!tokensGrid) return;
+    
+    tokensGrid.innerHTML = '';
+    
+    let totalTokens = 0;
+    let activeTokens = 0;
+    let usedTokens = 0;
+    let expiredTokens = 0;
+    
+    if (snapshot.exists()) {
+      Object.entries(snapshot.val()).forEach(([tokenKey, tokenData]) => {
+        totalTokens++;
+        
+        // Calculate expiration date from duration and createdAt
+        const createdDate = new Date(tokenData.createdAt || Date.now());
+        const expirationDate = new Date(createdDate);
+        expirationDate.setDate(expirationDate.getDate() + parseInt(tokenData.duration || 30));
+        
+        const isExpired = expirationDate < new Date();
+        const isUsed = tokenData.used;
+        const isActive = !isUsed && !isExpired;
+        
+        if (isActive) activeTokens++;
+        if (isUsed) usedTokens++;
+        if (isExpired && !isUsed) expiredTokens++;
+        
+        const tokenCard = document.createElement('div');
+        tokenCard.className = 'token-management-card';
+        tokenCard.setAttribute('data-status', isUsed ? 'used' : (isActive ? 'active' : 'expired'));
+        tokenCard.setAttribute('data-duration', tokenData.duration);
+        tokenCard.setAttribute('data-token', tokenKey);
+        
+        tokenCard.style.cssText = `
+          background: #f8f9fa; 
+          padding: 16px; 
+          border-radius: 8px; 
+          border: 1px solid #e0e0e0; 
+          margin-bottom: 12px;
+          border-left: 4px solid ${isUsed ? '#ffc107' : (isActive ? '#28a745' : '#dc3545')};
+        `;
+        
+        tokenCard.innerHTML = `
+          <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 12px;">
+            <div style="flex: 1;">
+              <div style="font-family: monospace; font-weight: bold; font-size: 14px; margin-bottom: 4px;">${tokenKey}</div>
+              <div style="font-size: 12px; color: #666;">
+                Duration: ${tokenData.duration} days | 
+                Created: ${createdDate.toLocaleDateString()} |
+                Expires: ${expirationDate.toLocaleDateString()}
+              </div>
+              ${tokenData.createdBy ? `<div style="font-size: 11px; color: #888;">Created by: ${tokenData.createdBy}</div>` : ''}
+            </div>
+            <span style="background: ${isUsed ? '#ffc107' : (isActive ? '#28a745' : '#dc3545')}; color: ${isUsed ? '#000' : 'white'}; padding: 4px 8px; border-radius: 12px; font-size: 11px; white-space: nowrap;">
+              ${isUsed ? 'Used' : (isActive ? 'Active' : 'Expired')}
+            </span>
+          </div>
+          <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+            <button onclick="copyToClipboard('${tokenKey}')" style="padding: 6px 12px; background: #6c4fc1; color: white; border: none; border-radius: 4px; font-size: 11px;">Copy</button>
+            ${!isUsed ? `<button onclick="markTokenAsUsed('${tokenKey}'); loadTokensManagement()" style="padding: 6px 12px; background: #ffc107; color: #000; border: none; border-radius: 4px; font-size: 11px;">Mark Used</button>` : ''}
+            <button onclick="deleteToken('${tokenKey}'); loadTokensManagement()" style="padding: 6px 12px; background: #dc3545; color: white; border: none; border-radius: 4px; font-size: 11px;">Delete</button>
+            <button onclick="viewTokenDetails('${tokenKey}')" style="padding: 6px 12px; background: #17a2b8; color: white; border: none; border-radius: 4px; font-size: 11px;">Details</button>
+          </div>
+        `;
+        
+        tokensGrid.appendChild(tokenCard);
+      });
+      
+      // Setup filters after loading
+      setupTokenManagementFilters();
+    } else {
+      tokensGrid.innerHTML = '<div style="text-align: center; padding: 20px; color: #666;">No tokens found</div>';
+    }
+    
+    // Update stats
+    document.getElementById('totalTokensCount').textContent = totalTokens;
+    document.getElementById('activeTokensCount').textContent = activeTokens;
+    document.getElementById('usedTokensCount').textContent = usedTokens;
+    document.getElementById('expiredTokensCount').textContent = expiredTokens;
+    
+  }).catch(error => {
+    console.error('Error loading tokens:', error);
+    const tokensGrid = document.getElementById('tokensManagementGrid');
+    if (tokensGrid) {
+      tokensGrid.innerHTML = '<div style="text-align: center; padding: 20px; color: #dc3545;">Error loading tokens</div>';
+    }
+  });
+}
+
+function setupTokenManagementFilters() {
+  const searchInput = document.getElementById('tokenSearchManage');
+  const statusFilter = document.getElementById('tokenStatusFilterManage');
+  const durationFilter = document.getElementById('tokenDurationFilter');
+  
+  function filterTokens() {
+    const searchTerm = searchInput?.value.toLowerCase() || '';
+    const statusFilter = document.getElementById('tokenStatusFilterManage')?.value || '';
+    const durationRange = document.getElementById('tokenDurationFilter')?.value || '';
+    
+    const tokenCards = document.querySelectorAll('.token-management-card');
+    tokenCards.forEach(card => {
+      const token = card.getAttribute('data-token').toLowerCase();
+      const status = card.getAttribute('data-status');
+      const duration = parseInt(card.getAttribute('data-duration'));
+      
+      let matchesSearch = token.includes(searchTerm);
+      let matchesStatus = !statusFilter || status === statusFilter;
+      let matchesDuration = true;
+      
+      if (durationRange) {
+        const [min, max] = durationRange.split('-').map(Number);
+        matchesDuration = duration >= min && duration <= max;
+      }
+      
+      card.style.display = (matchesSearch && matchesStatus && matchesDuration) ? 'block' : 'none';
+    });
+  }
+  
+  if (searchInput) {
+    searchInput.addEventListener('input', filterTokens);
+  }
+  
+  if (statusFilter) {
+    statusFilter.addEventListener('change', filterTokens);
+  }
+  
+  if (durationFilter) {
+    durationFilter.addEventListener('change', filterTokens);
+  }
+}
+
+function refreshTokensManagement() {
+  loadTokensManagement();
+  NotificationManager.showToast('Tokens refreshed');
+}
+
+function exportTokensData() {
+  exportTokensList();
+}
+
+function bulkTokenActions() {
+  const modal = document.createElement('div');
+  modal.className = 'modal';
+  modal.id = 'bulkTokenActionsModal';
+  modal.style.display = 'flex';
+  
+  modal.innerHTML = `
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 class="modal-title">Bulk Token Actions</h3>
+        <button class="modal-close" onclick="closeModal('bulkTokenActionsModal')" style="width: 15%;">&times;</button>
+      </div>
+      
+      <div class="bulk-actions">
+        <div class="form-group">
+          <label class="form-label">Select Action</label>
+          <select id="bulkActionType" class="form-input">
+            <option value="">Choose action...</option>
+            <option value="markUsed">Mark as Used</option>
+            <option value="delete">Delete Tokens</option>
+            <option value="export">Export Selected</option>
+          </select>
+        </div>
+        
+        <div class="form-group">
+          <label class="form-label">Filter Criteria</label>
+          <div class="checkbox-group">
+            <label><input type="checkbox" id="bulkSelectExpired"> All Expired Tokens</label><br>
+            <label><input type="checkbox" id="bulkSelectUsed"> All Used Tokens</label><br>
+            <label><input type="checkbox" id="bulkSelectOld"> Tokens older than 90 days</label><br>
+            <label><input type="checkbox" id="bulkSelectShort"> Short duration tokens (≤7 days)</label>
+          </div>
+        </div>
+        
+        <div class="feature-actions">
+          <button class="action-btn" onclick="executeBulkAction()">Execute Action</button>
+          <button class="action-btn secondary" onclick="closeModal('bulkTokenActionsModal')">Cancel</button>
+        </div>
+      </div>
+    </div>
+  `;
+  
+  document.body.appendChild(modal);
+  document.body.style.overflow = 'hidden';
+}
+
+function executeBulkAction() {
+  const actionType = document.getElementById('bulkActionType').value;
+  const selectExpired = document.getElementById('bulkSelectExpired').checked;
+  const selectUsed = document.getElementById('bulkSelectUsed').checked;
+  const selectOld = document.getElementById('bulkSelectOld').checked;
+  const selectShort = document.getElementById('bulkSelectShort').checked;
+  
+  if (!actionType) {
+    NotificationManager.showToast('Please select an action');
+    return;
+  }
+  
+  if (!selectExpired && !selectUsed && !selectOld && !selectShort) {
+    NotificationManager.showToast('Please select at least one filter criteria');
+    return;
+  }
+  
+  NotificationManager.showToast(`Executing bulk ${actionType} action...`);
+  
+  db.ref('tokens').once('value').then(snapshot => {
+    if (!snapshot.exists()) return;
+    
+    const tokens = snapshot.val();
+    const tokensToProcess = [];
+    const now = new Date();
+    const ninetyDaysAgo = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
+    
+    Object.entries(tokens).forEach(([tokenKey, tokenData]) => {
+      const createdDate = new Date(tokenData.createdAt || Date.now());
+      const expirationDate = new Date(createdDate);
+      expirationDate.setDate(expirationDate.getDate() + parseInt(tokenData.duration || 30));
+      
+      const isExpired = expirationDate < now;
+      const isUsed = tokenData.used;
+      const isOld = createdDate < ninetyDaysAgo;
+      const isShort = parseInt(tokenData.duration) <= 7;
+      
+      let shouldProcess = false;
+      if (selectExpired && isExpired) shouldProcess = true;
+      if (selectUsed && isUsed) shouldProcess = true;
+      if (selectOld && isOld) shouldProcess = true;
+      if (selectShort && isShort) shouldProcess = true;
+      
+      if (shouldProcess) {
+        tokensToProcess.push(tokenKey);
+      }
+    });
+    
+    if (tokensToProcess.length === 0) {
+      NotificationManager.showToast('No tokens match the selected criteria');
+      return;
+    }
+    
+    if (!confirm(`This will ${actionType} ${tokensToProcess.length} tokens. Continue?`)) {
+      return;
+    }
+    
+    // Execute the bulk action
+    const promises = tokensToProcess.map(tokenKey => {
+      if (actionType === 'markUsed') {
+        return db.ref('tokens/' + tokenKey + '/used').set(true);
+      } else if (actionType === 'delete') {
+        return db.ref('tokens/' + tokenKey).remove();
+      }
+      return Promise.resolve();
+    });
+    
+    Promise.all(promises).then(() => {
+      NotificationManager.showToast(`Bulk ${actionType} completed for ${tokensToProcess.length} tokens`);
+      closeModal('bulkTokenActionsModal');
+      loadTokensManagement(); // Refresh the list
+    }).catch(error => {
+      console.error('Bulk action error:', error);
+      NotificationManager.showToast('Error executing bulk action');
+    });
+    
+  }).catch(error => {
+    console.error('Error loading tokens for bulk action:', error);
+    NotificationManager.showToast('Error loading tokens');
+  });
+}
+
+function viewTokenDetails(tokenKey) {
+  db.ref('tokens/' + tokenKey).once('value').then(snapshot => {
+    if (!snapshot.exists()) return;
+    
+    const tokenData = snapshot.val();
+    const createdDate = new Date(tokenData.createdAt || Date.now());
+    const expirationDate = new Date(createdDate);
+    expirationDate.setDate(expirationDate.getDate() + parseInt(tokenData.duration || 30));
+    
+    const modal = document.createElement('div');
+    modal.className = 'modal';
+    modal.id = 'tokenDetailsModal';
+    modal.style.display = 'flex';
+    
+    modal.innerHTML = `
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3 class="modal-title">Token Details</h3>
+          <button class="modal-close" onclick="closeModal('tokenDetailsModal')" style="width: 15%;">&times;</button>
+        </div>
+        
+        <div class="token-details">
+          <div style="margin-bottom: 16px;">
+            <strong>Token:</strong>
+            <div style="font-family: monospace; background: #f8f9fa; padding: 8px; border-radius: 4px; margin-top: 4px;">${tokenKey}</div>
+          </div>
+          
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px;">
+            <div>
+              <strong>Duration:</strong><br>
+              <span>${tokenData.duration} days</span>
+            </div>
+            <div>
+              <strong>Status:</strong><br>
+              <span style="color: ${tokenData.used ? '#ffc107' : (expirationDate > new Date() ? '#28a745' : '#dc3545')}">
+                ${tokenData.used ? 'Used' : (expirationDate > new Date() ? 'Active' : 'Expired')}
+              </span>
+            </div>
+          </div>
+          
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px;">
+            <div>
+              <strong>Created:</strong><br>
+              <span>${createdDate.toLocaleString()}</span>
+            </div>
+            <div>
+              <strong>Expires:</strong><br>
+              <span>${expirationDate.toLocaleString()}</span>
+            </div>
+          </div>
+          
+          ${tokenData.createdBy ? `
+            <div style="margin-bottom: 16px;">
+              <strong>Created By:</strong><br>
+              <span>${tokenData.createdBy}</span>
+            </div>
+          ` : ''}
+          
+          <div class="feature-actions">
+            <button onclick="copyToClipboard('${tokenKey}')" class="action-btn secondary">Copy Token</button>
+            ${!tokenData.used ? `<button onclick="markTokenAsUsed('${tokenKey}'); closeModal('tokenDetailsModal'); loadTokensManagement()" class="action-btn">Mark as Used</button>` : ''}
+            <button onclick="deleteToken('${tokenKey}'); closeModal('tokenDetailsModal'); loadTokensManagement()" class="action-btn" style="background: #dc3545;">Delete</button>
+          </div>
+        </div>
+      </div>
+    `;
+    
+    document.body.appendChild(modal);
+    document.body.style.overflow = 'hidden';
+  });
 }
 
 function goBack() {
@@ -1870,6 +2603,7 @@ function processDataExport() {
   const exportUsers = document.getElementById('exportUsers').checked;
   const exportUnits = document.getElementById('exportUnits').checked;
   const exportProgress = document.getElementById('exportProgress').checked;
+  const exportTokens = document.getElementById('exportTokens').checked;
   const exportAnalytics = document.getElementById('exportAnalytics').checked;
   const exportVideos = document.getElementById('exportVideos').checked;
   const format = document.getElementById('exportFormat').value;
@@ -1889,8 +2623,11 @@ function processDataExport() {
   };
   
   let progress = 0;
-  const updateProgress = (step) => {
-    progress += step;
+  const totalSteps = [exportUsers, exportUnits, exportProgress, exportTokens, exportAnalytics, exportVideos].filter(Boolean).length;
+  const stepSize = totalSteps > 0 ? 100 / totalSteps : 0;
+  
+  const updateProgress = () => {
+    progress += stepSize;
     progressFill.style.width = progress + '%';
     statusDiv.textContent = `Exporting data... ${Math.round(progress)}%`;
   };
@@ -1899,7 +2636,7 @@ function processDataExport() {
     exportPromises.push(
       db.ref('users').once('value').then(snapshot => {
         exportData.users = snapshot.val() || {};
-        updateProgress(20);
+        updateProgress();
       })
     );
   }
@@ -1908,7 +2645,7 @@ function processDataExport() {
     exportPromises.push(
       db.ref('units').once('value').then(snapshot => {
         exportData.units = snapshot.val() || {};
-        updateProgress(20);
+        updateProgress();
       })
     );
   }
@@ -1935,7 +2672,34 @@ function processDataExport() {
         }
         
         exportData.progress = progressData;
-        updateProgress(20);
+        updateProgress();
+      })
+    );
+  }
+  
+  if (exportTokens) {
+    exportPromises.push(
+      db.ref('tokens').once('value').then(snapshot => {
+        const tokensData = snapshot.val() || {};
+        
+        // Filter by date range if specified
+        if (startDate && endDate) {
+          const start = new Date(startDate);
+          const end = new Date(endDate);
+          
+          Object.keys(tokensData).forEach(tokenKey => {
+            const tokenData = tokensData[tokenKey];
+            if (tokenData.createdAt) {
+              const createdDate = new Date(tokenData.createdAt);
+              if (createdDate < start || createdDate > end) {
+                delete tokensData[tokenKey];
+              }
+            }
+          });
+        }
+        
+        exportData.tokens = tokensData;
+        updateProgress();
       })
     );
   }
@@ -1948,9 +2712,10 @@ function processDataExport() {
           generatedAt: new Date().toISOString(),
           totalUsers: Object.keys(exportData.users || {}).length,
           totalUnits: Object.keys(exportData.units || {}).length,
+          totalTokens: Object.keys(exportData.tokens || {}).length,
           summary: 'Analytics data generated from current database state'
         };
-        updateProgress(20);
+        updateProgress();
       })
     );
   }
@@ -1992,7 +2757,7 @@ function processDataExport() {
         });
         
         exportData.videoMetadata = videoMetadata;
-        updateProgress(20);
+        updateProgress();
       })
     );
   }
