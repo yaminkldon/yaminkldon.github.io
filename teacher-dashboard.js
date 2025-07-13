@@ -1495,27 +1495,46 @@ function generateActualReport(reportType, format, options) {
           
           // Helper function to try multiple UIDs
           async function tryMultipleUIDs(possibleUIDs, userData, userKey) {
+            // First try userKey (database user ID) since we now save progress there
+            try {
+              const snapshot = await db.ref('progress/' + userKey).once('value');
+              const userProgress = snapshot.val();
+              
+              if (userProgress && Object.keys(userProgress).length > 0) {
+                return {
+                  userId: userKey,
+                  userData: userData,
+                  userProgress: userProgress
+                };
+              }
+            } catch (error) {
+              console.log(`No progress found for userKey: ${userKey}`);
+            }
+            
+            // If not found in userKey, try other possible UIDs (for backward compatibility)
             for (const uid of possibleUIDs) {
-              try {
-                const snapshot = await db.ref('progress/' + uid).once('value');
-                const userProgress = snapshot.val();
-                
-                if (userProgress && Object.keys(userProgress).length > 0) {
-                  // Found progress data with this UID
-                  return {
-                    userId: uid,
-                    userData: userData,
-                    userProgress: userProgress
-                  };
+              if (uid !== userKey) { // Skip userKey since we already tried it
+                try {
+                  const snapshot = await db.ref('progress/' + uid).once('value');
+                  const userProgress = snapshot.val();
+                  
+                  if (userProgress && Object.keys(userProgress).length > 0) {
+                    // Found progress data with this UID
+                    return {
+                      userId: uid,
+                      userData: userData,
+                      userProgress: userProgress
+                    };
+                  }
+                } catch (error) {
+                  console.log(`No progress found for UID: ${uid}`);
                 }
-              } catch (error) {
-                console.log(`No progress found for UID: ${uid}`);
               }
             }
             
             // No progress found for any UID, return empty progress
             return {
-              userId: possibleUIDs[0] || userKey,
+              userId: userKey,
               userData: userData,
               userProgress: {}
             };

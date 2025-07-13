@@ -59,29 +59,58 @@ class Navigation {
 
 // Global progress tracking
 class ProgressTracker {
-  static markLessonCompleted(unitId, lessonId) {
+  static async markLessonCompleted(unitId, lessonId) {
     const user = firebase.auth().currentUser;
     if (!user) return;
     
-    const userId = user.uid;
+    const authUID = user.uid;
     const today = new Date().toISOString().split('T')[0];
     
-    // Mark lesson as completed in Firebase
-    firebase.database().ref(`progress/${userId}/${unitId}/${lessonId}`).set({
+    // Get the database user ID by finding user record with matching email
+    let databaseUserID = null;
+    try {
+      const snapshot = await firebase.database().ref('users').orderByChild('email').equalTo(user.email).once('value');
+      if (snapshot.exists()) {
+        snapshot.forEach(child => {
+          databaseUserID = child.key; // This is the database user ID
+        });
+      }
+    } catch (error) {
+      console.error('Error finding database user ID:', error);
+    }
+    
+    const progressData = {
       completed: true,
       completedDate: today,
       timestamp: Date.now()
-    });
+    };
     
-    // Update last study dates for streak calculation
-    firebase.database().ref(`progress/${userId}/lastStudyDates`).once('value')
-      .then(snapshot => {
+    // Save progress using Firebase Auth UID (for current functionality)
+    firebase.database().ref(`progress/${authUID}/${unitId}/${lessonId}`).set(progressData);
+    
+    // ALSO save progress using database user ID (for teacher analytics)
+    if (databaseUserID) {
+      firebase.database().ref(`progress/${databaseUserID}/${unitId}/${lessonId}`).set(progressData);
+    }
+    
+    // Update last study dates for both UIDs
+    const updateStudyDates = async (uid) => {
+      try {
+        const snapshot = await firebase.database().ref(`progress/${uid}/lastStudyDates`).once('value');
         let dates = snapshot.val() || [];
         if (!dates.includes(today)) {
           dates.push(today);
-          firebase.database().ref(`progress/${userId}/lastStudyDates`).set(dates);
+          firebase.database().ref(`progress/${uid}/lastStudyDates`).set(dates);
         }
-      });
+      } catch (error) {
+        console.error(`Error updating study dates for UID ${uid}:`, error);
+      }
+    };
+    
+    updateStudyDates(authUID);
+    if (databaseUserID) {
+      updateStudyDates(databaseUserID);
+    }
   }
 
   static async getUserProgress() {
@@ -97,12 +126,30 @@ class ProgressTracker {
     }
   }
   
-  static saveVideoPosition(unitId, lessonId, currentTime) {
+  static async saveVideoPosition(unitId, lessonId, currentTime) {
     const user = firebase.auth().currentUser;
     if (!user) return;
     
-    const userId = user.uid;
-    firebase.database().ref(`progress/${userId}/${unitId}/${lessonId}/lastPosition`).set(currentTime);
+    const authUID = user.uid;
+    
+    // Get the database user ID
+    let databaseUserID = null;
+    try {
+      const snapshot = await firebase.database().ref('users').orderByChild('email').equalTo(user.email).once('value');
+      if (snapshot.exists()) {
+        snapshot.forEach(child => {
+          databaseUserID = child.key;
+        });
+      }
+    } catch (error) {
+      console.error('Error finding database user ID for video position:', error);
+    }
+    
+    // Save video position using both UIDs
+    firebase.database().ref(`progress/${authUID}/${unitId}/${lessonId}/lastPosition`).set(currentTime);
+    if (databaseUserID) {
+      firebase.database().ref(`progress/${databaseUserID}/${unitId}/${lessonId}/lastPosition`).set(currentTime);
+    }
   }
   
   static async getVideoPosition(unitId, lessonId) {
