@@ -82,9 +82,20 @@ function loadQuickStats() {
     let lessonCount = 0;
     if (snapshot.exists()) {
       Object.values(snapshot.val()).forEach(unit => {
+        // Count lessons in 'lessons' subfolder
         if (unit.lessons) {
           lessonCount += Object.keys(unit.lessons).length;
         }
+        
+        // Count direct lessons (not in subfolder)
+        Object.keys(unit).forEach(key => {
+          if (key !== 'lessons' && typeof unit[key] === 'object' && unit[key] !== null) {
+            // Check if this is a lesson (has lesson properties)
+            if (unit[key].title || unit[key].description || unit[key].videoURL || unit[key].videoFile) {
+              lessonCount++;
+            }
+          }
+        });
       });
     }
     document.getElementById('total-lessons').textContent = lessonCount;
@@ -413,6 +424,8 @@ function openTeacherSettings() {
 
 // Action Button Handlers
 function openAddUserModal() {
+  // Close the user management modal first
+  closeModal('userManagementModal');
   openModal('addUserModal');
 }
 
@@ -487,6 +500,8 @@ function openAddLessonModal() {
 }
 
 function openUploadVideoModal() {
+  // Close the video management modal first
+  closeModal('videoManagementModal');
   openModal('uploadVideoModal');
 }
 
@@ -1527,36 +1542,59 @@ function generateUserProgressReport(users, progress, options) {
     }
   };
   
-  Object.entries(users).forEach(([userId, userData]) => {
-    const userProgress = progress[userId] || {};
-    const userDetail = {
-      email: userData.email,
-      type: userData.type,
-      expiration: new Date(userData.expirationDate).toLocaleDateString(),
-      unitsStarted: Object.keys(userProgress).filter(key => key !== 'lastStudyDates').length,
-      lastStudyDates: userProgress.lastStudyDates || []
-    };
+  // First, get all units to count total available lessons
+  db.ref('units').once('value').then(snapshot => {
+    const allUnits = snapshot.val() || {};
     
-    // Calculate completion stats
-    let totalLessons = 0;
-    let completedLessons = 0;
-    
-    Object.entries(userProgress).forEach(([unitKey, unitProgress]) => {
-      if (unitKey !== 'lastStudyDates') {
-        Object.entries(unitProgress).forEach(([lessonKey, lessonData]) => {
-          totalLessons++;
-          if (lessonData.completed) {
-            completedLessons++;
+    Object.entries(users).forEach(([userId, userData]) => {
+      const userProgress = progress[userId] || {};
+      const userDetail = {
+        email: userData.email,
+        type: userData.type,
+        expiration: userData.expirationDate ? new Date(userData.expirationDate).toLocaleDateString() : 'No expiration',
+        unitsStarted: Object.keys(userProgress).filter(key => key !== 'lastStudyDates').length,
+        lastStudyDates: userProgress.lastStudyDates ? userProgress.lastStudyDates.join(', ') : 'No study dates'
+      };
+      
+      // Calculate completion stats based on actual lesson structure
+      let totalLessons = 0;
+      let completedLessons = 0;
+      
+      // Count total available lessons across all units
+      Object.values(allUnits).forEach(unit => {
+        // Count lessons in 'lessons' subfolder
+        if (unit.lessons) {
+          totalLessons += Object.keys(unit.lessons).length;
+        }
+        
+        // Count direct lessons (not in subfolder)
+        Object.keys(unit).forEach(key => {
+          if (key !== 'lessons' && typeof unit[key] === 'object' && unit[key] !== null) {
+            // Check if this is a lesson (has lesson properties)
+            if (unit[key].title || unit[key].description || unit[key].videoURL || unit[key].videoFile) {
+              totalLessons++;
+            }
           }
         });
-      }
+      });
+      
+      // Count completed lessons for this user
+      Object.entries(userProgress).forEach(([unitKey, unitProgress]) => {
+        if (unitKey !== 'lastStudyDates' && typeof unitProgress === 'object') {
+          Object.entries(unitProgress).forEach(([lessonKey, lessonData]) => {
+            if (lessonData && lessonData.completed === true) {
+              completedLessons++;
+            }
+          });
+        }
+      });
+      
+      userDetail.completionRate = totalLessons > 0 ? Math.round((completedLessons / totalLessons) * 100) : 0;
+      userDetail.totalLessons = totalLessons;
+      userDetail.completedLessons = completedLessons;
+      
+      report.data.userDetails.push(userDetail);
     });
-    
-    userDetail.completionRate = totalLessons > 0 ? Math.round((completedLessons / totalLessons) * 100) : 0;
-    userDetail.totalLessons = totalLessons;
-    userDetail.completedLessons = completedLessons;
-    
-    report.data.userDetails.push(userDetail);
   });
   
   return report;
@@ -1742,10 +1780,17 @@ function downloadReport(reportData, reportType, format) {
       break;
       
     case 'pdf':
-      // For PDF, we'll create a simple text version
-      const textData = convertToText(reportData);
-      blob = new Blob([textData], {type: 'text/plain'});
-      filename = `${reportType}_report_${new Date().toISOString().split('T')[0]}.txt`;
+      // Create a formatted text version for PDF
+      const pdfData = convertToPDFText(reportData);
+      blob = new Blob([pdfData], {type: 'application/pdf'});
+      filename = `${reportType}_report_${new Date().toISOString().split('T')[0]}.pdf`;
+      break;
+      
+    case 'excel':
+      // Create Excel-compatible CSV
+      const excelData = convertToExcel(reportData);
+      blob = new Blob([excelData], {type: 'application/vnd.ms-excel'});
+      filename = `${reportType}_report_${new Date().toISOString().split('T')[0]}.xls`;
       break;
       
     default:
@@ -1764,19 +1809,19 @@ function downloadReport(reportData, reportType, format) {
 function convertToCSV(data) {
   let csv = '';
   
-  if (data.userProgress && data.userProgress.userDetails) {
-    csv += 'User Progress Report\n';
-    csv += 'Email,Type,Expiration,Units Started,Completion Rate,Total Lessons,Completed Lessons\n';
-    
-    data.userProgress.userDetails.forEach(user => {
-      csv += `"${user.email}","${user.type}","${user.expiration}",${user.unitsStarted},${user.completionRate}%,${user.totalLessons},${user.completedLessons}\n`;
-    });
-  } else if (data.data && data.data.userDetails) {
+  if (data.data && data.data.userDetails) {
     csv += `${data.title}\n`;
-    csv += 'Email,Type,Expiration,Units Started,Completion Rate,Total Lessons,Completed Lessons\n';
+    csv += 'Email,Type,Expiration,Units Started,Completion Rate,Total Lessons,Completed Lessons,Last Study Dates\n';
     
     data.data.userDetails.forEach(user => {
-      csv += `"${user.email}","${user.type}","${user.expiration}",${user.unitsStarted},${user.completionRate}%,${user.totalLessons},${user.completedLessons}\n`;
+      csv += `"${user.email}","${user.type}","${user.expiration}",${user.unitsStarted},${user.completionRate}%,${user.totalLessons},${user.completedLessons},"${user.lastStudyDates}"\n`;
+    });
+  } else if (data.userProgress && data.userProgress.userDetails) {
+    csv += 'User Progress Report\n';
+    csv += 'Email,Type,Expiration,Units Started,Completion Rate,Total Lessons,Completed Lessons,Last Study Dates\n';
+    
+    data.userProgress.userDetails.forEach(user => {
+      csv += `"${user.email}","${user.type}","${user.expiration}",${user.unitsStarted},${user.completionRate}%,${user.totalLessons},${user.completedLessons},"${user.lastStudyDates}"\n`;
     });
   }
   
@@ -1793,6 +1838,57 @@ function convertToText(data) {
   
   text += JSON.stringify(data, null, 2);
   return text;
+}
+
+function convertToPDFText(data) {
+  let text = '';
+  
+  if (data.title) {
+    text += `${data.title}\n`;
+    text += `Generated: ${data.generatedAt}\n`;
+    text += '='.repeat(50) + '\n\n';
+  }
+  
+  if (data.data && data.data.userDetails) {
+    text += 'USER PROGRESS DETAILS:\n';
+    text += '-'.repeat(30) + '\n';
+    
+    data.data.userDetails.forEach((user, index) => {
+      text += `${index + 1}. ${user.email}\n`;
+      text += `   Type: ${user.type}\n`;
+      text += `   Expiration: ${user.expiration}\n`;
+      text += `   Units Started: ${user.unitsStarted}\n`;
+      text += `   Completion Rate: ${user.completionRate}%\n`;
+      text += `   Total Lessons: ${user.totalLessons}\n`;
+      text += `   Completed Lessons: ${user.completedLessons}\n`;
+      text += `   Last Study Dates: ${user.lastStudyDates}\n\n`;
+    });
+  }
+  
+  return text;
+}
+
+function convertToExcel(data) {
+  // Create a tab-separated values format that Excel can read
+  let excel = '';
+  
+  if (data.data && data.data.userDetails) {
+    excel += `${data.title}\t\t\t\t\t\t\t\n`;
+    excel += 'Email\tType\tExpiration\tUnits Started\tCompletion Rate\tTotal Lessons\tCompleted Lessons\tLast Study Dates\n';
+    
+    data.data.userDetails.forEach(user => {
+      excel += `${user.email}\t${user.type}\t${user.expiration}\t${user.unitsStarted}\t${user.completionRate}%\t${user.totalLessons}\t${user.completedLessons}\t${user.lastStudyDates}\n`;
+    });
+  } else if (data.userProgress && data.userProgress.userDetails) {
+    excel += 'User Progress Report\t\t\t\t\t\t\t\n';
+    excel += 'Email\tType\tExpiration\tUnits Started\tCompletion Rate\tTotal Lessons\tCompleted Lessons\tLast Study Dates\n';
+    
+    data.userProgress.userDetails.forEach(user => {
+      excel += `${user.email}\t${user.type}\t${user.expiration}\t${user.unitsStarted}\t${user.completionRate}%\t${user.totalLessons}\t${user.completedLessons}\t${user.lastStudyDates}\n`;
+    });
+  }
+  
+  return excel;
 }
 
 function processDataExport() {
@@ -2281,39 +2377,24 @@ function previewVideo(unitKey, lessonKey, type) {
   db.ref(path).once('value').then(snapshot => {
     if (snapshot.exists()) {
       const lessonData = snapshot.val();
-      const videoURL = lessonData.videoURL;
+      let videoURL = lessonData.videoURL;
+      
+      // If videoURL is not a full URL, try to get it from Firebase Storage
+      if (videoURL && !videoURL.startsWith('http')) {
+        // This might be a relative path, try to get the full URL from storage
+        if (lessonData.videoFile) {
+          storage.ref('videos/' + lessonData.videoFile).getDownloadURL().then(url => {
+            showVideoPreview(unitKey, lessonKey, lessonData, url);
+          }).catch(error => {
+            console.error('Error getting download URL:', error);
+            NotificationManager.showToast('Error loading video URL from storage');
+          });
+          return;
+        }
+      }
       
       if (videoURL) {
-        // Create preview modal
-        const modal = document.createElement('div');
-        modal.className = 'modal';
-        modal.id = 'videoPreviewModal';
-        modal.style.display = 'flex';
-        
-        modal.innerHTML = `
-          <div class="modal-content" style="max-width: 800px; width: 95%;">
-            <div class="modal-header">
-              <h3 class="modal-title">Video Preview - ${lessonData.title || lessonKey}</h3>
-              <button class="modal-close" onclick="closeModal('videoPreviewModal')" style="width: 15%;">&times;</button>
-            </div>
-            <div style="padding: 20px;">
-              <video controls style="width: 100%; max-height: 400px;" preload="metadata">
-                <source src="${videoURL}" type="video/mp4">
-                Your browser does not support the video tag.
-              </video>
-              <div style="margin-top: 12px; padding: 12px; background: #f8f9fa; border-radius: 6px;">
-                <strong>Description:</strong> ${lessonData.description || 'No description available'}<br>
-                <strong>Unit:</strong> ${unitKey}<br>
-                <strong>Lesson:</strong> ${lessonKey}<br>
-                ${lessonData.createdAt ? `<strong>Created:</strong> ${new Date(lessonData.createdAt).toLocaleString()}<br>` : ''}
-                ${lessonData.videoFile ? `<strong>File:</strong> ${lessonData.videoFile}` : ''}
-              </div>
-            </div>
-          </div>
-        `;
-        
-        document.body.appendChild(modal);
-        document.body.style.overflow = 'hidden';
+        showVideoPreview(unitKey, lessonKey, lessonData, videoURL);
       } else {
         NotificationManager.showToast('Video URL not found');
       }
@@ -2324,6 +2405,40 @@ function previewVideo(unitKey, lessonKey, type) {
     console.error('Error loading video:', error);
     NotificationManager.showToast('Error loading video');
   });
+}
+
+function showVideoPreview(unitKey, lessonKey, lessonData, videoURL) {
+  // Create preview modal
+  const modal = document.createElement('div');
+  modal.className = 'modal';
+  modal.id = 'videoPreviewModal';
+  modal.style.display = 'flex';
+  
+  modal.innerHTML = `
+    <div class="modal-content" style="max-width: 800px; width: 95%;">
+      <div class="modal-header">
+        <h3 class="modal-title">Video Preview - ${lessonData.title || lessonKey}</h3>
+        <button class="modal-close" onclick="closeModal('videoPreviewModal')" style="width: 15%;">&times;</button>
+      </div>
+      <div style="padding: 20px;">
+        <video controls style="width: 100%; max-height: 400px;" preload="metadata" crossorigin="anonymous">
+          <source src="${videoURL}" type="video/mp4">
+          Your browser does not support the video tag.
+        </video>
+        <div style="margin-top: 12px; padding: 12px; border-radius: 6px;">
+          <strong>Description:</strong> ${lessonData.description || 'No description available'}<br>
+          <strong>Unit:</strong> ${unitKey}<br>
+          <strong>Lesson:</strong> ${lessonKey}<br>
+          <strong>Video URL:</strong> <a href="${videoURL}" target="_blank" style="color: #6c4fc1; text-decoration: none; word-break: break-all;">${videoURL}</a><br>
+          ${lessonData.createdAt ? `<strong>Created:</strong> ${new Date(lessonData.createdAt).toLocaleString()}<br>` : ''}
+          ${lessonData.videoFile ? `<strong>File:</strong> ${lessonData.videoFile}` : ''}
+        </div>
+      </div>
+    </div>
+  `;
+  
+  document.body.appendChild(modal);
+  document.body.style.overflow = 'hidden';
 }
 
 function editVideo(unitKey, lessonKey, type) {
@@ -2673,7 +2788,7 @@ function viewMessage(messageId) {
             </div>
             <div style="margin-bottom: 16px;">
               <strong>Message:</strong><br>
-              <div style="background: #f8f9fa; padding: 12px; border-radius: 6px; margin-top: 4px;">
+              <div style="padding: 12px; border-radius: 6px; margin-top: 4px;">
                 ${messageData.notification.body}
               </div>
             </div>
@@ -2686,7 +2801,7 @@ function viewMessage(messageId) {
             ${messageData.tokens && messageData.tokens.length > 0 ? `
               <div>
                 <strong>Recipient Tokens:</strong><br>
-                <div style="background: #f8f9fa; padding: 12px; border-radius: 6px; margin-top: 4px; max-height: 100px; overflow-y: auto;">
+                <div style="padding: 12px; border-radius: 6px; margin-top: 4px; max-height: 100px; overflow-y: auto;">
                   ${messageData.tokens.map(token => `<div style="font-family: monospace; font-size: 12px;">${token}</div>`).join('')}
                 </div>
               </div>
@@ -2977,7 +3092,7 @@ function downloadBackup(date) {
           <div style="margin-bottom: 12px;"><strong>Encrypted:</strong> ${backup.encrypted ? 'Yes' : 'No'}</div>
           
           ${backup.metadata ? `
-            <div style="margin-top: 16px; padding: 12px; background: #f8f9fa; border-radius: 6px;">
+            <div style="margin-top: 16px; padding: 12px; border-radius: 6px;">
               <strong>Backup Contents:</strong><br>
               <div style="font-size: 12px; margin-top: 4px;">
                 Users: ${backup.metadata.totalUsers || 0}<br>
@@ -2987,7 +3102,7 @@ function downloadBackup(date) {
             </div>
           ` : ''}
           
-          <div style="margin-top: 16px; padding: 12px; background: #fff3cd; border-radius: 6px; border: 1px solid #ffeaa7;">
+          <div style="margin-top: 16px; padding: 12px; background: #2c2b26; border-radius: 6px; border: 1px solid #ffeaa7;">
             <strong>Note:</strong> This backup was downloaded on ${new Date(backup.date).toLocaleDateString()}. 
             To restore data, you would need to manually import this backup file.
           </div>
