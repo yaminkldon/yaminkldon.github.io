@@ -1473,20 +1473,53 @@ function generateActualReport(reportType, format, options) {
           
           Object.entries(users).forEach(([userKey, userData]) => {
             if (userData.type === 'student') {
-              // Use the exact same progress loading as progress.js loadProgress()
-              const userId = userKey; // This is the UID from users collection
-              const progressPromise = db.ref('progress/' + userId).once('value')
-                .then(snapshot => {
-                  const userProgress = snapshot.val() || {};
-                  return {
-                    userId: userId,
-                    userData: userData,
-                    userProgress: userProgress
-                  };
-                });
+              // Important: In progress.js, it uses currentUser.uid (Firebase Auth UID)
+              // But teacher dashboard creates users with database keys, not Firebase Auth UIDs
+              // We need to check multiple possible UID sources:
+              
+              // Option 1: Try userData.id (if set when user was created)
+              // Option 2: Try userKey (database key from users collection)
+              // Option 3: Try userData.uid (if exists)
+              
+              const possibleUIDs = [
+                userData.id,      // From addNewUser() function
+                userData.uid,     // If stored as 'uid' field
+                userKey          // Database key as fallback
+              ].filter(Boolean); // Remove null/undefined values
+              
+              // Try each possible UID to find progress data
+              const progressPromise = tryMultipleUIDs(possibleUIDs, userData, userKey);
               progressPromises.push(progressPromise);
             }
           });
+          
+          // Helper function to try multiple UIDs
+          async function tryMultipleUIDs(possibleUIDs, userData, userKey) {
+            for (const uid of possibleUIDs) {
+              try {
+                const snapshot = await db.ref('progress/' + uid).once('value');
+                const userProgress = snapshot.val();
+                
+                if (userProgress && Object.keys(userProgress).length > 0) {
+                  // Found progress data with this UID
+                  return {
+                    userId: uid,
+                    userData: userData,
+                    userProgress: userProgress
+                  };
+                }
+              } catch (error) {
+                console.log(`No progress found for UID: ${uid}`);
+              }
+            }
+            
+            // No progress found for any UID, return empty progress
+            return {
+              userId: possibleUIDs[0] || userKey,
+              userData: userData,
+              userProgress: {}
+            };
+          }
           
           // Wait for all progress data to load, then process using progress.js logic
           return Promise.all(progressPromises).then(allUserData => {
