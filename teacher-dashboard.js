@@ -1049,17 +1049,13 @@ function uploadVideo() {
 
 function saveLessonData(unitName, title, description, fileName, downloadURL) {
   const lessonData = {
-    title: title,
     description: description,
-    videoFile: fileName,
-    videoURL: downloadURL,
-    createdAt: Date.now(),
-    duration: 0, // Will be updated when video metadata is available
-    thumbnail: '' // Can be generated later
+    thumbnailURL: '', // Can be set later if needed
+    videoURL: fileName // Store filename instead of full URL
   };
   
-  // Save to database under units/unitName/lessons/ (not directly under unit)
-  db.ref(`units/${unitName}/lessons/${title}`).set(lessonData)
+  // Save directly to units/unitName/lessonTitle (not under lessons subfolder)
+  db.ref(`units/${unitName}/${title}`).set(lessonData)
     .then(() => {
       NotificationManager.showToast('Video uploaded and lesson created successfully!');
       document.getElementById('uploadVideoForm').reset();
@@ -1446,16 +1442,14 @@ function processReport() {
   
   NotificationManager.showToast(`Generating ${reportType} report in ${format} format...`);
   
-  // Simulate report generation
-  setTimeout(() => {
-    generateActualReport(reportType, format, {
-      includeDetails,
-      includeSummary
-    });
-  }, 1000);
+  // Generate report and show preview
+  generateActualReport(reportType, format, {
+    includeDetails,
+    includeSummary
+  }, true); // true for preview mode
 }
 
-function generateActualReport(reportType, format, options) {
+function generateActualReport(reportType, format, options, showPreview = false) {
   // Use the exact same data loading pattern as progress.js
   NotificationManager.showToast('Loading data using progress.js logic...');
   
@@ -1548,10 +1542,16 @@ function generateActualReport(reportType, format, options) {
         });
     })
     .then(reportData => {
-      // Download the report
-      downloadReport(reportData, reportType, format);
-      NotificationManager.showToast('Report generated successfully using progress.js logic!');
-      closeModal('reportModal');
+      if (showPreview) {
+        // Show report preview instead of immediate download
+        showReportPreview(reportData, reportType, format);
+        closeModal('reportModal');
+      } else {
+        // Download the report directly
+        downloadReport(reportData, reportType, format);
+        NotificationManager.showToast('Report generated successfully using progress.js logic!');
+        closeModal('reportModal');
+      }
     })
     .catch(error => {
       console.error('Error generating report:', error);
@@ -2022,7 +2022,7 @@ function showDataPreview(exportData, format) {
           <button class="preview-tab-btn" data-tab="raw">Raw Data</button>
         </div>
         
-        <div class="preview-content" style="max-height: 400px; overflow-y: auto; border: 1px solid #ddd; border-radius: 4px; padding: 12px; background: #fff;">
+        <div class="preview-content" style="max-height: 400px; overflow-y: auto; border: 1px solid #ddd; border-radius: 4px; padding: 12px; background: #f8f9fa;">
           <div id="preview-panel" style="font-family: monospace; font-size: 12px; white-space: pre-wrap;"></div>
         </div>
         
@@ -2263,6 +2263,199 @@ function viewAllData() {
     console.error('Error loading data:', error);
     NotificationManager.showToast('Error loading data: ' + error.message);
   });
+}
+
+function showReportPreview(reportData, reportType, format) {
+  // Create report preview modal
+  const modal = document.createElement('div');
+  modal.className = 'modal';
+  modal.id = 'reportPreviewModal';
+  modal.style.display = 'flex';
+  
+  // Calculate report summary
+  const userDetails = reportData.data.userDetails || [];
+  const totalUsers = userDetails.length;
+  const usersWithProgress = userDetails.filter(user => user.completedLessons > 0).length;
+  const avgCompletion = totalUsers > 0 ? 
+    Math.round(userDetails.reduce((sum, user) => sum + user.completionRate, 0) / totalUsers) : 0;
+  
+  // Sort users by completion rate (highest first)
+  const sortedUsers = [...userDetails].sort((a, b) => b.completionRate - a.completionRate);
+  
+  modal.innerHTML = `
+    <div class="modal-content" style="max-width: 1000px; width: 95%; max-height: 90vh;">
+      <div class="modal-header">
+        <h3 class="modal-title">Report Preview - ${reportType}</h3>
+        <button class="modal-close" onclick="closeModal('reportPreviewModal')" style="width: 15%;">&times;</button>
+      </div>
+      
+      <div class="report-preview-content" style="padding: 20px;">
+        <div class="report-summary" style="background: #f8f9fa; padding: 16px; border-radius: 8px; margin-bottom: 20px;">
+          <h4 style="margin: 0 0 12px 0;">Report Summary</h4>
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 16px;">
+            <div><strong>Total Users:</strong> ${totalUsers}</div>
+            <div><strong>Active Users:</strong> ${usersWithProgress}</div>
+            <div><strong>Avg Completion:</strong> ${avgCompletion}%</div>
+            <div><strong>Format:</strong> ${format.toUpperCase()}</div>
+            <div><strong>Generated:</strong> ${new Date().toLocaleDateString()}</div>
+          </div>
+        </div>
+        
+        <div class="report-tabs" style="display: flex; border-bottom: 1px solid #ddd; margin-bottom: 16px;">
+          <button class="report-tab-btn active" data-tab="summary">Summary</button>
+          <button class="report-tab-btn" data-tab="top-performers">Top Performers</button>
+          <button class="report-tab-btn" data-tab="needs-attention">Needs Attention</button>
+          <button class="report-tab-btn" data-tab="all-users">All Users</button>
+        </div>
+        
+        <div class="report-content" style="max-height: 400px; overflow-y: auto; border: 1px solid #ddd; border-radius: 4px; padding: 12px; background: #f8f9fa;">
+          <div id="report-panel" style="font-family: monospace; font-size: 12px; white-space: pre-wrap;"></div>
+        </div>
+        
+        <div class="report-actions" style="margin-top: 20px; display: flex; gap: 12px; justify-content: center;">
+          <button class="action-btn" onclick="downloadReportData()">
+            <span class="material-icons" style="margin-right: 8px;">download</span>
+            Download Report
+          </button>
+          <button class="action-btn secondary" onclick="closeModal('reportPreviewModal')">
+            <span class="material-icons" style="margin-right: 8px;">close</span>
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
+  `;
+  
+  document.body.appendChild(modal);
+  document.body.style.overflow = 'hidden';
+  
+  // Store report data globally for download
+  window.previewReportData = reportData;
+  window.previewReportType = reportType;
+  window.previewReportFormat = format;
+  window.sortedUsers = sortedUsers;
+  
+  // Setup tab functionality
+  setupReportTabs();
+  
+  // Show summary tab by default
+  showReportTab('summary');
+}
+
+function setupReportTabs() {
+  const tabButtons = document.querySelectorAll('.report-tab-btn');
+  
+  tabButtons.forEach(button => {
+    button.style.cssText = 'padding: 8px 16px; border: none; background: transparent; cursor: pointer; border-bottom: 2px solid transparent;';
+    
+    button.addEventListener('click', () => {
+      // Remove active class from all tabs
+      tabButtons.forEach(btn => {
+        btn.classList.remove('active');
+        btn.style.borderBottomColor = 'transparent';
+        btn.style.backgroundColor = 'transparent';
+      });
+      
+      // Add active class to clicked tab
+      button.classList.add('active');
+      button.style.borderBottomColor = '#6c4fc1';
+      button.style.backgroundColor = '#f8f9fa';
+      
+      // Show corresponding content
+      showReportTab(button.dataset.tab);
+    });
+  });
+}
+
+function showReportTab(tabName) {
+  const panel = document.getElementById('report-panel');
+  const reportData = window.previewReportData;
+  const sortedUsers = window.sortedUsers;
+  
+  switch(tabName) {
+    case 'summary':
+      panel.textContent = formatReportSummary(reportData);
+      break;
+    case 'top-performers':
+      const topPerformers = sortedUsers.slice(0, 10); // Top 10
+      panel.textContent = formatUsersList('Top Performers', topPerformers);
+      break;
+    case 'needs-attention':
+      const needsAttention = sortedUsers.filter(user => user.completionRate < 25).slice(0, 10);
+      panel.textContent = formatUsersList('Users Needing Attention', needsAttention);
+      break;
+    case 'all-users':
+      panel.textContent = formatUsersList('All Users (Sorted by Progress)', sortedUsers);
+      break;
+  }
+}
+
+function formatReportSummary(reportData) {
+  const summary = reportData.data.summary || {};
+  const userDetails = reportData.data.userDetails || [];
+  
+  let formatted = `REPORT SUMMARY\n`;
+  formatted += `=============\n\n`;
+  formatted += `Generated: ${reportData.generatedAt}\n`;
+  formatted += `Total Students: ${summary.totalStudents || userDetails.length}\n`;
+  formatted += `Students with Progress: ${summary.studentsWithProgress || 0}\n`;
+  formatted += `Average Completion Rate: ${summary.averageCompletionRate || 0}%\n`;
+  formatted += `Total Available Lessons: ${summary.totalAvailableLessons || 0}\n\n`;
+  
+  // Progress distribution
+  const ranges = [
+    { min: 0, max: 25, label: '0-25%' },
+    { min: 26, max: 50, label: '26-50%' },
+    { min: 51, max: 75, label: '51-75%' },
+    { min: 76, max: 100, label: '76-100%' }
+  ];
+  
+  formatted += `PROGRESS DISTRIBUTION:\n`;
+  ranges.forEach(range => {
+    const count = userDetails.filter(user => 
+      user.completionRate >= range.min && user.completionRate <= range.max
+    ).length;
+    formatted += `${range.label}: ${count} students\n`;
+  });
+  
+  return formatted;
+}
+
+function formatUsersList(title, users) {
+  let formatted = `${title.toUpperCase()}\n`;
+  formatted += `${'='.repeat(title.length)}\n\n`;
+  
+  if (users.length === 0) {
+    formatted += 'No users found.\n';
+    return formatted;
+  }
+  
+  formatted += `${'Email'.padEnd(30)} ${'Progress'.padEnd(10)} ${'Lessons'.padEnd(10)} ${'Streak'.padEnd(8)} Units\n`;
+  formatted += `${'-'.repeat(70)}\n`;
+  
+  users.forEach(user => {
+    const email = (user.email || 'Unknown').substring(0, 28).padEnd(30);
+    const progress = `${user.completionRate}%`.padEnd(10);
+    const lessons = `${user.completedLessons}/${user.totalLessons}`.padEnd(10);
+    const streak = `${user.studyStreak}`.padEnd(8);
+    const units = user.unitsStarted;
+    
+    formatted += `${email}${progress}${lessons}${streak}${units}\n`;
+  });
+  
+  return formatted;
+}
+
+function downloadReportData() {
+  const reportData = window.previewReportData;
+  const reportType = window.previewReportType;
+  const format = window.previewReportFormat;
+  
+  if (reportData && reportType && format) {
+    downloadReport(reportData, reportType, format);
+    NotificationManager.showToast(`Report downloaded in ${format} format`);
+    closeModal('reportPreviewModal');
+  }
 }
 
 function downloadExportedData(data, format) {
