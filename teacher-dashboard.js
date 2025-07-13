@@ -1560,7 +1560,7 @@ function generateUserProgressReport(users, units, progress, options) {
         email: userData.email,
         type: userData.type,
         expiration: userData.expirationDate ? new Date(userData.expirationDate).toLocaleDateString() : 'No expiration',
-        unitsStarted: Object.keys(userProgress).filter(key => key !== 'lastStudyDates').length,
+        unitsStarted: calculateUnitsStarted(units, userProgress),
         completionRate: completionRate,
         totalLessons: totalAvailableLessons,
         completedLessons: completedLessons,
@@ -1574,6 +1574,35 @@ function generateUserProgressReport(users, units, progress, options) {
     
     resolve(report);
   });
+}
+
+// Helper function to calculate units started using progress.js logic
+function calculateUnitsStarted(units, userProgress) {
+  let unitsStarted = 0;
+  
+  Object.keys(units).forEach(unitId => {
+    const unit = units[unitId];
+    if (!unit || typeof unit !== 'object') return;
+    
+    // Check if user has any completed lessons in this unit using progress.js logic
+    let hasCompletedLessonsInUnit = false;
+    Object.keys(unit).forEach(key => {
+      const item = unit[key];
+      // Check if this is a lesson (has videoURL or videoFile)
+      if (item && typeof item === 'object' && (item.videoURL || item.videoFile)) {
+        // Check if this lesson is completed
+        if (userProgress[unitId] && userProgress[unitId][key] && userProgress[unitId][key].completed) {
+          hasCompletedLessonsInUnit = true;
+        }
+      }
+    });
+    
+    if (hasCompletedLessonsInUnit) {
+      unitsStarted++;
+    }
+  });
+  
+  return unitsStarted;
 }
 
 function downloadReport(reportData, reportType, format) {
