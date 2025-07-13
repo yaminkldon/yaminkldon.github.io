@@ -117,9 +117,6 @@ function loadUnitsWithoutProgress() {
     // Re-add static items (Progress and Settings)
     staticItems.forEach(item => unitsList.appendChild(item));
     
-    // Add Teacher Dashboard for teachers
-    addTeacherDashboardIfApplicable();
-    
     snapshot.forEach(unitSnap => {
       const unitName = unitSnap.key;
       const li = document.createElement('li');
@@ -591,6 +588,13 @@ function addTeacherDashboardIfApplicable() {
   const user = firebase.auth().currentUser;
   if (!user) return;
   
+  // Check if teacher dashboard already exists
+  const unitsList = document.getElementById('units-list');
+  const existingTeacherDashboard = unitsList.querySelector('li[data-teacher-dashboard="true"]');
+  if (existingTeacherDashboard) {
+    return; // Already exists, don't add another one
+  }
+  
   // Search for user by email in database
   db.ref('users').orderByChild('email').equalTo(user.email).once('value').then(snapshot => {
     if (!snapshot.exists()) return;
@@ -599,11 +603,11 @@ function addTeacherDashboardIfApplicable() {
     const userData = Object.values(snapshot.val())[0];
     if (userData && userData.type === 'teacher') {
       // Add Teacher Dashboard link
-      const unitsList = document.getElementById('units-list');
       const teacherDashboardItem = document.createElement('li');
       teacherDashboardItem.setAttribute('data-static', 'true');
+      teacherDashboardItem.setAttribute('data-teacher-dashboard', 'true');
       teacherDashboardItem.style.borderBottom = '1px solid #eee';
-      teacherDashboardItem.style.backgroundColor = '#f8f9fa';
+      teacherDashboardItem.style.backgroundColor = 'transparent';
       teacherDashboardItem.innerHTML = `
         <span class="material-icons" style="vertical-align: middle; margin-right: 12px;">dashboard</span>
         <span data-translate="teacherDashboard">Teacher Dashboard</span>
