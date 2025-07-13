@@ -853,10 +853,11 @@ document.addEventListener('DOMContentLoaded', function() {
 function addNewUser() {
   const email = document.getElementById('userEmail').value.trim();
   const password = document.getElementById('userPassword').value;
-  const deviceId = document.getElementById('userDeviceId').value.trim() || generateDeviceId();
+  const userType = document.getElementById('userType').value;
+  const deviceId = document.getElementById('userDeviceId').value.trim();
   const expiration = document.getElementById('userExpiration').value;
   
-  if (!email || !password || !expiration) {
+  if (!email || !password || !userType || !expiration) {
     NotificationManager.showToast('Please fill in all required fields');
     return;
   }
@@ -871,8 +872,8 @@ function addNewUser() {
     id: userId,
     email: email,
     password: password, // In production, this should be hashed
-    deviceId: deviceId,
-    type: 'student',
+    deviceId: deviceId, // Save as empty string if not provided
+    type: userType,
     expirationDate: expirationTimestamp,
     createdAt: Date.now()
   };
@@ -880,14 +881,15 @@ function addNewUser() {
   // Save to database
   db.ref('users/' + userId).set(userData)
     .then(() => {
-      NotificationManager.showToast('Student added successfully!');
+      const userTypeText = userType === 'teacher' ? 'Teacher' : 'Student';
+      NotificationManager.showToast(`${userTypeText} added successfully!`);
       document.getElementById('addUserForm').reset();
       closeModal('addUserModal');
       loadQuickStats(); // Refresh stats
     })
     .catch(error => {
       console.error('Error adding user:', error);
-      NotificationManager.showToast('Error adding student: ' + error.message);
+      NotificationManager.showToast('Error adding user: ' + error.message);
     });
 }
 
