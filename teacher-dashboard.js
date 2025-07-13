@@ -1297,25 +1297,51 @@ function displayGeneratedToken(token, expirationDate) {
   const tokenExpiry = document.getElementById('tokenExpiry');
   
   if (tokenDisplay && generatedTokenInput && tokenExpiry) {
+    // Set the token value
     generatedTokenInput.value = token;
-    tokenExpiry.textContent = expirationDate.toLocaleDateString() + ' at ' + expirationDate.toLocaleTimeString();
+    
+    // Format the expiration date
+    const formattedDate = expirationDate.toLocaleDateString() + ' at ' + expirationDate.toLocaleTimeString();
+    tokenExpiry.textContent = formattedDate;
+    
+    // Show the display area
     tokenDisplay.style.display = 'block';
+    
+    // Debug log
+    console.log('Token displayed:', token);
+    console.log('Token input value:', generatedTokenInput.value);
+  } else {
+    console.error('Token display elements not found');
   }
 }
 
 function copyToken() {
   const tokenInput = document.getElementById('generatedToken');
-  if (tokenInput) {
+  if (tokenInput && tokenInput.value) {
     tokenInput.select();
     tokenInput.setSelectionRange(0, 99999); // For mobile devices
     
     try {
-      document.execCommand('copy');
-      NotificationManager.showToast('Token copied to clipboard!');
+      // Try modern clipboard API first
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(tokenInput.value).then(() => {
+          NotificationManager.showToast('Token copied to clipboard!');
+        }).catch(() => {
+          // Fallback to document.execCommand
+          document.execCommand('copy');
+          NotificationManager.showToast('Token copied to clipboard!');
+        });
+      } else {
+        // Fallback to document.execCommand
+        document.execCommand('copy');
+        NotificationManager.showToast('Token copied to clipboard!');
+      }
     } catch (err) {
       console.error('Failed to copy token:', err);
       NotificationManager.showToast('Failed to copy token. Please copy manually.');
     }
+  } else {
+    NotificationManager.showToast('No token to copy');
   }
 }
 
@@ -1353,7 +1379,7 @@ function viewAllTokens() {
         
         <div class="tokens-table" style="max-height: 400px; overflow-y: auto; border: 1px solid #ddd; border-radius: 8px;">
           <table style="width: 100%; border-collapse: collapse;">
-            <thead style="position: sticky; top: 0; background: #f8f9fa;">
+            <thead style="position: sticky; top: 0; background: rgba(108, 79, 193, 0.1);">
               <tr>
                 <th style="padding: 12px; border-bottom: 1px solid #ddd; text-align: left;">Token</th>
                 <th style="padding: 12px; border-bottom: 1px solid #ddd; text-align: left;">Duration</th>
@@ -1472,12 +1498,45 @@ function setupTokensSearch() {
 }
 
 function copyToClipboard(text) {
-  navigator.clipboard.writeText(text).then(() => {
-    NotificationManager.showToast('Token copied to clipboard!');
-  }).catch(err => {
-    console.error('Failed to copy:', err);
-    NotificationManager.showToast('Failed to copy token');
-  });
+  // Try modern clipboard API first
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(() => {
+      NotificationManager.showToast('Token copied to clipboard!');
+    }).catch(err => {
+      console.error('Failed to copy with modern API:', err);
+      // Fallback to text selection method
+      fallbackCopy(text);
+    });
+  } else {
+    // Fallback for older browsers
+    fallbackCopy(text);
+  }
+}
+
+function fallbackCopy(text) {
+  // Create a temporary textarea element
+  const textArea = document.createElement('textarea');
+  textArea.value = text;
+  textArea.style.position = 'fixed';
+  textArea.style.left = '-999999px';
+  textArea.style.top = '-999999px';
+  document.body.appendChild(textArea);
+  
+  try {
+    textArea.focus();
+    textArea.select();
+    const successful = document.execCommand('copy');
+    if (successful) {
+      NotificationManager.showToast('Token copied to clipboard!');
+    } else {
+      NotificationManager.showToast('Failed to copy token');
+    }
+  } catch (err) {
+    console.error('Fallback copy failed:', err);
+    NotificationManager.showToast('Failed to copy token. Please copy manually.');
+  } finally {
+    document.body.removeChild(textArea);
+  }
 }
 
 function markTokenAsUsed(token) {
@@ -1566,7 +1625,7 @@ function loadTokensManagement() {
         tokenCard.setAttribute('data-token', tokenKey);
         
         tokenCard.style.cssText = `
-          background: #f8f9fa; 
+          background: transparent; 
           padding: 16px; 
           border-radius: 8px; 
           border: 1px solid #e0e0e0; 

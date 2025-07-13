@@ -128,7 +128,17 @@ class AdvancedFeatures {
         videoThumbnail: 'Video Thumbnail (Optional)',
         thumbnailHelp: 'Upload a thumbnail image for the video (optional)',
         userType: 'User Type',
-        addUser: 'Add User'
+        addUser: 'Add User',
+        tokenGeneration: 'Token Generation',
+        tokenGenerationDesc: 'Generate access tokens for temporary user authentication.',
+        generateToken: 'Generate Token',
+        viewTokens: 'View Tokens',
+        manageTokens: 'Manage Tokens',
+        tokenDuration: 'Token Duration (Days)',
+        tokenDurationHelp: 'Enter the number of days this token should remain valid',
+        tokenDescription: 'Description (Optional)',
+        tokenDescHelp: 'Add a description to help identify this token later',
+        addNewUser: 'Add New User'
       },
       ar: {
         home: 'الرئيسية',
@@ -239,7 +249,17 @@ class AdvancedFeatures {
         videoThumbnail: 'صورة مصغرة للفيديو (اختياري)',
         thumbnailHelp: 'إذا لم يتم تحميل صورة مصغرة، فسيتم إنشاء واحدة تلقائيًا',
         userType: 'نوع المستخدم',
-        addUser: 'إضافة مستخدم'
+        addUser: 'إضافة مستخدم',
+        tokenGeneration: 'إنشاء الرموز',
+        tokenGenerationDesc: 'إنشاء رموز الوصول للمصادقة المؤقتة للمستخدمين.',
+        generateToken: 'إنشاء رمز',
+        viewTokens: 'عرض الرموز',
+        manageTokens: 'إدارة الرموز',
+        tokenDuration: 'مدة الرمز (بالأيام)',
+        tokenDurationHelp: 'أدخل عدد الأيام التي يجب أن يبقى فيها هذا الرمز صالحًا',
+        tokenDescription: 'الوصف (اختياري)',
+        tokenDescHelp: 'أضف وصفًا للمساعدة في تحديد هذا الرمز لاحقًا',
+        addNewUser: 'إضافة مستخدم جديد'
       }
     };
     
