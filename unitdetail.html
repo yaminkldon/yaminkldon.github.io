@@ -71,7 +71,7 @@
       transition: box-shadow 0.2s;
       display: flex;
       flex-direction: column;
-      height: 100%;
+      height: 95%;
     }
     .lesson-card:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.16); }
     .lesson-thumbnail {
@@ -714,6 +714,22 @@
     <span style="font-size:1.2em;flex:1;" id="unit-title-header" data-translate="unitDetail">Unit Detail</span>
   </div>
 
+    <!-- Version Indicator -->
+  <div id="version-indicator" style="
+    position: fixed;
+    bottom: 10px;
+    right: 10px;
+    background: rgba(0, 0, 0, 0.7);
+    color: white;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-family: monospace;
+    z-index: 1000;
+    user-select: none;
+    pointer-events: none;
+  ">V3.1</div>
+
   <div class="main-content">
     <h1 class="unit-title" id="unit-title" data-translate="loading">Loading...</h1>
     <div class="lessons-grid" id="lessons-grid"></div>
@@ -831,22 +847,6 @@
     transition:visibility 0s, opacity 0.5s linear;
     opacity:0;
   "></div>
-
-  <!-- Version Indicator -->
-  <div id="version-indicator" style="
-    position: fixed;
-    bottom: 10px;
-    right: 10px;
-    background: rgba(0, 0, 0, 0.7);
-    color: white;
-    padding: 4px 8px;
-    border-radius: 4px;
-    font-size: 11px;
-    font-family: monospace;
-    z-index: 1000;
-    user-select: none;
-    pointer-events: none;
-  ">V3</div>
 
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
