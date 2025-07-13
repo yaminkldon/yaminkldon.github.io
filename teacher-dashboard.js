@@ -78,22 +78,16 @@ function loadQuickStats() {
     const unitCount = snapshot.exists() ? Object.keys(snapshot.val()).length : 0;
     document.getElementById('total-units').textContent = unitCount;
     
-    // Count total lessons
+    // Count total lessons (using progress.js logic)
     let lessonCount = 0;
     if (snapshot.exists()) {
       Object.values(snapshot.val()).forEach(unit => {
-        // Count lessons in 'lessons' subfolder
-        if (unit.lessons) {
-          lessonCount += Object.keys(unit.lessons).length;
-        }
-        
-        // Count direct lessons (not in subfolder)
+        // Count lessons directly under unit (not under unit.lessons)
         Object.keys(unit).forEach(key => {
-          if (key !== 'lessons' && typeof unit[key] === 'object' && unit[key] !== null) {
-            // Check if this is a lesson (has lesson properties)
-            if (unit[key].title || unit[key].description || unit[key].videoURL || unit[key].videoFile) {
-              lessonCount++;
-            }
+          const item = unit[key];
+          // Check if this is a lesson (has videoURL or videoFile)
+          if (item && typeof item === 'object' && (item.videoURL || item.videoFile)) {
+            lessonCount++;
           }
         });
       });
@@ -606,7 +600,7 @@ function generateReport() {
           <label class="form-label">Format</label>
           <select id="reportFormat" class="form-input">
             <option value="pdf">PDF</option>
-            <option value="excel">Excel (XLSX)</option>
+            <option value="json">JSON</option>
             <option value="csv">CSV</option>
           </select>
         </div>
@@ -673,7 +667,6 @@ function exportData() {
           <select id="exportFormat" class="form-input">
             <option value="json">JSON</option>
             <option value="csv">CSV</option>
-            <option value="excel">Excel (XLSX)</option>
           </select>
         </div>
         
@@ -1550,21 +1543,15 @@ function generateUserProgressReport(users, units, progress, options) {
       }
     };
     
-    // Calculate total available lessons across all units
+    // Calculate total available lessons across all units (using progress.js logic)
     let totalAvailableLessons = 0;
     Object.values(units).forEach(unit => {
-      // Count lessons in 'lessons' subfolder
-      if (unit.lessons) {
-        totalAvailableLessons += Object.keys(unit.lessons).length;
-      }
-      
-      // Count direct lessons (not in subfolder)
+      // Count lessons directly under unit (not under unit.lessons)
       Object.keys(unit).forEach(key => {
-        if (key !== 'lessons' && typeof unit[key] === 'object' && unit[key] !== null) {
-          // Check if this is a lesson (has lesson properties)
-          if (unit[key].title || unit[key].description || unit[key].videoURL || unit[key].videoFile) {
-            totalAvailableLessons++;
-          }
+        const item = unit[key];
+        // Check if this is a lesson (has videoURL or videoFile)
+        if (item && typeof item === 'object' && (item.videoURL || item.videoFile)) {
+          totalAvailableLessons++;
         }
       });
     });
@@ -1576,8 +1563,15 @@ function generateUserProgressReport(users, units, progress, options) {
         type: userData.type,
         expiration: userData.expirationDate ? new Date(userData.expirationDate).toLocaleDateString() : 'No expiration',
         unitsStarted: Object.keys(userProgress).filter(key => key !== 'lastStudyDates').length,
-        lastStudyDates: userProgress.lastStudyDates ? userProgress.lastStudyDates.join(', ') : 'No study dates'
+        lastStudyDates: ''
       };
+      
+      // Get last study dates (using progress.js logic)
+      if (userProgress.lastStudyDates && Array.isArray(userProgress.lastStudyDates)) {
+        userDetail.lastStudyDates = userProgress.lastStudyDates.slice(-3).join(', '); // Show last 3 dates
+      } else {
+        userDetail.lastStudyDates = 'No study dates';
+      }
       
       // Calculate completion stats for this user
       let completedLessons = 0;
@@ -1786,17 +1780,10 @@ function downloadReport(reportData, reportType, format) {
       break;
       
     case 'pdf':
-      // Create a formatted text version for PDF
+      // Create a formatted text version for PDF (text/plain instead of application/pdf)
       const pdfData = convertToPDFText(reportData);
-      blob = new Blob([pdfData], {type: 'application/pdf'});
-      filename = `${reportType}_report_${new Date().toISOString().split('T')[0]}.pdf`;
-      break;
-      
-    case 'excel':
-      // Create Excel-compatible CSV
-      const excelData = convertToExcel(reportData);
-      blob = new Blob([excelData], {type: 'application/vnd.ms-excel'});
-      filename = `${reportType}_report_${new Date().toISOString().split('T')[0]}.xls`;
+      blob = new Blob([pdfData], {type: 'text/plain'});
+      filename = `${reportType}_report_${new Date().toISOString().split('T')[0]}.txt`;
       break;
       
     default:
@@ -1872,29 +1859,6 @@ function convertToPDFText(data) {
   }
   
   return text;
-}
-
-function convertToExcel(data) {
-  // Create a tab-separated values format that Excel can read
-  let excel = '';
-  
-  if (data.data && data.data.userDetails) {
-    excel += `${data.title}\t\t\t\t\t\t\t\n`;
-    excel += 'Email\tType\tExpiration\tUnits Started\tCompletion Rate\tTotal Lessons\tCompleted Lessons\tLast Study Dates\n';
-    
-    data.data.userDetails.forEach(user => {
-      excel += `${user.email}\t${user.type}\t${user.expiration}\t${user.unitsStarted}\t${user.completionRate}%\t${user.totalLessons}\t${user.completedLessons}\t${user.lastStudyDates}\n`;
-    });
-  } else if (data.userProgress && data.userProgress.userDetails) {
-    excel += 'User Progress Report\t\t\t\t\t\t\t\n';
-    excel += 'Email\tType\tExpiration\tUnits Started\tCompletion Rate\tTotal Lessons\tCompleted Lessons\tLast Study Dates\n';
-    
-    data.userProgress.userDetails.forEach(user => {
-      excel += `${user.email}\t${user.type}\t${user.expiration}\t${user.unitsStarted}\t${user.completionRate}%\t${user.totalLessons}\t${user.completedLessons}\t${user.lastStudyDates}\n`;
-    });
-  }
-  
-  return excel;
 }
 
 function processDataExport() {
@@ -2059,13 +2023,6 @@ function downloadExportedData(data, format) {
     case 'csv':
       const csvData = convertExportToCSV(data);
       blob = new Blob([csvData], {type: 'text/csv'});
-      filename = `data_export_${new Date().toISOString().split('T')[0]}.csv`;
-      break;
-      
-    case 'excel':
-      // For Excel, we'll create a CSV that can be opened in Excel
-      const excelData = convertExportToCSV(data);
-      blob = new Blob([excelData], {type: 'application/vnd.ms-excel'});
       filename = `data_export_${new Date().toISOString().split('T')[0]}.csv`;
       break;
       
@@ -2428,17 +2385,20 @@ function showVideoPreview(unitKey, lessonKey, lessonData, videoURL) {
         <button class="modal-close" onclick="closeModal('videoPreviewModal')" style="width: 15%;">&times;</button>
       </div>
       <div style="padding: 20px;">
-        <video controls style="width: 100%; max-height: 400px;" preload="metadata" crossorigin="anonymous">
+        <video controls style="width: 100%; max-height: 400px;" preload="metadata">
           <source src="${videoURL}" type="video/mp4">
           Your browser does not support the video tag.
         </video>
-        <div style="margin-top: 12px; padding: 12px; border-radius: 6px;">
-          <strong>Description:</strong> ${lessonData.description || 'No description available'}<br>
-          <strong>Unit:</strong> ${unitKey}<br>
-          <strong>Lesson:</strong> ${lessonKey}<br>
-          <strong>Video URL:</strong> <a href="${videoURL}" target="_blank" style="color: #6c4fc1; text-decoration: none; word-break: break-all;">${videoURL}</a><br>
-          ${lessonData.createdAt ? `<strong>Created:</strong> ${new Date(lessonData.createdAt).toLocaleString()}<br>` : ''}
-          ${lessonData.videoFile ? `<strong>File:</strong> ${lessonData.videoFile}` : ''}
+        <div style="margin-top: 16px;">
+          <h4>${lessonData.title || lessonKey}</h4>
+          <p style="color: #666;">${lessonData.description || 'No description available'}</p>
+          <div style="font-size: 12px; color: #999;">
+            Unit: ${unitKey} | Created: ${lessonData.createdAt ? new Date(lessonData.createdAt).toLocaleDateString() : 'Unknown'}
+          </div>
+        </div>
+        <div class="feature-actions" style="margin-top: 20px;">
+          <button class="action-btn secondary" onclick="openVideoInNewTab('${videoURL}')">Open in New Tab</button>
+          <button class="action-btn secondary" onclick="closeModal('videoPreviewModal')">Close</button>
         </div>
       </div>
     </div>
@@ -2446,6 +2406,10 @@ function showVideoPreview(unitKey, lessonKey, lessonData, videoURL) {
   
   document.body.appendChild(modal);
   document.body.style.overflow = 'hidden';
+}
+
+function openVideoInNewTab(videoURL) {
+  window.open(videoURL, '_blank');
 }
 
 function editVideo(unitKey, lessonKey, type) {
