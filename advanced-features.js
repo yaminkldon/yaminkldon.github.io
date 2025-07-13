@@ -89,14 +89,15 @@ class AdvancedFeatures {
   }
 
   updateUITexts() {
-    // Update all UI elements with new language
-    document.querySelectorAll('[data-translate]').forEach(element => {
-      const key = element.getAttribute('data-translate');
-      element.textContent = this.translate(key);
-    });
-  }
-
-  updateUITexts() {
+    // Update document direction and language
+    if (this.currentLanguage === 'ar') {
+      document.dir = 'rtl';
+      document.documentElement.lang = 'ar';
+    } else {
+      document.dir = 'ltr';
+      document.documentElement.lang = 'en';
+    }
+    
     // Update all UI elements with new language
     document.querySelectorAll('[data-translate]').forEach(element => {
       const key = element.getAttribute('data-translate');
@@ -336,6 +337,15 @@ class AdvancedFeatures {
 
   // Additional utility methods
   updateLanguageDisplay() {
+    // Update document direction and language
+    if (this.currentLanguage === 'ar') {
+      document.dir = 'rtl';
+      document.documentElement.lang = 'ar';
+    } else {
+      document.dir = 'ltr';
+      document.documentElement.lang = 'en';
+    }
+    
     // Update all UI elements with new language
     document.querySelectorAll('[data-translate]').forEach(element => {
       const key = element.getAttribute('data-translate');
