@@ -1,0 +1,576 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Teacher Dashboard</title>
+  <link rel="stylesheet" href="styles.css" />
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+  <style>
+    body { 
+      margin: 0; 
+      background: #f7f4fb; 
+      font-family: 'Segoe UI', Arial, sans-serif; 
+      transition: background-color 0.3s, color 0.3s; 
+    }
+    body.dark-mode { 
+      background: #1a1a1a; 
+      color: #fff; 
+    }
+    
+    .appbar {
+      height: 56px;
+      background: #6c4fc1;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      padding: 0 16px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      z-index: 1001;
+    }
+    .appbar .material-icons { cursor: pointer; margin-right: 16px; }
+    
+    .dashboard-container {
+      margin-top: 56px;
+      padding: 24px;
+      max-width: 1200px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+    
+    .dashboard-header {
+      text-align: center;
+      margin-bottom: 32px;
+    }
+    
+    .dashboard-title {
+      font-size: 2em;
+      font-weight: bold;
+      color: #222c5c;
+      margin-bottom: 8px;
+    }
+    
+    body.dark-mode .dashboard-title {
+      color: #fff;
+    }
+    
+    .dashboard-subtitle {
+      color: #666;
+      font-size: 1.1em;
+    }
+    
+    body.dark-mode .dashboard-subtitle {
+      color: #ccc;
+    }
+    
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 24px;
+      margin-bottom: 32px;
+    }
+    
+    .feature-card {
+      background: #fff;
+      border-radius: 12px;
+      padding: 24px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+      transition: transform 0.2s, box-shadow 0.2s;
+      cursor: pointer;
+    }
+    
+    .feature-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+    }
+    
+    body.dark-mode .feature-card {
+      background: #2d2d2d;
+      color: #fff;
+    }
+    
+    .feature-icon {
+      width: 48px;
+      height: 48px;
+      background: #6c4fc1;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 16px;
+    }
+    
+    .feature-icon .material-icons {
+      color: #fff;
+      font-size: 24px;
+    }
+    
+    .feature-title {
+      font-size: 1.3em;
+      font-weight: bold;
+      color: #222c5c;
+      margin-bottom: 8px;
+    }
+    
+    body.dark-mode .feature-title {
+      color: #fff;
+    }
+    
+    .feature-description {
+      color: #666;
+      line-height: 1.5;
+      margin-bottom: 16px;
+    }
+    
+    body.dark-mode .feature-description {
+      color: #ccc;
+    }
+    
+    .feature-actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    
+    .action-btn {
+      background: #6c4fc1;
+      color: #fff;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 14px;
+      transition: background-color 0.2s;
+    }
+    
+    .action-btn:hover {
+      background: #5436a7;
+    }
+    
+    .action-btn.secondary {
+      background: #e0e0e0;
+      color: #333;
+    }
+    
+    .action-btn.secondary:hover {
+      background: #d0d0d0;
+    }
+    
+    .quick-stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px;
+      margin-bottom: 32px;
+    }
+    
+    .stat-card {
+      background: #fff;
+      border-radius: 8px;
+      padding: 20px;
+      text-align: center;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    }
+    
+    body.dark-mode .stat-card {
+      background: #2d2d2d;
+      color: #fff;
+    }
+    
+    .stat-number {
+      font-size: 2em;
+      font-weight: bold;
+      color: #6c4fc1;
+      margin-bottom: 4px;
+    }
+    
+    .stat-label {
+      color: #666;
+      font-size: 14px;
+    }
+    
+    body.dark-mode .stat-label {
+      color: #ccc;
+    }
+    
+    /* Modal Styles */
+    .modal {
+      display: none;
+      position: fixed;
+      z-index: 10000;
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0,0,0,0.5);
+      align-items: center;
+      justify-content: center;
+    }
+    
+    .modal-content {
+      background: #fff;
+      border-radius: 12px;
+      padding: 24px;
+      max-width: 500px;
+      width: 90%;
+      max-height: 80vh;
+      overflow-y: auto;
+    }
+    
+    body.dark-mode .modal-content {
+      background: #2d2d2d;
+      color: #fff;
+    }
+    
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+    }
+    
+    .modal-title {
+      font-size: 1.5em;
+      font-weight: bold;
+      color: #222c5c;
+    }
+    
+    body.dark-mode .modal-title {
+      color: #fff;
+    }
+    
+    .modal-close {
+      background: none;
+      border: none;
+      font-size: 24px;
+      cursor: pointer;
+      color: #666;
+    }
+    
+    body.dark-mode .modal-close {
+      color: #ccc;
+    }
+    
+    .form-group {
+      margin-bottom: 16px;
+    }
+    
+    .form-label {
+      display: block;
+      margin-bottom: 4px;
+      font-weight: 500;
+      color: #222c5c;
+    }
+    
+    body.dark-mode .form-label {
+      color: #fff;
+    }
+    
+    .form-input {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      font-size: 14px;
+      box-sizing: border-box;
+    }
+    
+    body.dark-mode .form-input {
+      background: #333;
+      border-color: #555;
+      color: #fff;
+    }
+    
+    .form-textarea {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      font-size: 14px;
+      min-height: 100px;
+      resize: vertical;
+      box-sizing: border-box;
+    }
+    
+    body.dark-mode .form-textarea {
+      background: #333;
+      border-color: #555;
+      color: #fff;
+    }
+    
+    .file-upload {
+      border: 2px dashed #ddd;
+      border-radius: 8px;
+      padding: 20px;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color 0.2s;
+    }
+    
+    .file-upload:hover {
+      border-color: #6c4fc1;
+    }
+    
+    .file-upload.drag-over {
+      border-color: #6c4fc1;
+      background: rgba(108, 79, 193, 0.1);
+    }
+    
+    .progress-bar {
+      width: 100%;
+      height: 8px;
+      background: #e0e0e0;
+      border-radius: 4px;
+      overflow: hidden;
+      margin: 16px 0;
+    }
+    
+    .progress-fill {
+      height: 100%;
+      background: #6c4fc1;
+      transition: width 0.3s ease;
+    }
+    
+    @media (max-width: 768px) {
+      .dashboard-container {
+        padding: 16px;
+      }
+      
+      .features-grid {
+        grid-template-columns: 1fr;
+        gap: 16px;
+      }
+      
+      .quick-stats {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="appbar">
+    <span class="material-icons" onclick="goBack()">arrow_back</span>
+    <span style="font-size:1.2em;flex:1;" data-translate="teacherDashboard">Teacher Dashboard</span>
+  </div>
+
+  <div class="dashboard-container">
+    <div class="dashboard-header">
+      <h1 class="dashboard-title" data-translate="welcomeTeacher">Welcome, Teacher!</h1>
+      <p class="dashboard-subtitle" data-translate="dashboardSubtitle">Manage your courses, students, and content from here</p>
+    </div>
+
+    <!-- Quick Stats -->
+    <div class="quick-stats">
+      <div class="stat-card">
+        <div class="stat-number" id="total-students">0</div>
+        <div class="stat-label" data-translate="totalStudents">Total Students</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-number" id="total-units">0</div>
+        <div class="stat-label" data-translate="totalUnits">Total Units</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-number" id="total-lessons">0</div>
+        <div class="stat-label" data-translate="totalLessons">Total Lessons</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-number" id="avg-progress">0%</div>
+        <div class="stat-label" data-translate="avgProgress">Avg Progress</div>
+      </div>
+    </div>
+
+    <!-- Feature Cards -->
+    <div class="features-grid">
+      <!-- User Management -->
+      <div class="feature-card" onclick="openUserManagement()">
+        <div class="feature-icon">
+          <span class="material-icons">group</span>
+        </div>
+        <h3 class="feature-title" data-translate="userManagement">User Management</h3>
+        <p class="feature-description" data-translate="userManagementDesc">Add, remove, and manage student accounts. View student progress and analytics.</p>
+        <div class="feature-actions">
+          <button class="action-btn" onclick="event.stopPropagation(); openAddUserModal()" data-translate="addStudent">Add Student</button>
+          <button class="action-btn secondary" onclick="event.stopPropagation(); viewAllUsers()" data-translate="viewAll">View All</button>
+        </div>
+      </div>
+
+      <!-- Content Management -->
+      <div class="feature-card" onclick="openContentManagement()">
+        <div class="feature-icon">
+          <span class="material-icons">library_books</span>
+        </div>
+        <h3 class="feature-title" data-translate="contentManagement">Content Management</h3>
+        <p class="feature-description" data-translate="contentManagementDesc">Create and manage units, lessons, and course materials.</p>
+        <div class="feature-actions">
+          <button class="action-btn" onclick="event.stopPropagation(); openAddUnitModal()" data-translate="addUnit">Add Unit</button>
+          <button class="action-btn" onclick="event.stopPropagation(); openAddLessonModal()" data-translate="addLesson">Add Lesson</button>
+        </div>
+      </div>
+
+      <!-- Analytics & Reports -->
+      <div class="feature-card" onclick="openAnalytics()">
+        <div class="feature-icon">
+          <span class="material-icons">analytics</span>
+        </div>
+        <h3 class="feature-title" data-translate="analytics">Analytics & Reports</h3>
+        <p class="feature-description" data-translate="analyticsDesc">View detailed progress reports and student performance analytics.</p>
+        <div class="feature-actions">
+          <button class="action-btn" onclick="event.stopPropagation(); generateReport()" data-translate="generateReport">Generate Report</button>
+          <button class="action-btn secondary" onclick="event.stopPropagation(); exportData()" data-translate="exportData">Export Data</button>
+        </div>
+      </div>
+
+      <!-- Communication -->
+      <div class="feature-card" onclick="openCommunication()">
+        <div class="feature-icon">
+          <span class="material-icons">notifications</span>
+        </div>
+        <h3 class="feature-title" data-translate="communication">Communication</h3>
+        <p class="feature-description" data-translate="communicationDesc">Send announcements and notifications to students.</p>
+        <div class="feature-actions">
+          <button class="action-btn" onclick="event.stopPropagation(); openSendNotification()" data-translate="sendNotification">Send Notification</button>
+          <button class="action-btn secondary" onclick="event.stopPropagation(); viewMessages()" data-translate="viewMessages">View Messages</button>
+        </div>
+      </div>
+
+      <!-- Video Management -->
+      <div class="feature-card" onclick="openVideoManagement()">
+        <div class="feature-icon">
+          <span class="material-icons">video_library</span>
+        </div>
+        <h3 class="feature-title" data-translate="videoManagement">Video Management</h3>
+        <p class="feature-description" data-translate="videoManagementDesc">Upload, organize, and manage video content for lessons.</p>
+        <div class="feature-actions">
+          <button class="action-btn" onclick="event.stopPropagation(); openUploadVideoModal()" data-translate="uploadVideo">Upload Video</button>
+          <button class="action-btn secondary" onclick="event.stopPropagation(); manageVideos()" data-translate="manageVideos">Manage Videos</button>
+        </div>
+      </div>
+
+      <!-- Settings -->
+      <div class="feature-card" onclick="openTeacherSettings()">
+        <div class="feature-icon">
+          <span class="material-icons">settings</span>
+        </div>
+        <h3 class="feature-title" data-translate="teacherSettings">Teacher Settings</h3>
+        <p class="feature-description" data-translate="teacherSettingsDesc">Configure dashboard preferences and account settings.</p>
+        <div class="feature-actions">
+          <button class="action-btn" onclick="event.stopPropagation(); openPreferences()" data-translate="preferences">Preferences</button>
+          <button class="action-btn secondary" onclick="event.stopPropagation(); backupData()" data-translate="backup">Backup</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Add User Modal -->
+  <div id="addUserModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 class="modal-title" data-translate="addNewStudent">Add New Student</h3>
+        <button class="modal-close" onclick="closeModal('addUserModal')">&times;</button>
+      </div>
+      <form id="addUserForm">
+        <div class="form-group">
+          <label class="form-label" data-translate="email">Email</label>
+          <input type="email" class="form-input" id="userEmail" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label" data-translate="password">Password</label>
+          <input type="password" class="form-input" id="userPassword" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label" data-translate="deviceId">Device ID (Optional)</label>
+          <input type="text" class="form-input" id="userDeviceId" placeholder="Auto-generated if empty">
+        </div>
+        <div class="form-group">
+          <label class="form-label" data-translate="expirationDate">Expiration Date</label>
+          <input type="date" class="form-input" id="userExpiration" required>
+        </div>
+        <div class="feature-actions">
+          <button type="submit" class="action-btn" data-translate="addStudent">Add Student</button>
+          <button type="button" class="action-btn secondary" onclick="closeModal('addUserModal')" data-translate="cancel">Cancel</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Add Unit Modal -->
+  <div id="addUnitModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 class="modal-title" data-translate="addNewUnit">Add New Unit</h3>
+        <button class="modal-close" onclick="closeModal('addUnitModal')">&times;</button>
+      </div>
+      <form id="addUnitForm">
+        <div class="form-group">
+          <label class="form-label" data-translate="unitName">Unit Name</label>
+          <input type="text" class="form-input" id="unitName" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label" data-translate="description">Description</label>
+          <textarea class="form-textarea" id="unitDescription" placeholder="Enter unit description..."></textarea>
+        </div>
+        <div class="form-group">
+          <label class="form-label" data-translate="unitOrder">Order</label>
+          <input type="number" class="form-input" id="unitOrder" min="1" required>
+        </div>
+        <div class="feature-actions">
+          <button type="submit" class="action-btn" data-translate="createUnit">Create Unit</button>
+          <button type="button" class="action-btn secondary" onclick="closeModal('addUnitModal')" data-translate="cancel">Cancel</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Upload Video Modal -->
+  <div id="uploadVideoModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 class="modal-title" data-translate="uploadVideo">Upload Video</h3>
+        <button class="modal-close" onclick="closeModal('uploadVideoModal')">&times;</button>
+      </div>
+      <form id="uploadVideoForm">
+        <div class="form-group">
+          <label class="form-label" data-translate="videoTitle">Video Title</label>
+          <input type="text" class="form-input" id="videoTitle" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label" data-translate="videoDescription">Video Description</label>
+          <textarea class="form-textarea" id="videoDescription" placeholder="Enter video description..."></textarea>
+        </div>
+        <div class="form-group">
+          <label class="form-label" data-translate="selectUnit">Select Unit</label>
+          <select class="form-input" id="videoUnit" required>
+            <option value="">Choose a unit...</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label" data-translate="videoFile">Video File</label>
+          <div class="file-upload" id="videoFileUpload">
+            <div>
+              <span class="material-icons" style="font-size: 48px; color: #6c4fc1;">cloud_upload</span>
+              <p data-translate="dragDropVideo">Drag & drop video file or click to browse</p>
+              <input type="file" id="videoFileInput" accept="video/*" style="display: none;">
+            </div>
+          </div>
+          <div class="progress-bar" id="uploadProgress" style="display: none;">
+            <div class="progress-fill" id="uploadProgressFill"></div>
+          </div>
+        </div>
+        <div class="feature-actions">
+          <button type="submit" class="action-btn" id="uploadVideoBtn" data-translate="uploadVideo">Upload Video</button>
+          <button type="button" class="action-btn secondary" onclick="closeModal('uploadVideoModal')" data-translate="cancel">Cancel</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
+  <script src="global.js"></script>
+  <script src="advanced-features.js"></script>
+  <script src="teacher-dashboard.js"></script>
+</body>
+</html>

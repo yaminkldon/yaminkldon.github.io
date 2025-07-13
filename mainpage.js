@@ -69,6 +69,9 @@ function loadUnits() {
         // Re-add static items (Progress and Settings)
         staticItems.forEach(item => unitsList.appendChild(item));
         
+        // Add Teacher Dashboard for teachers
+        addTeacherDashboardIfApplicable();
+        
         snapshot.forEach(unitSnap => {
           const unitName = unitSnap.key;
           const unitData = unitSnap.val();
@@ -113,6 +116,9 @@ function loadUnitsWithoutProgress() {
     
     // Re-add static items (Progress and Settings)
     staticItems.forEach(item => unitsList.appendChild(item));
+    
+    // Add Teacher Dashboard for teachers
+    addTeacherDashboardIfApplicable();
     
     snapshot.forEach(unitSnap => {
       const unitName = unitSnap.key;
@@ -580,4 +586,47 @@ document.addEventListener('DOMContentLoaded', function() {
     searchMenuItem.addEventListener('click', showSearchSection);
   }
 });
+
+function addTeacherDashboardIfApplicable() {
+  const user = firebase.auth().currentUser;
+  if (!user) return;
+  
+  // Search for user by email in database
+  db.ref('users').orderByChild('email').equalTo(user.email).once('value').then(snapshot => {
+    if (!snapshot.exists()) return;
+    
+    // Get the first (and should be only) matching user
+    const userData = Object.values(snapshot.val())[0];
+    if (userData && userData.type === 'teacher') {
+      // Add Teacher Dashboard link
+      const unitsList = document.getElementById('units-list');
+      const teacherDashboardItem = document.createElement('li');
+      teacherDashboardItem.setAttribute('data-static', 'true');
+      teacherDashboardItem.style.borderBottom = '1px solid #eee';
+      teacherDashboardItem.style.backgroundColor = '#f8f9fa';
+      teacherDashboardItem.innerHTML = `
+        <span class="material-icons" style="vertical-align: middle; margin-right: 12px;">dashboard</span>
+        <span data-translate="teacherDashboard">Teacher Dashboard</span>
+      `;
+      teacherDashboardItem.onclick = () => {
+        window.location.href = 'teacher-dashboard.html';
+      };
+      
+      // Insert after the settings items but before units
+      const lastStaticItem = unitsList.querySelector('li[data-static="true"]:last-of-type');
+      if (lastStaticItem) {
+        lastStaticItem.parentNode.insertBefore(teacherDashboardItem, lastStaticItem.nextSibling);
+      } else {
+        unitsList.appendChild(teacherDashboardItem);
+      }
+      
+      // Update translations if advanced features are available
+      if (typeof advancedFeatures !== 'undefined' && advancedFeatures) {
+        advancedFeatures.updateUITexts();
+      }
+    }
+  }).catch(error => {
+    console.error('Error checking user type:', error);
+  });
+}
 
