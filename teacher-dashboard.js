@@ -27,6 +27,10 @@ firebase.auth().onAuthStateChanged(function(user) {
       advancedFeatures.applyFeatures();
     }
     
+    // Apply saved theme
+    const savedTheme = localStorage.getItem('teacherTheme') || 'light';
+    applyTheme(savedTheme);
+    
     // Check if user is teacher
     verifyTeacherAccess(user);
     loadDashboardData();
@@ -1066,7 +1070,7 @@ function saveLessonData(unitName, title, description, fileName, downloadURL) {
     thumbnail: '' // Can be generated later
   };
   
-  // Save to database
+  // Save to database under units/unitName/lessons/ (not directly under unit)
   db.ref(`units/${unitName}/lessons/${title}`).set(lessonData)
     .then(() => {
       NotificationManager.showToast('Video uploaded and lesson created successfully!');
@@ -1122,27 +1126,36 @@ document.addEventListener('click', function(e) {
 // Supporting Functions for New Features
 
 // User Management Functions
+let allUsersData = []; // Store all users for filtering
+
 function loadAllUsers() {
   db.ref('users').once('value').then(snapshot => {
     const usersGrid = document.getElementById('usersGrid');
     if (!usersGrid) return;
     
     usersGrid.innerHTML = '';
+    allUsersData = [];
     
     if (snapshot.exists()) {
       Object.entries(snapshot.val()).forEach(([userId, userData]) => {
+        allUsersData.push({userId, userData});
+        
         const userCard = document.createElement('div');
         userCard.className = 'user-card';
-        userCard.style.cssText = 'background: #f8f9fa; padding: 16px; border-radius: 8px; border: 1px solid #e0e0e0;';
+        userCard.style.cssText = 'background: #f8f9fa; padding: 16px; border-radius: 8px; border: 1px solid #e0e0e0; margin-bottom: 12px;';
         
-        const expirationDate = new Date(userData.expiration || Date.now() + 30*24*60*60*1000);
+        const expirationDate = new Date(userData.expirationDate || Date.now() + 30*24*60*60*1000);
         const isExpired = expirationDate < new Date();
+        
+        userCard.setAttribute('data-status', isExpired ? 'expired' : 'active');
+        userCard.setAttribute('data-email', userData.email || '');
         
         userCard.innerHTML = `
           <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 8px;">
             <div>
               <strong>${userData.email || userId}</strong>
-              <div style="font-size: 12px; color: #666;">ID: ${userData.deviceId || 'Auto-generated'}</div>
+              <div style="font-size: 12px; color: #666;">Type: ${userData.type || 'student'} | Device: ${userData.deviceId || 'Auto-generated'}</div>
+              ${userData.token ? `<div style="font-size: 12px; color: #666;">Token: ${userData.token}</div>` : ''}
             </div>
             <span style="background: ${isExpired ? '#dc3545' : '#28a745'}; color: white; padding: 2px 8px; border-radius: 12px; font-size: 11px;">
               ${isExpired ? 'Expired' : 'Active'}
@@ -1150,6 +1163,7 @@ function loadAllUsers() {
           </div>
           <div style="font-size: 12px; color: #666; margin-bottom: 12px;">
             Expires: ${expirationDate.toLocaleDateString()}
+            ${userData.createdAt ? `<br>Created: ${new Date(userData.createdAt).toLocaleDateString()}` : ''}
           </div>
           <div style="display: flex; gap: 8px;">
             <button onclick="editUser('${userId}')" style="padding: 4px 8px; background: #6c4fc1; color: white; border: none; border-radius: 4px; font-size: 12px;">Edit</button>
@@ -1160,6 +1174,9 @@ function loadAllUsers() {
         
         usersGrid.appendChild(userCard);
       });
+      
+      // Setup filters after loading
+      setupUserFilters();
     } else {
       usersGrid.innerHTML = '<div style="text-align: center; padding: 20px; color: #666;">No users found</div>';
     }
@@ -1172,13 +1189,49 @@ function loadAllUsers() {
   });
 }
 
-function filterUsers() {
-  const searchTerm = document.getElementById('userSearchInput').value.toLowerCase();
-  const userCards = document.querySelectorAll('.user-card');
+function setupUserFilters() {
+  const searchInput = document.getElementById('userSearchInput');
+  const statusFilter = document.getElementById('userStatusFilter');
   
+  if (searchInput) {
+    searchInput.removeEventListener('input', filterUsers);
+    searchInput.addEventListener('input', filterUsers);
+  }
+  
+  if (statusFilter) {
+    statusFilter.removeEventListener('change', filterUsers);
+    statusFilter.addEventListener('change', filterUsers);
+  }
+}
+
+function filterUsers() {
+  const searchTerm = document.getElementById('userSearchInput')?.value.toLowerCase() || '';
+  const statusFilter = document.getElementById('userStatusFilter')?.value || '';
+  const userListSearch = document.getElementById('userListSearch')?.value.toLowerCase() || '';
+  const userStatusFilterTable = document.getElementById('userStatusFilter')?.value || '';
+  
+  // Filter user cards (in user management modal)
+  const userCards = document.querySelectorAll('.user-card');
   userCards.forEach(card => {
-    const email = card.querySelector('strong').textContent.toLowerCase();
-    card.style.display = email.includes(searchTerm) ? 'block' : 'none';
+    const email = card.getAttribute('data-email').toLowerCase();
+    const status = card.getAttribute('data-status');
+    
+    const matchesSearch = email.includes(searchTerm);
+    const matchesStatus = !statusFilter || status === statusFilter;
+    
+    card.style.display = (matchesSearch && matchesStatus) ? 'block' : 'none';
+  });
+  
+  // Filter user table (in view all users modal)
+  const userRows = document.querySelectorAll('#userTableBody tr');
+  userRows.forEach(row => {
+    const email = row.getAttribute('data-email')?.toLowerCase() || '';
+    const status = row.getAttribute('data-status') || '';
+    
+    const matchesSearch = email.includes(userListSearch);
+    const matchesStatus = !userStatusFilterTable || status === userStatusFilterTable;
+    
+    row.style.display = (matchesSearch && matchesStatus) ? 'table-row' : 'none';
   });
 }
 
@@ -1400,38 +1453,570 @@ function exportAnalyticsData() {
 function processReport() {
   const reportType = document.getElementById('reportType').value;
   const format = document.getElementById('reportFormat').value;
+  const startDate = document.getElementById('reportStartDate').value;
+  const endDate = document.getElementById('reportEndDate').value;
+  const includeCharts = document.getElementById('includeCharts').checked;
+  const includeDetails = document.getElementById('includeDetails').checked;
+  const includeSummary = document.getElementById('includeSummary').checked;
   
   NotificationManager.showToast(`Generating ${reportType} report in ${format} format...`);
   
+  // Simulate report generation
   setTimeout(() => {
+    generateActualReport(reportType, format, {
+      startDate,
+      endDate,
+      includeCharts,
+      includeDetails,
+      includeSummary
+    });
+  }, 1000);
+}
+
+function generateActualReport(reportType, format, options) {
+  // Gather data based on report type
+  Promise.all([
+    db.ref('users').once('value'),
+    db.ref('units').once('value'),
+    db.ref('progress').once('value')
+  ]).then(([usersSnapshot, unitsSnapshot, progressSnapshot]) => {
+    const users = usersSnapshot.val() || {};
+    const units = unitsSnapshot.val() || {};
+    const progress = progressSnapshot.val() || {};
+    
+    let reportData = {};
+    
+    switch(reportType) {
+      case 'user-progress':
+        reportData = generateUserProgressReport(users, progress, options);
+        break;
+      case 'content-analytics':
+        reportData = generateContentAnalyticsReport(units, progress, options);
+        break;
+      case 'usage-statistics':
+        reportData = generateUsageStatisticsReport(users, progress, options);
+        break;
+      case 'completion-rates':
+        reportData = generateCompletionRatesReport(units, progress, options);
+        break;
+      case 'full-report':
+        reportData = generateFullReport(users, units, progress, options);
+        break;
+    }
+    
+    // Download the report
+    downloadReport(reportData, reportType, format);
+    
     NotificationManager.showToast('Report generated successfully!');
     closeModal('reportModal');
-  }, 2000);
+  }).catch(error => {
+    console.error('Error generating report:', error);
+    NotificationManager.showToast('Error generating report: ' + error.message);
+  });
+}
+
+function generateUserProgressReport(users, progress, options) {
+  const report = {
+    title: 'User Progress Report',
+    generatedAt: new Date().toISOString(),
+    options: options,
+    data: {
+      totalUsers: Object.keys(users).length,
+      usersWithProgress: Object.keys(progress).length,
+      userDetails: []
+    }
+  };
+  
+  Object.entries(users).forEach(([userId, userData]) => {
+    const userProgress = progress[userId] || {};
+    const userDetail = {
+      email: userData.email,
+      type: userData.type,
+      expiration: new Date(userData.expirationDate).toLocaleDateString(),
+      unitsStarted: Object.keys(userProgress).filter(key => key !== 'lastStudyDates').length,
+      lastStudyDates: userProgress.lastStudyDates || []
+    };
+    
+    // Calculate completion stats
+    let totalLessons = 0;
+    let completedLessons = 0;
+    
+    Object.entries(userProgress).forEach(([unitKey, unitProgress]) => {
+      if (unitKey !== 'lastStudyDates') {
+        Object.entries(unitProgress).forEach(([lessonKey, lessonData]) => {
+          totalLessons++;
+          if (lessonData.completed) {
+            completedLessons++;
+          }
+        });
+      }
+    });
+    
+    userDetail.completionRate = totalLessons > 0 ? Math.round((completedLessons / totalLessons) * 100) : 0;
+    userDetail.totalLessons = totalLessons;
+    userDetail.completedLessons = completedLessons;
+    
+    report.data.userDetails.push(userDetail);
+  });
+  
+  return report;
+}
+
+function generateContentAnalyticsReport(units, progress, options) {
+  const report = {
+    title: 'Content Analytics Report',
+    generatedAt: new Date().toISOString(),
+    options: options,
+    data: {
+      totalUnits: Object.keys(units).length,
+      unitAnalytics: []
+    }
+  };
+  
+  Object.entries(units).forEach(([unitKey, unitData]) => {
+    const unitAnalytic = {
+      unitName: unitKey,
+      totalLessons: 0,
+      viewCounts: {},
+      completionCounts: {}
+    };
+    
+    // Count lessons in both main structure and lessons subfolder
+    if (unitData.lessons) {
+      unitAnalytic.totalLessons += Object.keys(unitData.lessons).length;
+    }
+    
+    // Count direct lessons (like Lesson-1, Lesson-2, etc.)
+    Object.keys(unitData).forEach(key => {
+      if (key.startsWith('Lesson-')) {
+        unitAnalytic.totalLessons++;
+      }
+    });
+    
+    // Analyze progress data for this unit
+    Object.values(progress).forEach(userProgress => {
+      if (userProgress[unitKey]) {
+        Object.entries(userProgress[unitKey]).forEach(([lessonKey, lessonData]) => {
+          if (lessonKey !== 'lastStudyDates') {
+            unitAnalytic.viewCounts[lessonKey] = (unitAnalytic.viewCounts[lessonKey] || 0) + 1;
+            if (lessonData.completed) {
+              unitAnalytic.completionCounts[lessonKey] = (unitAnalytic.completionCounts[lessonKey] || 0) + 1;
+            }
+          }
+        });
+      }
+    });
+    
+    report.data.unitAnalytics.push(unitAnalytic);
+  });
+  
+  return report;
+}
+
+function generateUsageStatisticsReport(users, progress, options) {
+  const report = {
+    title: 'Usage Statistics Report',
+    generatedAt: new Date().toISOString(),
+    options: options,
+    data: {
+      totalUsers: Object.keys(users).length,
+      activeUsers: 0,
+      expiredUsers: 0,
+      teacherCount: 0,
+      studentCount: 0,
+      dailyUsage: {}
+    }
+  };
+  
+  const now = Date.now();
+  
+  Object.values(users).forEach(userData => {
+    if (userData.expirationDate > now) {
+      report.data.activeUsers++;
+    } else {
+      report.data.expiredUsers++;
+    }
+    
+    if (userData.type === 'teacher') {
+      report.data.teacherCount++;
+    } else {
+      report.data.studentCount++;
+    }
+  });
+  
+  // Analyze usage patterns from progress data
+  Object.values(progress).forEach(userProgress => {
+    if (userProgress.lastStudyDates) {
+      userProgress.lastStudyDates.forEach(date => {
+        report.data.dailyUsage[date] = (report.data.dailyUsage[date] || 0) + 1;
+      });
+    }
+  });
+  
+  return report;
+}
+
+function generateCompletionRatesReport(units, progress, options) {
+  const report = {
+    title: 'Completion Rates Report',
+    generatedAt: new Date().toISOString(),
+    options: options,
+    data: {
+      overallCompletionRate: 0,
+      unitCompletionRates: []
+    }
+  };
+  
+  let totalLessons = 0;
+  let totalCompletions = 0;
+  
+  Object.entries(units).forEach(([unitKey, unitData]) => {
+    const unitStats = {
+      unitName: unitKey,
+      totalLessons: 0,
+      completions: 0,
+      completionRate: 0
+    };
+    
+    // Count lessons
+    if (unitData.lessons) {
+      unitStats.totalLessons += Object.keys(unitData.lessons).length;
+    }
+    Object.keys(unitData).forEach(key => {
+      if (key.startsWith('Lesson-')) {
+        unitStats.totalLessons++;
+      }
+    });
+    
+    // Count completions
+    Object.values(progress).forEach(userProgress => {
+      if (userProgress[unitKey]) {
+        Object.values(userProgress[unitKey]).forEach(lessonData => {
+          if (lessonData.completed) {
+            unitStats.completions++;
+          }
+        });
+      }
+    });
+    
+    unitStats.completionRate = unitStats.totalLessons > 0 ? 
+      Math.round((unitStats.completions / (unitStats.totalLessons * Object.keys(progress).length)) * 100) : 0;
+    
+    totalLessons += unitStats.totalLessons;
+    totalCompletions += unitStats.completions;
+    
+    report.data.unitCompletionRates.push(unitStats);
+  });
+  
+  report.data.overallCompletionRate = totalLessons > 0 ? 
+    Math.round((totalCompletions / totalLessons) * 100) : 0;
+  
+  return report;
+}
+
+function generateFullReport(users, units, progress, options) {
+  return {
+    title: 'Comprehensive Report',
+    generatedAt: new Date().toISOString(),
+    options: options,
+    userProgress: generateUserProgressReport(users, progress, options).data,
+    contentAnalytics: generateContentAnalyticsReport(units, progress, options).data,
+    usageStatistics: generateUsageStatisticsReport(users, progress, options).data,
+    completionRates: generateCompletionRatesReport(units, progress, options).data
+  };
+}
+
+function downloadReport(reportData, reportType, format) {
+  let blob, filename;
+  
+  switch(format) {
+    case 'json':
+      blob = new Blob([JSON.stringify(reportData, null, 2)], {type: 'application/json'});
+      filename = `${reportType}_report_${new Date().toISOString().split('T')[0]}.json`;
+      break;
+      
+    case 'csv':
+      const csvData = convertToCSV(reportData);
+      blob = new Blob([csvData], {type: 'text/csv'});
+      filename = `${reportType}_report_${new Date().toISOString().split('T')[0]}.csv`;
+      break;
+      
+    case 'pdf':
+      // For PDF, we'll create a simple text version
+      const textData = convertToText(reportData);
+      blob = new Blob([textData], {type: 'text/plain'});
+      filename = `${reportType}_report_${new Date().toISOString().split('T')[0]}.txt`;
+      break;
+      
+    default:
+      blob = new Blob([JSON.stringify(reportData, null, 2)], {type: 'application/json'});
+      filename = `${reportType}_report_${new Date().toISOString().split('T')[0]}.json`;
+  }
+  
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
+function convertToCSV(data) {
+  let csv = '';
+  
+  if (data.userProgress && data.userProgress.userDetails) {
+    csv += 'User Progress Report\n';
+    csv += 'Email,Type,Expiration,Units Started,Completion Rate,Total Lessons,Completed Lessons\n';
+    
+    data.userProgress.userDetails.forEach(user => {
+      csv += `"${user.email}","${user.type}","${user.expiration}",${user.unitsStarted},${user.completionRate}%,${user.totalLessons},${user.completedLessons}\n`;
+    });
+  } else if (data.data && data.data.userDetails) {
+    csv += `${data.title}\n`;
+    csv += 'Email,Type,Expiration,Units Started,Completion Rate,Total Lessons,Completed Lessons\n';
+    
+    data.data.userDetails.forEach(user => {
+      csv += `"${user.email}","${user.type}","${user.expiration}",${user.unitsStarted},${user.completionRate}%,${user.totalLessons},${user.completedLessons}\n`;
+    });
+  }
+  
+  return csv;
+}
+
+function convertToText(data) {
+  let text = '';
+  
+  if (data.title) {
+    text += `${data.title}\n`;
+    text += `Generated: ${data.generatedAt}\n\n`;
+  }
+  
+  text += JSON.stringify(data, null, 2);
+  return text;
 }
 
 function processDataExport() {
+  const exportUsers = document.getElementById('exportUsers').checked;
+  const exportUnits = document.getElementById('exportUnits').checked;
+  const exportProgress = document.getElementById('exportProgress').checked;
+  const exportAnalytics = document.getElementById('exportAnalytics').checked;
+  const exportVideos = document.getElementById('exportVideos').checked;
   const format = document.getElementById('exportFormat').value;
+  const startDate = document.getElementById('exportStartDate').value;
+  const endDate = document.getElementById('exportEndDate').value;
+  
   const progressDiv = document.getElementById('exportProgress');
   const progressFill = document.getElementById('exportProgressFill');
   const statusDiv = document.getElementById('exportStatus');
   
   progressDiv.style.display = 'block';
   
+  const exportPromises = [];
+  const exportData = {
+    exportDate: new Date().toISOString(),
+    dateRange: { startDate, endDate }
+  };
+  
   let progress = 0;
-  const interval = setInterval(() => {
-    progress += 10;
+  const updateProgress = (step) => {
+    progress += step;
     progressFill.style.width = progress + '%';
-    statusDiv.textContent = `Exporting data... ${progress}%`;
+    statusDiv.textContent = `Exporting data... ${Math.round(progress)}%`;
+  };
+  
+  if (exportUsers) {
+    exportPromises.push(
+      db.ref('users').once('value').then(snapshot => {
+        exportData.users = snapshot.val() || {};
+        updateProgress(20);
+      })
+    );
+  }
+  
+  if (exportUnits) {
+    exportPromises.push(
+      db.ref('units').once('value').then(snapshot => {
+        exportData.units = snapshot.val() || {};
+        updateProgress(20);
+      })
+    );
+  }
+  
+  if (exportProgress) {
+    exportPromises.push(
+      db.ref('progress').once('value').then(snapshot => {
+        const progressData = snapshot.val() || {};
+        
+        // Filter by date range if specified
+        if (startDate && endDate) {
+          const start = new Date(startDate);
+          const end = new Date(endDate);
+          
+          Object.keys(progressData).forEach(userId => {
+            const userProgress = progressData[userId];
+            if (userProgress.lastStudyDates) {
+              userProgress.lastStudyDates = userProgress.lastStudyDates.filter(date => {
+                const studyDate = new Date(date);
+                return studyDate >= start && studyDate <= end;
+              });
+            }
+          });
+        }
+        
+        exportData.progress = progressData;
+        updateProgress(20);
+      })
+    );
+  }
+  
+  if (exportAnalytics) {
+    exportPromises.push(
+      Promise.resolve().then(() => {
+        // Generate analytics data
+        exportData.analytics = {
+          generatedAt: new Date().toISOString(),
+          totalUsers: Object.keys(exportData.users || {}).length,
+          totalUnits: Object.keys(exportData.units || {}).length,
+          summary: 'Analytics data generated from current database state'
+        };
+        updateProgress(20);
+      })
+    );
+  }
+  
+  if (exportVideos) {
+    exportPromises.push(
+      db.ref('units').once('value').then(snapshot => {
+        const units = snapshot.val() || {};
+        const videoMetadata = {};
+        
+        Object.entries(units).forEach(([unitKey, unitData]) => {
+          videoMetadata[unitKey] = {};
+          
+          // Extract video metadata from lessons
+          if (unitData.lessons) {
+            Object.entries(unitData.lessons).forEach(([lessonKey, lessonData]) => {
+              if (lessonData.videoURL || lessonData.videoFile) {
+                videoMetadata[unitKey][lessonKey] = {
+                  title: lessonData.title,
+                  videoFile: lessonData.videoFile,
+                  videoURL: lessonData.videoURL,
+                  thumbnail: lessonData.thumbnail || lessonData.thumbnailURL,
+                  createdAt: lessonData.createdAt
+                };
+              }
+            });
+          }
+          
+          // Extract from direct lesson structure
+          Object.entries(unitData).forEach(([lessonKey, lessonData]) => {
+            if (lessonKey.startsWith('Lesson-') && lessonData.videoURL) {
+              videoMetadata[unitKey][lessonKey] = {
+                description: lessonData.description,
+                videoURL: lessonData.videoURL,
+                thumbnailURL: lessonData.thumbnailURL
+              };
+            }
+          });
+        });
+        
+        exportData.videoMetadata = videoMetadata;
+        updateProgress(20);
+      })
+    );
+  }
+  
+  Promise.all(exportPromises).then(() => {
+    // Complete export
+    progressFill.style.width = '100%';
+    statusDiv.textContent = 'Export completed!';
     
-    if (progress >= 100) {
-      clearInterval(interval);
-      statusDiv.textContent = 'Export completed!';
-      NotificationManager.showToast(`Data exported in ${format} format`);
-      setTimeout(() => {
-        closeModal('exportModal');
-      }, 1000);
-    }
-  }, 200);
+    // Download the data
+    downloadExportedData(exportData, format);
+    
+    NotificationManager.showToast(`Data exported in ${format} format`);
+    setTimeout(() => {
+      closeModal('exportModal');
+    }, 1000);
+  }).catch(error => {
+    console.error('Export error:', error);
+    statusDiv.textContent = 'Export failed!';
+    NotificationManager.showToast('Export failed: ' + error.message);
+  });
+}
+
+function downloadExportedData(data, format) {
+  let blob, filename;
+  
+  switch(format) {
+    case 'json':
+      blob = new Blob([JSON.stringify(data, null, 2)], {type: 'application/json'});
+      filename = `data_export_${new Date().toISOString().split('T')[0]}.json`;
+      break;
+      
+    case 'csv':
+      const csvData = convertExportToCSV(data);
+      blob = new Blob([csvData], {type: 'text/csv'});
+      filename = `data_export_${new Date().toISOString().split('T')[0]}.csv`;
+      break;
+      
+    case 'excel':
+      // For Excel, we'll create a CSV that can be opened in Excel
+      const excelData = convertExportToCSV(data);
+      blob = new Blob([excelData], {type: 'application/vnd.ms-excel'});
+      filename = `data_export_${new Date().toISOString().split('T')[0]}.csv`;
+      break;
+      
+    default:
+      blob = new Blob([JSON.stringify(data, null, 2)], {type: 'application/json'});
+      filename = `data_export_${new Date().toISOString().split('T')[0]}.json`;
+  }
+  
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
+function convertExportToCSV(data) {
+  let csv = `Data Export - ${data.exportDate}\n\n`;
+  
+  // Users data
+  if (data.users) {
+    csv += 'USERS\n';
+    csv += 'ID,Email,Type,Device ID,Expiration Date,Token,Created At\n';
+    Object.entries(data.users).forEach(([userId, userData]) => {
+      csv += `"${userId}","${userData.email || ''}","${userData.type || ''}","${userData.deviceId || ''}","${userData.expirationDate ? new Date(userData.expirationDate).toLocaleDateString() : ''}","${userData.token || ''}","${userData.createdAt ? new Date(userData.createdAt).toLocaleDateString() : ''}"\n`;
+    });
+    csv += '\n';
+  }
+  
+  // Units data
+  if (data.units) {
+    csv += 'UNITS\n';
+    csv += 'Unit Name,Lesson Count,Has Lesson Subfolder\n';
+    Object.entries(data.units).forEach(([unitKey, unitData]) => {
+      const directLessons = Object.keys(unitData).filter(key => key.startsWith('Lesson-')).length;
+      const subfolderLessons = unitData.lessons ? Object.keys(unitData.lessons).length : 0;
+      csv += `"${unitKey}",${directLessons + subfolderLessons},"${subfolderLessons > 0 ? 'Yes' : 'No'}"\n`;
+    });
+    csv += '\n';
+  }
+  
+  // Progress summary
+  if (data.progress) {
+    csv += 'PROGRESS SUMMARY\n';
+    csv += 'User ID,Units Started,Last Study Dates\n';
+    Object.entries(data.progress).forEach(([userId, userProgress]) => {
+      const unitsStarted = Object.keys(userProgress).filter(key => key !== 'lastStudyDates').length;
+      const lastStudyDates = userProgress.lastStudyDates ? userProgress.lastStudyDates.join(';') : '';
+      csv += `"${userId}",${unitsStarted},"${lastStudyDates}"\n`;
+    });
+  }
+  
+  return csv;
 }
 
 function loadUnitsForLessonSelect() {
@@ -1491,29 +2076,68 @@ function loadUserList() {
     if (snapshot.exists()) {
       Object.entries(snapshot.val()).forEach(([userId, userData]) => {
         const row = document.createElement('tr');
-        const expirationDate = new Date(userData.expiration || Date.now() + 30*24*60*60*1000);
+        const expirationDate = new Date(userData.expirationDate || Date.now() + 30*24*60*60*1000);
         const isExpired = expirationDate < new Date();
         
+        row.setAttribute('data-email', userData.email || '');
+        row.setAttribute('data-status', isExpired ? 'expired' : 'active');
+        
         row.innerHTML = `
-          <td style="padding: 12px; border-bottom: 1px solid #ddd;">${userData.email || userId}</td>
+          <td style="padding: 12px; border-bottom: 1px solid #ddd;">
+            <div>
+              <strong>${userData.email || userId}</strong>
+              <div style="font-size: 12px; color: #666;">Type: ${userData.type || 'student'}</div>
+              ${userData.token ? `<div style="font-size: 11px; color: #888;">Token: ${userData.token}</div>` : ''}
+            </div>
+          </td>
           <td style="padding: 12px; border-bottom: 1px solid #ddd;">
             <span style="background: ${isExpired ? '#dc3545' : '#28a745'}; color: white; padding: 2px 8px; border-radius: 12px; font-size: 11px;">
               ${isExpired ? 'Expired' : 'Active'}
             </span>
           </td>
-          <td style="padding: 12px; border-bottom: 1px solid #ddd;">${expirationDate.toLocaleDateString()}</td>
           <td style="padding: 12px; border-bottom: 1px solid #ddd;">
-            <button onclick="editUser('${userId}')" style="padding: 4px 8px; background: #6c4fc1; color: white; border: none; border-radius: 4px; font-size: 11px; margin-right: 4px;">Edit</button>
-            <button onclick="deleteUser('${userId}')" style="padding: 4px 8px; background: #dc3545; color: white; border: none; border-radius: 4px; font-size: 11px;">Delete</button>
+            ${expirationDate.toLocaleDateString()}
+            ${userData.createdAt ? `<div style="font-size: 11px; color: #666;">Created: ${new Date(userData.createdAt).toLocaleDateString()}</div>` : ''}
+          </td>
+          <td style="padding: 12px; border-bottom: 1px solid #ddd;">
+            <div style="display: flex; gap: 4px;">
+              <button onclick="editUser('${userId}')" style="padding: 4px 8px; background: #6c4fc1; color: white; border: none; border-radius: 4px; font-size: 11px;">Edit</button>
+              <button onclick="deleteUser('${userId}')" style="padding: 4px 8px; background: #dc3545; color: white; border: none; border-radius: 4px; font-size: 11px;">Delete</button>
+              <button onclick="extendUser('${userId}')" style="padding: 4px 8px; background: #28a745; color: white; border: none; border-radius: 4px; font-size: 11px;">Extend</button>
+            </div>
           </td>
         `;
         
         tableBody.appendChild(row);
       });
+      
+      // Setup table filters
+      setupTableFilters();
     } else {
       tableBody.innerHTML = '<tr><td colspan="4" style="padding: 20px; text-align: center; color: #666;">No users found</td></tr>';
     }
+  }).catch(error => {
+    console.error('Error loading user list:', error);
+    const tableBody = document.getElementById('userTableBody');
+    if (tableBody) {
+      tableBody.innerHTML = '<tr><td colspan="4" style="padding: 20px; text-align: center; color: #dc3545;">Error loading users</td></tr>';
+    }
   });
+}
+
+function setupTableFilters() {
+  const searchInput = document.getElementById('userListSearch');
+  const statusFilter = document.getElementById('userStatusFilter');
+  
+  if (searchInput) {
+    searchInput.removeEventListener('input', filterUsers);
+    searchInput.addEventListener('input', filterUsers);
+  }
+  
+  if (statusFilter) {
+    statusFilter.removeEventListener('change', filterUsers);
+    statusFilter.addEventListener('change', filterUsers);
+  }
 }
 
 function loadVideoManagementData() {
@@ -1534,7 +2158,278 @@ function loadVideoManagementData() {
   
   const videosGrid = document.getElementById('videosManagementGrid');
   if (videosGrid) {
-    videosGrid.innerHTML = '<div style="text-align: center; padding: 20px; color: #666;">Video management interface will show uploaded videos here</div>';
+    videosGrid.innerHTML = '<div style="text-align: center; padding: 20px; color: #666;">Loading videos...</div>';
+    
+    db.ref('units').once('value').then(snapshot => {
+      videosGrid.innerHTML = '';
+      
+      if (snapshot.exists()) {
+        const units = snapshot.val();
+        let videoCount = 0;
+        
+        Object.entries(units).forEach(([unitKey, unitData]) => {
+          // Process videos from lessons subfolder
+          if (unitData.lessons) {
+            Object.entries(unitData.lessons).forEach(([lessonKey, lessonData]) => {
+              if (lessonData.videoURL || lessonData.videoFile) {
+                videoCount++;
+                createVideoCard(videosGrid, unitKey, lessonKey, lessonData, 'lessons');
+              }
+            });
+          }
+          
+          // Process videos from direct lesson structure
+          Object.entries(unitData).forEach(([lessonKey, lessonData]) => {
+            if (lessonKey.startsWith('Lesson-') && lessonData.videoURL) {
+              videoCount++;
+              createVideoCard(videosGrid, unitKey, lessonKey, lessonData, 'direct');
+            }
+          });
+        });
+        
+        if (videoCount === 0) {
+          videosGrid.innerHTML = '<div style="text-align: center; padding: 20px; color: #666;">No videos found</div>';
+        }
+        
+        // Setup video filters
+        setupVideoFilters();
+      } else {
+        videosGrid.innerHTML = '<div style="text-align: center; padding: 20px; color: #666;">No units found</div>';
+      }
+    }).catch(error => {
+      console.error('Error loading videos:', error);
+      videosGrid.innerHTML = '<div style="text-align: center; padding: 20px; color: #dc3545;">Error loading videos</div>';
+    });
+  }
+}
+
+function createVideoCard(container, unitKey, lessonKey, lessonData, type) {
+  const videoCard = document.createElement('div');
+  videoCard.className = 'video-card';
+  videoCard.setAttribute('data-unit', unitKey);
+  videoCard.setAttribute('data-lesson', lessonKey);
+  videoCard.style.cssText = 'background: #f8f9fa; padding: 16px; border-radius: 8px; border: 1px solid #e0e0e0; margin-bottom: 12px;';
+  
+  const thumbnail = lessonData.thumbnail || lessonData.thumbnailURL || 'https://via.placeholder.com/150x100?text=Video';
+  const title = lessonData.title || lessonKey;
+  const description = lessonData.description || 'No description available';
+  const videoFile = lessonData.videoFile || lessonData.videoURL || '';
+  const createdAt = lessonData.createdAt ? new Date(lessonData.createdAt).toLocaleDateString() : 'Unknown';
+  
+  videoCard.innerHTML = `
+    <div style="display: flex; gap: 12px;">
+      <img src="${thumbnail}" alt="Video thumbnail" style="width: 100px; height: 70px; object-fit: cover; border-radius: 6px;" 
+           onerror="this.src='https://via.placeholder.com/100x70?text=Video'">
+      <div style="flex: 1;">
+        <h4 style="margin: 0 0 4px 0; font-size: 14px;">${title}</h4>
+        <p style="margin: 0 0 8px 0; font-size: 12px; color: #666; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">${description}</p>
+        <div style="font-size: 11px; color: #888;">
+          <span>Unit: ${unitKey}</span> | 
+          <span>Type: ${type}</span> | 
+          <span>Created: ${createdAt}</span>
+        </div>
+        ${videoFile ? `<div style="font-size: 10px; color: #888; margin-top: 4px;">File: ${videoFile.split('_').pop()}</div>` : ''}
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 4px;">
+        <button onclick="previewVideo('${unitKey}', '${lessonKey}', '${type}')" style="padding: 4px 8px; background: #6c4fc1; color: white; border: none; border-radius: 4px; font-size: 11px;">Preview</button>
+        <button onclick="editVideo('${unitKey}', '${lessonKey}', '${type}')" style="padding: 4px 8px; background: #28a745; color: white; border: none; border-radius: 4px; font-size: 11px;">Edit</button>
+        <button onclick="deleteVideo('${unitKey}', '${lessonKey}', '${type}')" style="padding: 4px 8px; background: #dc3545; color: white; border: none; border-radius: 4px; font-size: 11px;">Delete</button>
+      </div>
+    </div>
+  `;
+  
+  container.appendChild(videoCard);
+}
+
+function setupVideoFilters() {
+  const unitFilter = document.getElementById('unitFilter');
+  const searchInput = document.getElementById('videoSearchInput');
+  
+  if (unitFilter) {
+    unitFilter.removeEventListener('change', filterVideos);
+    unitFilter.addEventListener('change', filterVideos);
+  }
+  
+  if (searchInput) {
+    searchInput.removeEventListener('input', filterVideos);
+    searchInput.addEventListener('input', filterVideos);
+  }
+}
+
+function filterVideos() {
+  const unitFilter = document.getElementById('unitFilter')?.value || '';
+  const searchTerm = document.getElementById('videoSearchInput')?.value.toLowerCase() || '';
+  
+  const videoCards = document.querySelectorAll('.video-card');
+  videoCards.forEach(card => {
+    const unit = card.getAttribute('data-unit');
+    const lesson = card.getAttribute('data-lesson').toLowerCase();
+    const title = card.querySelector('h4').textContent.toLowerCase();
+    const description = card.querySelector('p').textContent.toLowerCase();
+    
+    const matchesUnit = !unitFilter || unit === unitFilter;
+    const matchesSearch = !searchTerm || lesson.includes(searchTerm) || title.includes(searchTerm) || description.includes(searchTerm);
+    
+    card.style.display = (matchesUnit && matchesSearch) ? 'block' : 'none';
+  });
+}
+
+function previewVideo(unitKey, lessonKey, type) {
+  // Get video data
+  const path = type === 'lessons' ? `units/${unitKey}/lessons/${lessonKey}` : `units/${unitKey}/${lessonKey}`;
+  
+  db.ref(path).once('value').then(snapshot => {
+    if (snapshot.exists()) {
+      const lessonData = snapshot.val();
+      const videoURL = lessonData.videoURL;
+      
+      if (videoURL) {
+        // Create preview modal
+        const modal = document.createElement('div');
+        modal.className = 'modal';
+        modal.id = 'videoPreviewModal';
+        modal.style.display = 'flex';
+        
+        modal.innerHTML = `
+          <div class="modal-content" style="max-width: 800px; width: 95%;">
+            <div class="modal-header">
+              <h3 class="modal-title">Video Preview - ${lessonData.title || lessonKey}</h3>
+              <button class="modal-close" onclick="closeModal('videoPreviewModal')" style="width: 15%;">&times;</button>
+            </div>
+            <div style="padding: 20px;">
+              <video controls style="width: 100%; max-height: 400px;" preload="metadata">
+                <source src="${videoURL}" type="video/mp4">
+                Your browser does not support the video tag.
+              </video>
+              <div style="margin-top: 12px; padding: 12px; background: #f8f9fa; border-radius: 6px;">
+                <strong>Description:</strong> ${lessonData.description || 'No description available'}<br>
+                <strong>Unit:</strong> ${unitKey}<br>
+                <strong>Lesson:</strong> ${lessonKey}<br>
+                ${lessonData.createdAt ? `<strong>Created:</strong> ${new Date(lessonData.createdAt).toLocaleString()}<br>` : ''}
+                ${lessonData.videoFile ? `<strong>File:</strong> ${lessonData.videoFile}` : ''}
+              </div>
+            </div>
+          </div>
+        `;
+        
+        document.body.appendChild(modal);
+        document.body.style.overflow = 'hidden';
+      } else {
+        NotificationManager.showToast('Video URL not found');
+      }
+    } else {
+      NotificationManager.showToast('Video data not found');
+    }
+  }).catch(error => {
+    console.error('Error loading video:', error);
+    NotificationManager.showToast('Error loading video');
+  });
+}
+
+function editVideo(unitKey, lessonKey, type) {
+  const path = type === 'lessons' ? `units/${unitKey}/lessons/${lessonKey}` : `units/${unitKey}/${lessonKey}`;
+  
+  db.ref(path).once('value').then(snapshot => {
+    if (snapshot.exists()) {
+      const lessonData = snapshot.val();
+      
+      // Create edit modal
+      const modal = document.createElement('div');
+      modal.className = 'modal';
+      modal.id = 'editVideoModal';
+      modal.style.display = 'flex';
+      
+      modal.innerHTML = `
+        <div class="modal-content">
+          <div class="modal-header">
+            <h3 class="modal-title">Edit Video - ${lessonKey}</h3>
+            <button class="modal-close" onclick="closeModal('editVideoModal')" style="width: 15%;">&times;</button>
+          </div>
+          <form id="editVideoForm">
+            <div class="form-group">
+              <label class="form-label">Title</label>
+              <input type="text" class="form-input" id="editVideoTitle" value="${lessonData.title || lessonKey}" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Description</label>
+              <textarea class="form-textarea" id="editVideoDescription" rows="3">${lessonData.description || ''}</textarea>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Thumbnail URL</label>
+              <input type="url" class="form-input" id="editVideoThumbnail" value="${lessonData.thumbnail || lessonData.thumbnailURL || ''}">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Video URL (Read-only)</label>
+              <input type="text" class="form-input" value="${lessonData.videoURL || ''}" readonly style="background: #f5f5f5;">
+            </div>
+            <div class="feature-actions">
+              <button type="submit" class="action-btn">Update Video</button>
+              <button type="button" class="action-btn secondary" onclick="closeModal('editVideoModal')">Cancel</button>
+            </div>
+          </form>
+        </div>
+      `;
+      
+      document.body.appendChild(modal);
+      document.body.style.overflow = 'hidden';
+      
+      // Add form handler
+      const form = document.getElementById('editVideoForm');
+      form.addEventListener('submit', function(e) {
+        e.preventDefault();
+        updateVideoData(unitKey, lessonKey, type);
+      });
+    }
+  }).catch(error => {
+    console.error('Error loading video data:', error);
+    NotificationManager.showToast('Error loading video data');
+  });
+}
+
+function updateVideoData(unitKey, lessonKey, type) {
+  const title = document.getElementById('editVideoTitle').value.trim();
+  const description = document.getElementById('editVideoDescription').value.trim();
+  const thumbnail = document.getElementById('editVideoThumbnail').value.trim();
+  
+  const path = type === 'lessons' ? `units/${unitKey}/lessons/${lessonKey}` : `units/${unitKey}/${lessonKey}`;
+  
+  const updateData = {};
+  if (title) updateData.title = title;
+  if (description) updateData.description = description;
+  if (thumbnail) {
+    if (type === 'lessons') {
+      updateData.thumbnail = thumbnail;
+    } else {
+      updateData.thumbnailURL = thumbnail;
+    }
+  }
+  
+  db.ref(path).update(updateData)
+    .then(() => {
+      NotificationManager.showToast('Video updated successfully');
+      closeModal('editVideoModal');
+      loadVideoManagementData();
+    })
+    .catch(error => {
+      console.error('Error updating video:', error);
+      NotificationManager.showToast('Error updating video: ' + error.message);
+    });
+}
+
+function deleteVideo(unitKey, lessonKey, type) {
+  if (confirm(`Are you sure you want to delete this video: ${lessonKey}?`)) {
+    const path = type === 'lessons' ? `units/${unitKey}/lessons/${lessonKey}` : `units/${unitKey}/${lessonKey}`;
+    
+    db.ref(path).remove()
+      .then(() => {
+        NotificationManager.showToast('Video deleted successfully');
+        loadVideoManagementData();
+        loadQuickStats();
+      })
+      .catch(error => {
+        console.error('Error deleting video:', error);
+        NotificationManager.showToast('Error deleting video: ' + error.message);
+      });
   }
 }
 
@@ -1562,24 +2457,58 @@ function loadTeacherSettings() {
 }
 
 function saveTeacherSettings() {
-  const theme = document.getElementById('teacherTheme').value;
-  const defaultView = document.getElementById('defaultView').value;
-  const backupFreq = document.getElementById('backupFrequency').value;
+  const theme = document.getElementById('teacherTheme')?.value;
+  const defaultView = document.getElementById('defaultView')?.value;
+  const backupFreq = document.getElementById('backupFrequency')?.value;
+  const emailNotifications = document.getElementById('emailNotifications')?.checked;
+  const browserNotifications = document.getElementById('browserNotifications')?.checked;
+  const dailyReports = document.getElementById('dailyReports')?.checked;
   
-  localStorage.setItem('teacherTheme', theme);
-  localStorage.setItem('teacherDefaultView', defaultView);
-  localStorage.setItem('backupFrequency', backupFreq);
+  if (theme) localStorage.setItem('teacherTheme', theme);
+  if (defaultView) localStorage.setItem('teacherDefaultView', defaultView);
+  if (backupFreq) localStorage.setItem('backupFrequency', backupFreq);
   
-  localStorage.setItem('emailNotifications', document.getElementById('emailNotifications').checked);
-  localStorage.setItem('browserNotifications', document.getElementById('browserNotifications').checked);
-  localStorage.setItem('dailyReports', document.getElementById('dailyReports').checked);
+  localStorage.setItem('emailNotifications', emailNotifications);
+  localStorage.setItem('browserNotifications', browserNotifications);
+  localStorage.setItem('dailyReports', dailyReports);
+  
+  // Apply theme immediately
+  applyTheme(theme);
   
   NotificationManager.showToast('Teacher settings saved successfully');
   closeModal('teacherSettingsModal');
 }
 
+function applyTheme(theme) {
+  const body = document.body;
+  
+  // Remove existing theme classes
+  body.classList.remove('light-theme', 'dark-theme');
+  
+  if (theme === 'dark') {
+    body.classList.add('dark-theme');
+    body.style.backgroundColor = '#1a1a1a';
+    body.style.color = '#ffffff';
+  } else if (theme === 'auto') {
+    // Check system preference
+    if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+      body.classList.add('dark-theme');
+      body.style.backgroundColor = '#1a1a1a';
+      body.style.color = '#ffffff';
+    } else {
+      body.classList.add('light-theme');
+      body.style.backgroundColor = '#ffffff';
+      body.style.color = '#333333';
+    }
+  } else {
+    body.classList.add('light-theme');
+    body.style.backgroundColor = '#ffffff';
+    body.style.color = '#333333';
+  }
+}
+
 function resetToDefaults() {
-  if (confirm('Reset all settings to defaults?')) {
+  if (confirm('Are you sure you want to reset all settings to default values?')) {
     localStorage.removeItem('teacherTheme');
     localStorage.removeItem('teacherDefaultView');
     localStorage.removeItem('backupFrequency');
@@ -1587,7 +2516,12 @@ function resetToDefaults() {
     localStorage.removeItem('browserNotifications');
     localStorage.removeItem('dailyReports');
     
+    // Reload settings form
     loadTeacherSettings();
+    
+    // Apply default theme
+    applyTheme('light');
+    
     NotificationManager.showToast('Settings reset to defaults');
   }
 }
@@ -1596,26 +2530,113 @@ function loadMessages() {
   const messagesList = document.getElementById('messagesList');
   if (!messagesList) return;
   
-  const messages = [
-    { id: 1, subject: 'Welcome to the platform', type: 'sent', date: '2024-01-15', unread: false },
-    { id: 2, subject: 'Course completion notification', type: 'sent', date: '2024-01-14', unread: false },
-    { id: 3, subject: 'User feedback', type: 'response', date: '2024-01-13', unread: true }
-  ];
+  messagesList.innerHTML = '<div style="text-align: center; padding: 20px; color: #666;">Loading messages...</div>';
   
-  messagesList.innerHTML = messages.map(msg => `
-    <div style="padding: 12px; border-bottom: 1px solid #ddd; ${msg.unread ? 'background: #f0f8ff;' : ''}">
-      <div style="display: flex; justify-content: space-between; align-items: start;">
-        <div>
-          <strong>${msg.subject}</strong>
-          <div style="font-size: 12px; color: #666;">Type: ${msg.type} | Date: ${msg.date}</div>
-        </div>
-        <div style="display: flex; gap: 4px;">
-          ${msg.unread ? '<span style="background: #007bff; color: white; padding: 2px 6px; border-radius: 8px; font-size: 10px;">NEW</span>' : ''}
-          <button onclick="viewMessage(${msg.id})" style="padding: 4px 8px; background: #6c4fc1; color: white; border: none; border-radius: 4px; font-size: 11px;">View</button>
-        </div>
-      </div>
-    </div>
-  `).join('');
+  // Load notifications from Firebase
+  db.ref('notifications_to_send').once('value').then(snapshot => {
+    messagesList.innerHTML = '';
+    
+    if (snapshot.exists()) {
+      const notifications = snapshot.val();
+      const messages = [];
+      
+      Object.entries(notifications).forEach(([notificationId, notificationData]) => {
+        const message = {
+          id: notificationId,
+          subject: notificationData.notification.title,
+          body: notificationData.notification.body,
+          type: 'sent',
+          date: new Date(notificationData.timestamp).toLocaleDateString(),
+          timestamp: notificationData.timestamp,
+          tokens: notificationData.tokens || [],
+          unread: false
+        };
+        messages.push(message);
+      });
+      
+      // Sort by timestamp (newest first)
+      messages.sort((a, b) => b.timestamp - a.timestamp);
+      
+      if (messages.length > 0) {
+        messagesList.innerHTML = messages.map(msg => `
+          <div style="padding: 12px; border-bottom: 1px solid #ddd; ${msg.unread ? 'background: #f0f8ff;' : ''}">
+            <div style="display: flex; justify-content: space-between; align-items: start;">
+              <div style="flex: 1;">
+                <strong>${msg.subject}</strong>
+                <div style="font-size: 12px; color: #666; margin: 4px 0;">${msg.body}</div>
+                <div style="font-size: 11px; color: #888;">
+                  Type: ${msg.type} | Date: ${msg.date} | Recipients: ${msg.tokens.length}
+                </div>
+              </div>
+              <div style="display: flex; gap: 4px; margin-left: 12px;">
+                ${msg.unread ? '<span style="background: #007bff; color: white; padding: 2px 6px; border-radius: 8px; font-size: 10px;">NEW</span>' : ''}
+                <button onclick="viewMessage('${msg.id}')" style="padding: 4px 8px; background: #6c4fc1; color: white; border: none; border-radius: 4px; font-size: 11px;">View</button>
+                <button onclick="deleteMessage('${msg.id}')" style="padding: 4px 8px; background: #dc3545; color: white; border: none; border-radius: 4px; font-size: 11px;">Delete</button>
+              </div>
+            </div>
+          </div>
+        `).join('');
+      } else {
+        messagesList.innerHTML = '<div style="text-align: center; padding: 20px; color: #666;">No messages found</div>';
+      }
+    } else {
+      messagesList.innerHTML = '<div style="text-align: center; padding: 20px; color: #666;">No messages found</div>';
+    }
+    
+    // Setup message filters
+    setupMessageFilters();
+  }).catch(error => {
+    console.error('Error loading messages:', error);
+    messagesList.innerHTML = '<div style="text-align: center; padding: 20px; color: #dc3545;">Error loading messages</div>';
+  });
+}
+
+function setupMessageFilters() {
+  const filterSelect = document.getElementById('messageFilter');
+  const searchInput = document.getElementById('messageSearch');
+  
+  if (filterSelect) {
+    filterSelect.removeEventListener('change', filterMessages);
+    filterSelect.addEventListener('change', filterMessages);
+  }
+  
+  if (searchInput) {
+    searchInput.removeEventListener('input', filterMessages);
+    searchInput.addEventListener('input', filterMessages);
+  }
+}
+
+function filterMessages() {
+  const filter = document.getElementById('messageFilter')?.value || 'all';
+  const searchTerm = document.getElementById('messageSearch')?.value.toLowerCase() || '';
+  
+  const messageItems = document.querySelectorAll('#messagesList > div');
+  messageItems.forEach(item => {
+    const subject = item.querySelector('strong')?.textContent.toLowerCase() || '';
+    const bodyDiv = item.querySelector('div[style*="font-size: 12px"]');
+    const body = bodyDiv ? bodyDiv.textContent.toLowerCase() : '';
+    const type = item.textContent.includes('Type: sent') ? 'sent' : 'response';
+    const isUnread = item.textContent.includes('NEW');
+    
+    let matchesFilter = true;
+    switch(filter) {
+      case 'sent':
+        matchesFilter = type === 'sent';
+        break;
+      case 'responses':
+        matchesFilter = type === 'response';
+        break;
+      case 'unread':
+        matchesFilter = isUnread;
+        break;
+      default:
+        matchesFilter = true;
+    }
+    
+    const matchesSearch = !searchTerm || subject.includes(searchTerm) || body.includes(searchTerm);
+    
+    item.style.display = (matchesFilter && matchesSearch) ? 'block' : 'none';
+  });
 }
 
 function refreshMessages() {
@@ -1629,63 +2650,356 @@ function markAllAsRead() {
 }
 
 function viewMessage(messageId) {
-  NotificationManager.showToast(`Opening message ${messageId}`);
+  // Get message details from Firebase
+  db.ref(`notifications_to_send/${messageId}`).once('value').then(snapshot => {
+    if (snapshot.exists()) {
+      const messageData = snapshot.val();
+      
+      // Create message detail modal
+      const modal = document.createElement('div');
+      modal.className = 'modal';
+      modal.id = 'messageDetailModal';
+      modal.style.display = 'flex';
+      
+      modal.innerHTML = `
+        <div class="modal-content">
+          <div class="modal-header">
+            <h3 class="modal-title">Message Details</h3>
+            <button class="modal-close" onclick="closeModal('messageDetailModal')" style="width: 15%;">&times;</button>
+          </div>
+          <div style="padding: 20px;">
+            <div style="margin-bottom: 16px;">
+              <strong>Title:</strong> ${messageData.notification.title}
+            </div>
+            <div style="margin-bottom: 16px;">
+              <strong>Message:</strong><br>
+              <div style="background: #f8f9fa; padding: 12px; border-radius: 6px; margin-top: 4px;">
+                ${messageData.notification.body}
+              </div>
+            </div>
+            <div style="margin-bottom: 16px;">
+              <strong>Sent:</strong> ${new Date(messageData.timestamp).toLocaleString()}
+            </div>
+            <div style="margin-bottom: 16px;">
+              <strong>Recipients:</strong> ${messageData.tokens ? messageData.tokens.length : 0} users
+            </div>
+            ${messageData.tokens && messageData.tokens.length > 0 ? `
+              <div>
+                <strong>Recipient Tokens:</strong><br>
+                <div style="background: #f8f9fa; padding: 12px; border-radius: 6px; margin-top: 4px; max-height: 100px; overflow-y: auto;">
+                  ${messageData.tokens.map(token => `<div style="font-family: monospace; font-size: 12px;">${token}</div>`).join('')}
+                </div>
+              </div>
+            ` : ''}
+          </div>
+        </div>
+      `;
+      
+      document.body.appendChild(modal);
+      document.body.style.overflow = 'hidden';
+    } else {
+      NotificationManager.showToast('Message not found');
+    }
+  }).catch(error => {
+    console.error('Error loading message:', error);
+    NotificationManager.showToast('Error loading message details');
+  });
+}
+
+function deleteMessage(messageId) {
+  if (confirm('Are you sure you want to delete this message?')) {
+    db.ref(`notifications_to_send/${messageId}`).remove()
+      .then(() => {
+        NotificationManager.showToast('Message deleted successfully');
+        loadMessages();
+      })
+      .catch(error => {
+        console.error('Error deleting message:', error);
+        NotificationManager.showToast('Error deleting message');
+      });
+  }
 }
 
 function loadBackupHistory() {
   const backupHistory = document.getElementById('backupHistory');
   if (!backupHistory) return;
   
-  const backups = [
-    { date: '2024-01-15', type: 'Full Backup', size: '156 MB' },
-    { date: '2024-01-10', type: 'Users Only', size: '2.3 MB' },
-    { date: '2024-01-05', type: 'Content Only', size: '89 MB' }
-  ];
+  const history = JSON.parse(localStorage.getItem('backupHistory') || '[]');
   
-  if (backups.length > 0) {
-    backupHistory.innerHTML = backups.map(backup => `
+  if (history.length > 0) {
+    backupHistory.innerHTML = history.map(backup => `
       <div style="display: flex; justify-content: space-between; padding: 8px; border-bottom: 1px solid #eee;">
         <div>
-          <strong>${backup.type}</strong>
-          <div style="font-size: 12px; color: #666;">${backup.date}</div>
+          <strong>${backup.type} Backup</strong>
+          <div style="font-size: 12px; color: #666;">${new Date(backup.date).toLocaleString()}</div>
+          ${backup.encrypted ? '<div style="font-size: 10px; color: #007bff;">🔒 Encrypted</div>' : ''}
         </div>
         <div style="text-align: right;">
           <div style="font-size: 12px; color: #666;">${backup.size}</div>
-          <button onclick="downloadBackup('${backup.date}')" style="padding: 2px 6px; background: #6c4fc1; color: white; border: none; border-radius: 3px; font-size: 10px;">Download</button>
+          <button onclick="downloadBackup('${backup.date}')" style="padding: 2px 6px; background: #6c4fc1; color: white; border: none; border-radius: 3px; font-size: 10px;">Info</button>
         </div>
       </div>
     `).join('');
+  } else {
+    backupHistory.innerHTML = '<div style="text-align: center; padding: 10px; color: #666; font-style: italic;">No recent backups found</div>';
   }
 }
 
 function processBackup() {
-  const backupType = document.getElementById('backupType').value;
+  const backupType = document.getElementById('backupType')?.value || 'full';
+  const backupLocation = document.getElementById('backupLocation')?.value || 'download';
+  const includeVideos = document.getElementById('includeVideos')?.checked || false;
+  const includeThumbnails = document.getElementById('includeThumbnails')?.checked || false;
+  const includeUserFiles = document.getElementById('includeUserFiles')?.checked || false;
+  const encryptBackup = document.getElementById('encryptBackup')?.checked || false;
+  const backupPassword = document.getElementById('backupPassword')?.value || '';
+  
   const progressDiv = document.getElementById('backupProgress');
   const progressFill = document.getElementById('backupProgressFill');
   const statusDiv = document.getElementById('backupStatus');
   
   progressDiv.style.display = 'block';
   
+  const backupData = {
+    backupDate: new Date().toISOString(),
+    backupType: backupType,
+    includeMedia: {
+      videos: includeVideos,
+      thumbnails: includeThumbnails,
+      userFiles: includeUserFiles
+    },
+    encrypted: encryptBackup
+  };
+  
   let progress = 0;
-  const interval = setInterval(() => {
-    progress += 5;
+  const updateProgress = (step, message) => {
+    progress += step;
     progressFill.style.width = progress + '%';
-    statusDiv.textContent = `Creating ${backupType} backup... ${progress}%`;
+    statusDiv.textContent = message;
+  };
+  
+  updateProgress(10, 'Initializing backup...');
+  
+  const backupPromises = [];
+  
+  // Backup users data
+  if (backupType === 'full' || backupType === 'users') {
+    backupPromises.push(
+      db.ref('users').once('value').then(snapshot => {
+        backupData.users = snapshot.val() || {};
+        updateProgress(20, 'Backing up user data...');
+      })
+    );
+  }
+  
+  // Backup content data
+  if (backupType === 'full' || backupType === 'content') {
+    backupPromises.push(
+      db.ref('units').once('value').then(snapshot => {
+        const units = snapshot.val() || {};
+        
+        if (!includeVideos) {
+          // Remove video URLs to reduce backup size
+          Object.values(units).forEach(unit => {
+            if (unit.lessons) {
+              Object.values(unit.lessons).forEach(lesson => {
+                if (lesson.videoURL) delete lesson.videoURL;
+                if (lesson.videoFile) delete lesson.videoFile;
+              });
+            }
+            Object.keys(unit).forEach(key => {
+              if (key.startsWith('Lesson-') && unit[key].videoURL) {
+                delete unit[key].videoURL;
+              }
+            });
+          });
+        }
+        
+        if (!includeThumbnails) {
+          // Remove thumbnail URLs
+          Object.values(units).forEach(unit => {
+            if (unit.lessons) {
+              Object.values(unit.lessons).forEach(lesson => {
+                if (lesson.thumbnail) delete lesson.thumbnail;
+                if (lesson.thumbnailURL) delete lesson.thumbnailURL;
+              });
+            }
+            Object.keys(unit).forEach(key => {
+              if (key.startsWith('Lesson-') && unit[key].thumbnailURL) {
+                delete unit[key].thumbnailURL;
+              }
+            });
+          });
+        }
+        
+        backupData.units = units;
+        updateProgress(25, 'Backing up content data...');
+      })
+    );
+  }
+  
+  // Backup progress data
+  if (backupType === 'full' || backupType === 'content') {
+    backupPromises.push(
+      db.ref('progress').once('value').then(snapshot => {
+        backupData.progress = snapshot.val() || {};
+        updateProgress(15, 'Backing up progress data...');
+      })
+    );
+  }
+  
+  // Backup notifications
+  if (backupType === 'full') {
+    backupPromises.push(
+      db.ref('notifications_to_send').once('value').then(snapshot => {
+        backupData.notifications = snapshot.val() || {};
+        updateProgress(10, 'Backing up notifications...');
+      })
+    );
+  }
+  
+  // Backup tokens
+  if (backupType === 'full' || backupType === 'settings') {
+    backupPromises.push(
+      db.ref('tokens').once('value').then(snapshot => {
+        backupData.tokens = snapshot.val() || {};
+        updateProgress(10, 'Backing up tokens...');
+      })
+    );
+  }
+  
+  Promise.all(backupPromises).then(() => {
+    updateProgress(10, 'Finalizing backup...');
     
-    if (progress >= 100) {
-      clearInterval(interval);
-      statusDiv.textContent = 'Backup completed successfully!';
-      NotificationManager.showToast(`${backupType} backup created`);
-      loadBackupHistory();
-      setTimeout(() => {
-        closeModal('backupModal');
-      }, 1500);
+    // Add metadata
+    backupData.metadata = {
+      version: '1.0',
+      totalUsers: Object.keys(backupData.users || {}).length,
+      totalUnits: Object.keys(backupData.units || {}).length,
+      backupSize: JSON.stringify(backupData).length
+    };
+    
+    // Encrypt if requested
+    if (encryptBackup && backupPassword) {
+      try {
+        const encryptedData = btoa(JSON.stringify(backupData));
+        backupData.encrypted = true;
+        backupData.data = encryptedData;
+        delete backupData.users;
+        delete backupData.units;
+        delete backupData.progress;
+        delete backupData.notifications;
+        delete backupData.tokens;
+      } catch (error) {
+        console.error('Encryption failed:', error);
+        updateProgress(0, 'Encryption failed!');
+        NotificationManager.showToast('Backup encryption failed');
+        return;
+      }
     }
-  }, 100);
+    
+    // Download backup
+    downloadBackupFile(backupData, backupType);
+    
+    // Save backup record
+    saveBackupRecord(backupData);
+    
+    progressFill.style.width = '100%';
+    statusDiv.textContent = 'Backup completed successfully!';
+    NotificationManager.showToast(`${backupType} backup created successfully`);
+    
+    // Reload backup history
+    loadBackupHistory();
+    
+    setTimeout(() => {
+      closeModal('backupModal');
+    }, 1500);
+  }).catch(error => {
+    console.error('Backup error:', error);
+    statusDiv.textContent = 'Backup failed!';
+    NotificationManager.showToast('Backup failed: ' + error.message);
+  });
+}
+
+function downloadBackupFile(backupData, backupType) {
+  const dataStr = JSON.stringify(backupData, null, 2);
+  const dataBlob = new Blob([dataStr], {type: 'application/json'});
+  const url = URL.createObjectURL(dataBlob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `${backupType}_backup_${new Date().toISOString().split('T')[0]}.json`;
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
+function saveBackupRecord(backupData) {
+  const backupRecord = {
+    date: backupData.backupDate,
+    type: backupData.backupType,
+    size: `${Math.round(JSON.stringify(backupData).length / 1024)} KB`,
+    encrypted: backupData.encrypted || false,
+    metadata: backupData.metadata
+  };
+  
+  // Save to localStorage for backup history
+  const backupHistory = JSON.parse(localStorage.getItem('backupHistory') || '[]');
+  backupHistory.unshift(backupRecord);
+  
+  // Keep only last 10 backups in history
+  if (backupHistory.length > 10) {
+    backupHistory.splice(10);
+  }
+  
+  localStorage.setItem('backupHistory', JSON.stringify(backupHistory));
 }
 
 function downloadBackup(date) {
-  NotificationManager.showToast(`Downloading backup from ${date}`);
+  const history = JSON.parse(localStorage.getItem('backupHistory') || '[]');
+  const backup = history.find(b => b.date === date);
+  
+  if (backup) {
+    // Create info modal
+    const modal = document.createElement('div');
+    modal.className = 'modal';
+    modal.id = 'backupInfoModal';
+    modal.style.display = 'flex';
+    
+    modal.innerHTML = `
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3 class="modal-title">Backup Information</h3>
+          <button class="modal-close" onclick="closeModal('backupInfoModal')" style="width: 15%;">&times;</button>
+        </div>
+        <div style="padding: 20px;">
+          <div style="margin-bottom: 12px;"><strong>Type:</strong> ${backup.type}</div>
+          <div style="margin-bottom: 12px;"><strong>Date:</strong> ${new Date(backup.date).toLocaleString()}</div>
+          <div style="margin-bottom: 12px;"><strong>Size:</strong> ${backup.size}</div>
+          <div style="margin-bottom: 12px;"><strong>Encrypted:</strong> ${backup.encrypted ? 'Yes' : 'No'}</div>
+          
+          ${backup.metadata ? `
+            <div style="margin-top: 16px; padding: 12px; background: #f8f9fa; border-radius: 6px;">
+              <strong>Backup Contents:</strong><br>
+              <div style="font-size: 12px; margin-top: 4px;">
+                Users: ${backup.metadata.totalUsers || 0}<br>
+                Units: ${backup.metadata.totalUnits || 0}<br>
+                Version: ${backup.metadata.version || 'Unknown'}
+              </div>
+            </div>
+          ` : ''}
+          
+          <div style="margin-top: 16px; padding: 12px; background: #fff3cd; border-radius: 6px; border: 1px solid #ffeaa7;">
+            <strong>Note:</strong> This backup was downloaded on ${new Date(backup.date).toLocaleDateString()}. 
+            To restore data, you would need to manually import this backup file.
+          </div>
+        </div>
+      </div>
+    `;
+    
+    document.body.appendChild(modal);
+    document.body.style.overflow = 'hidden';
+  } else {
+    NotificationManager.showToast('Backup information not found');
+  }
 }
 
 function exportUserList() {
@@ -1694,7 +3008,117 @@ function exportUserList() {
 
 // Utility Functions
 function editUser(userId) {
-  NotificationManager.showToast(`Editing user: ${userId}`);
+  // Fetch user data
+  db.ref(`users/${userId}`).once('value').then(snapshot => {
+    if (!snapshot.exists()) {
+      NotificationManager.showToast('User not found');
+      return;
+    }
+    
+    const userData = snapshot.val();
+    
+    // Create edit user modal
+    const modal = document.createElement('div');
+    modal.className = 'modal';
+    modal.id = 'editUserModal';
+    modal.style.display = 'flex';
+    
+    modal.innerHTML = `
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3 class="modal-title">Edit User</h3>
+          <button class="modal-close" onclick="closeModal('editUserModal')" style="width: 15%;">&times;</button>
+        </div>
+        <form id="editUserForm">
+          <div class="form-group">
+            <label class="form-label">Email</label>
+            <input type="email" class="form-input" id="editUserEmail" value="${userData.email || ''}" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Password</label>
+            <input type="password" class="form-input" id="editUserPassword" value="${userData.password || ''}" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Device ID</label>
+            <input type="text" class="form-input" id="editUserDeviceId" value="${userData.deviceId || ''}" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">User Type</label>
+            <select class="form-input" id="editUserType" required>
+              <option value="student" ${userData.type === 'student' ? 'selected' : ''}>Student</option>
+              <option value="teacher" ${userData.type === 'teacher' ? 'selected' : ''}>Teacher</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Token</label>
+            <input type="text" class="form-input" id="editUserToken" value="${userData.token || ''}">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Expiration Date</label>
+            <input type="date" class="form-input" id="editUserExpiration" value="${userData.expirationDate ? new Date(userData.expirationDate).toISOString().split('T')[0] : ''}" required>
+          </div>
+          <div class="feature-actions">
+            <button type="submit" class="action-btn">Update User</button>
+            <button type="button" class="action-btn secondary" onclick="closeModal('editUserModal')">Cancel</button>
+          </div>
+        </form>
+      </div>
+    `;
+    
+    document.body.appendChild(modal);
+    document.body.style.overflow = 'hidden';
+    
+    // Add form handler
+    const form = document.getElementById('editUserForm');
+    form.addEventListener('submit', function(e) {
+      e.preventDefault();
+      updateUser(userId);
+    });
+  }).catch(error => {
+    console.error('Error loading user data:', error);
+    NotificationManager.showToast('Error loading user data');
+  });
+}
+
+function updateUser(userId) {
+  const email = document.getElementById('editUserEmail').value.trim();
+  const password = document.getElementById('editUserPassword').value;
+  const deviceId = document.getElementById('editUserDeviceId').value.trim();
+  const type = document.getElementById('editUserType').value;
+  const token = document.getElementById('editUserToken').value.trim();
+  const expiration = document.getElementById('editUserExpiration').value;
+  
+  if (!email || !password || !deviceId || !expiration) {
+    NotificationManager.showToast('Please fill in all required fields');
+    return;
+  }
+  
+  const expirationTimestamp = new Date(expiration).getTime();
+  
+  const updatedData = {
+    email: email,
+    password: password,
+    deviceId: deviceId,
+    type: type,
+    expirationDate: expirationTimestamp
+  };
+  
+  if (token) {
+    updatedData.token = token;
+  }
+  
+  db.ref(`users/${userId}`).update(updatedData)
+    .then(() => {
+      NotificationManager.showToast('User updated successfully');
+      closeModal('editUserModal');
+      loadAllUsers();
+      loadUserList();
+      loadQuickStats();
+    })
+    .catch(error => {
+      console.error('Error updating user:', error);
+      NotificationManager.showToast('Error updating user: ' + error.message);
+    });
 }
 
 function deleteUser(userId) {
@@ -1715,13 +3139,14 @@ function extendUser(userId) {
   const newExpiration = new Date();
   newExpiration.setDate(newExpiration.getDate() + 30);
   
-  db.ref(`users/${userId}/expiration`).set(newExpiration.getTime())
+  db.ref(`users/${userId}/expirationDate`).set(newExpiration.getTime())
     .then(() => {
       NotificationManager.showToast('User expiration extended by 30 days');
       loadAllUsers();
       loadUserList();
     })
     .catch(error => {
+      console.error('Error extending user:', error);
       NotificationManager.showToast('Error extending user');
     });
 }
@@ -1814,3 +3239,9 @@ const additionalStyles = `
 const styleSheet = document.createElement('style');
 styleSheet.textContent = additionalStyles;
 document.head.appendChild(styleSheet);
+
+// Initialize theme on page load
+document.addEventListener('DOMContentLoaded', function() {
+  const savedTheme = localStorage.getItem('teacherTheme') || 'light';
+  applyTheme(savedTheme);
+});
