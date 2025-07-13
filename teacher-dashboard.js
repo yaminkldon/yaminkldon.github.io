@@ -1455,154 +1455,256 @@ function processReport() {
 }
 
 function generateActualReport(reportType, format, options) {
-  // Gather data for user progress report
-  Promise.all([
-    db.ref('users').once('value'),
-    db.ref('units').once('value'),
-    db.ref('progress').once('value')
-  ]).then(([usersSnapshot, unitsSnapshot, progressSnapshot]) => {
-    const users = usersSnapshot.val() || {};
-    const units = unitsSnapshot.val() || {};
-    const progress = progressSnapshot.val() || {};
-    
-    // Generate user progress report using progress.js logic
-    const reportPromise = generateUserProgressReport(users, units, progress, options);
-    
-    // Wait for report generation to complete
-    return reportPromise;
-  }).then(reportData => {
-    // Download the report
-    downloadReport(reportData, reportType, format);
-    
-    NotificationManager.showToast('Report generated successfully!');
-    closeModal('reportModal');
-  }).catch(error => {
-    console.error('Error generating report:', error);
-    NotificationManager.showToast('Error generating report: ' + error.message);
-  });
-}
-
-function generateUserProgressReport(users, units, progress, options) {
-  return new Promise((resolve) => {
-    const report = {
-      title: 'User Progress Report',
-      generatedAt: new Date().toISOString(),
-      options: options,
-      data: {
-        totalUsers: Object.keys(users).length,
-        usersWithProgress: Object.keys(progress).length,
-        userDetails: []
-      }
-    };
-    
-    // Calculate total available lessons using progress.js logic
-    let totalAvailableLessons = 0;
-    Object.keys(units).forEach(unitId => {
-      const unit = units[unitId];
-      
-      // Count lessons directly under unit (not under unit.lessons) - progress.js logic
-      Object.keys(unit).forEach(key => {
-        const item = unit[key];
-        // Check if this is a lesson (has videoURL or videoFile)
-        if (item && typeof item === 'object' && (item.videoURL || item.videoFile)) {
-          totalAvailableLessons++;
-        }
-      });
-    });
-    
-    Object.entries(users).forEach(([userId, userData]) => {
-      const userProgress = progress[userId] || {};
-      
-      // Calculate completed lessons using progress.js logic
-      let completedLessons = 0;
-      Object.keys(units).forEach(unitId => {
-        const unit = units[unitId];
-        
-        // Count lessons directly under unit
-        Object.keys(unit).forEach(key => {
-          const item = unit[key];
-          // Check if this is a lesson (has videoURL or videoFile)
-          if (item && typeof item === 'object' && (item.videoURL || item.videoFile)) {
-            // Check if this lesson is completed - progress.js logic
-            if (userProgress[unitId] && userProgress[unitId][key] && userProgress[unitId][key].completed) {
-              completedLessons++;
-            }
-          }
-        });
-      });
-      
-      // Calculate completion percentage using progress.js logic
-      const completionRate = totalAvailableLessons > 0 ? Math.round((completedLessons / totalAvailableLessons) * 100) : 0;
-      
-      // Calculate streak using progress.js logic
-      let streak = 0;
-      if (userProgress.lastStudyDates && Array.isArray(userProgress.lastStudyDates)) {
-        const dates = userProgress.lastStudyDates.sort().reverse();
-        let currentDate = new Date();
-        currentDate.setHours(0, 0, 0, 0);
-        
-        for (let i = 0; i < dates.length; i++) {
-          const studyDate = new Date(dates[i]);
-          studyDate.setHours(0, 0, 0, 0);
-          
-          const diffDays = Math.floor((currentDate - studyDate) / (1000 * 60 * 60 * 24));
-          
-          if (diffDays === streak) {
-            streak++;
-            currentDate.setDate(currentDate.getDate() - 1);
-          } else {
-            break;
-          }
-        }
-      }
-      
-      const userDetail = {
-        email: userData.email,
-        type: userData.type,
-        expiration: userData.expirationDate ? new Date(userData.expirationDate).toLocaleDateString() : 'No expiration',
-        unitsStarted: calculateUnitsStarted(units, userProgress),
-        completionRate: completionRate,
-        totalLessons: totalAvailableLessons,
-        completedLessons: completedLessons,
-        studyStreak: streak,
-        lastStudyDates: userProgress.lastStudyDates && Array.isArray(userProgress.lastStudyDates) ? 
-          userProgress.lastStudyDates.slice(-3).join(', ') : 'No study dates'
-      };
-      
-      report.data.userDetails.push(userDetail);
-    });
-    
-    resolve(report);
-  });
-}
-
-// Helper function to calculate units started using progress.js logic
-function calculateUnitsStarted(units, userProgress) {
-  let unitsStarted = 0;
+  // Use the exact same data loading pattern as progress.js
+  NotificationManager.showToast('Loading data using progress.js logic...');
   
-  Object.keys(units).forEach(unitId => {
-    const unit = units[unitId];
-    if (!unit || typeof unit !== 'object') return;
+  // First load all users to get their UIDs
+  db.ref('users').once('value')
+    .then(usersSnapshot => {
+      const users = usersSnapshot.val() || {};
+      
+      // Load units data (same as progress.js)
+      return db.ref('units').once('value')
+        .then(unitsSnapshot => {
+          const unitsData = unitsSnapshot.val() || {};
+          
+          // Now load progress for each user using their UID (same as progress.js loadProgress)
+          const progressPromises = [];
+          
+          Object.entries(users).forEach(([userKey, userData]) => {
+            if (userData.type === 'student') {
+              // Use the exact same progress loading as progress.js loadProgress()
+              const userId = userKey; // This is the UID from users collection
+              const progressPromise = db.ref('progress/' + userId).once('value')
+                .then(snapshot => {
+                  const userProgress = snapshot.val() || {};
+                  return {
+                    userId: userId,
+                    userData: userData,
+                    userProgress: userProgress
+                  };
+                });
+              progressPromises.push(progressPromise);
+            }
+          });
+          
+          // Wait for all progress data to load, then process using progress.js logic
+          return Promise.all(progressPromises).then(allUserData => {
+            return generateReportFromProgressData(allUserData, unitsData, options);
+          });
+        });
+    })
+    .then(reportData => {
+      // Download the report
+      downloadReport(reportData, reportType, format);
+      NotificationManager.showToast('Report generated successfully using progress.js logic!');
+      closeModal('reportModal');
+    })
+    .catch(error => {
+      console.error('Error generating report:', error);
+      NotificationManager.showToast('Error generating report: ' + error.message);
+    });
+}
+
+// Process the data using exact same logic as progress.js displayProgress()
+function generateReportFromProgressData(allUserData, unitsData, options) {
+  const report = {
+    title: 'User Progress Report (Using Progress.js Logic)',
+    generatedAt: new Date().toISOString(),
+    options: options,
+    data: {
+      totalUsers: allUserData.length,
+      usersWithProgress: allUserData.filter(user => Object.keys(user.userProgress).length > 0).length,
+      userDetails: []
+    }
+  };
+  
+  // Calculate total available lessons using EXACT progress.js logic from displayProgress()
+  let totalLessons = 0;
+  Object.keys(unitsData).forEach(unitId => {
+    const unit = unitsData[unitId];
     
-    // Check if user has any completed lessons in this unit using progress.js logic
-    let hasCompletedLessonsInUnit = false;
+    // Count lessons directly under unit (not under unit.lessons) - EXACT progress.js logic
     Object.keys(unit).forEach(key => {
       const item = unit[key];
-      // Check if this is a lesson (has videoURL or videoFile)
+      // Check if this is a lesson (has videoURL or videoFile) - EXACT progress.js logic
       if (item && typeof item === 'object' && (item.videoURL || item.videoFile)) {
-        // Check if this lesson is completed
-        if (userProgress[unitId] && userProgress[unitId][key] && userProgress[unitId][key].completed) {
-          hasCompletedLessonsInUnit = true;
+        totalLessons++;
+      }
+    });
+  });
+  
+  // Process each user using EXACT progress.js logic
+  allUserData.forEach(({userId, userData, userProgress}) => {
+    // Use EXACT same calculation as progress.js displayProgress()
+    let completedLessons = 0;
+    
+    // Calculate overall statistics - EXACT progress.js logic
+    Object.keys(unitsData).forEach(unitId => {
+      const unit = unitsData[unitId];
+      
+      // Count lessons directly under unit (not under unit.lessons) - EXACT progress.js logic
+      Object.keys(unit).forEach(key => {
+        const item = unit[key];
+        // Check if this is a lesson (has videoURL or videoFile) - EXACT progress.js logic
+        if (item && typeof item === 'object' && (item.videoURL || item.videoFile)) {
+          // Check if this lesson is completed - EXACT progress.js logic
+          if (userProgress[unitId] && userProgress[unitId][key] && userProgress[unitId][key].completed) {
+            completedLessons++;
+          }
         }
+      });
+    });
+    
+    // Calculate completion percentage using EXACT progress.js logic
+    const completionPercentage = totalLessons > 0 ? Math.round((completedLessons / totalLessons) * 100) : 0;
+    
+    // Calculate streak using EXACT progress.js calculateStreak() logic
+    const streak = calculateProgressJsStreak(userProgress);
+    
+    // Calculate units started using progress.js logic
+    const unitsStarted = calculateUnitsStartedProgressJs(unitsData, userProgress);
+    
+    const userDetail = {
+      userId: userId,
+      email: userData.email || userId,
+      type: userData.type || 'student',
+      expiration: userData.expirationDate ? new Date(userData.expirationDate).toLocaleDateString() : 'No expiration',
+      unitsStarted: unitsStarted,
+      completionRate: completionPercentage,
+      totalLessons: totalLessons,
+      completedLessons: completedLessons,
+      studyStreak: streak,
+      lastStudyDates: userProgress.lastStudyDates && Array.isArray(userProgress.lastStudyDates) ? 
+        userProgress.lastStudyDates.slice(-3).join(', ') : 'No study dates'
+    };
+    
+    if (options.includeDetails) {
+      userDetail.unitDetails = calculateUnitDetailsProgressJs(unitsData, userProgress);
+    }
+    
+    report.data.userDetails.push(userDetail);
+  });
+  
+  // Add summary statistics
+  if (options.includeSummary) {
+    const totalStudents = report.data.userDetails.length;
+    const studentsWithProgress = report.data.userDetails.filter(user => user.completedLessons > 0).length;
+    const avgCompletion = totalStudents > 0 ? 
+      report.data.userDetails.reduce((sum, user) => sum + user.completionRate, 0) / totalStudents : 0;
+    
+    report.data.summary = {
+      totalStudents,
+      studentsWithProgress,
+      averageCompletionRate: Math.round(avgCompletion),
+      totalAvailableLessons: totalLessons
+    };
+  }
+  
+  return report;
+}
+
+// EXACT copy of progress.js calculateStreak() function
+function calculateProgressJsStreak(userProgress) {
+  if (!userProgress.lastStudyDates) return 0;
+  
+  const dates = userProgress.lastStudyDates.sort().reverse();
+  let streak = 0;
+  let currentDate = new Date();
+  currentDate.setHours(0, 0, 0, 0);
+  
+  for (let i = 0; i < dates.length; i++) {
+    const studyDate = new Date(dates[i]);
+    studyDate.setHours(0, 0, 0, 0);
+    
+    const diffDays = Math.floor((currentDate - studyDate) / (1000 * 60 * 60 * 24));
+    
+    if (diffDays === streak) {
+      streak++;
+      currentDate.setDate(currentDate.getDate() - 1);
+    } else {
+      break;
+    }
+  }
+  
+  return streak;
+}
+
+// Calculate units started using progress.js displayUnitProgress() logic
+function calculateUnitsStartedProgressJs(unitsData, userProgress) {
+  let unitsStarted = 0;
+  
+  Object.keys(unitsData).forEach(unitId => {
+    const unit = unitsData[unitId];
+    
+    // Count lessons directly under unit - EXACT progress.js logic
+    const lessonKeys = Object.keys(unit).filter(key => {
+      const item = unit[key];
+      return item && typeof item === 'object' && (item.videoURL || item.videoFile);
+    });
+    
+    if (lessonKeys.length === 0) return; // Skip if no lessons
+    
+    let unitCompletedLessons = 0;
+    
+    // Count completed lessons in this unit - EXACT progress.js logic
+    lessonKeys.forEach(lessonId => {
+      if (userProgress[unitId] && userProgress[unitId][lessonId] && userProgress[unitId][lessonId].completed) {
+        unitCompletedLessons++;
       }
     });
     
-    if (hasCompletedLessonsInUnit) {
+    // If user completed any lessons in this unit, count it as started
+    if (unitCompletedLessons > 0) {
       unitsStarted++;
     }
   });
   
   return unitsStarted;
+}
+
+// Calculate unit details using progress.js displayUnitProgress() logic
+function calculateUnitDetailsProgressJs(unitsData, userProgress) {
+  const unitDetails = [];
+  
+  Object.keys(unitsData).forEach(unitId => {
+    const unit = unitsData[unitId];
+    
+    // Count lessons directly under unit - EXACT progress.js logic
+    const lessonKeys = Object.keys(unit).filter(key => {
+      const item = unit[key];
+      return item && typeof item === 'object' && (item.videoURL || item.videoFile);
+    });
+    
+    if (lessonKeys.length === 0) return; // Skip if no lessons
+    
+    let unitTotalLessons = lessonKeys.length;
+    let unitCompletedLessons = 0;
+    
+    // Count completed lessons in this unit - EXACT progress.js logic
+    lessonKeys.forEach(lessonId => {
+      if (userProgress[unitId] && userProgress[unitId][lessonId] && userProgress[unitId][lessonId].completed) {
+        unitCompletedLessons++;
+      }
+    });
+    
+    const unitPercentage = Math.round((unitCompletedLessons / unitTotalLessons) * 100);
+    
+    unitDetails.push({
+      unitId: unitId,
+      totalLessons: unitTotalLessons,
+      completedLessons: unitCompletedLessons,
+      progressPercentage: unitPercentage
+    });
+  });
+  
+  return unitDetails;
+}
+
+// Helper function to calculate units started using progress.js logic (DEPRECATED - replaced with progress.js exact logic)
+function calculateUnitsStarted(units, userProgress) {
+  // This function is now deprecated - using calculateUnitsStartedProgressJs instead
+  return calculateUnitsStartedProgressJs(units, userProgress);
 }
 
 function downloadReport(reportData, reportType, format) {
