@@ -1300,6 +1300,11 @@ function displayGeneratedToken(token, expirationDate) {
     // Set the token value
     generatedTokenInput.value = token;
     
+    // Force visible styling for the input
+    generatedTokenInput.style.color = '#000';
+    generatedTokenInput.style.backgroundColor = '#fff';
+    generatedTokenInput.style.border = '2px solid #6c4fc1';
+    
     // Format the expiration date
     const formattedDate = expirationDate.toLocaleDateString() + ' at ' + expirationDate.toLocaleTimeString();
     tokenExpiry.textContent = formattedDate;
@@ -1307,11 +1312,22 @@ function displayGeneratedToken(token, expirationDate) {
     // Show the display area
     tokenDisplay.style.display = 'block';
     
-    // Debug log
+    // Debug log with more details
     console.log('Token displayed:', token);
     console.log('Token input value:', generatedTokenInput.value);
+    console.log('Token input element:', generatedTokenInput);
+    console.log('Token display area:', tokenDisplay);
+    
+    // Force focus and select to test if the value is actually there
+    setTimeout(() => {
+      generatedTokenInput.focus();
+      generatedTokenInput.select();
+    }, 100);
   } else {
     console.error('Token display elements not found');
+    console.error('tokenDisplay:', tokenDisplay);
+    console.error('generatedTokenInput:', generatedTokenInput); 
+    console.error('tokenExpiry:', tokenExpiry);
   }
 }
 
@@ -1883,7 +1899,7 @@ function viewTokenDetails(tokenKey) {
         <div class="token-details">
           <div style="margin-bottom: 16px;">
             <strong>Token:</strong>
-            <div style="font-family: monospace; background: #f8f9fa; padding: 8px; border-radius: 4px; margin-top: 4px;">${tokenKey}</div>
+            <div style="font-family: monospace; background: #424649; padding: 8px; border-radius: 4px; margin-top: 4px;">${tokenKey}</div>
           </div>
           
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px;">
