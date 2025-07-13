@@ -426,6 +426,7 @@ function openTeacherSettings() {
 function openAddUserModal() {
   // Close the user management modal first
   closeModal('userManagementModal');
+  closeModal('userListModal'); // Also close if called from user list modal
   openModal('addUserModal');
 }
 
@@ -1499,26 +1500,32 @@ function generateActualReport(reportType, format, options) {
     const units = unitsSnapshot.val() || {};
     const progress = progressSnapshot.val() || {};
     
-    let reportData = {};
+    // Generate report based on type
+    let reportPromise;
     
     switch(reportType) {
       case 'user-progress':
-        reportData = generateUserProgressReport(users, progress, options);
+        reportPromise = generateUserProgressReport(users, units, progress, options);
         break;
       case 'content-analytics':
-        reportData = generateContentAnalyticsReport(units, progress, options);
+        reportPromise = Promise.resolve(generateContentAnalyticsReport(units, progress, options));
         break;
       case 'usage-statistics':
-        reportData = generateUsageStatisticsReport(users, progress, options);
+        reportPromise = Promise.resolve(generateUsageStatisticsReport(users, progress, options));
         break;
       case 'completion-rates':
-        reportData = generateCompletionRatesReport(units, progress, options);
+        reportPromise = Promise.resolve(generateCompletionRatesReport(units, progress, options));
         break;
       case 'full-report':
-        reportData = generateFullReport(users, units, progress, options);
+        reportPromise = generateFullReport(users, units, progress, options);
         break;
+      default:
+        reportPromise = Promise.resolve(generateUserProgressReport(users, units, progress, options));
     }
     
+    // Wait for report generation to complete
+    return reportPromise;
+  }).then(reportData => {
     // Download the report
     downloadReport(reportData, reportType, format);
     
@@ -1530,21 +1537,37 @@ function generateActualReport(reportType, format, options) {
   });
 }
 
-function generateUserProgressReport(users, progress, options) {
-  const report = {
-    title: 'User Progress Report',
-    generatedAt: new Date().toISOString(),
-    options: options,
-    data: {
-      totalUsers: Object.keys(users).length,
-      usersWithProgress: Object.keys(progress).length,
-      userDetails: []
-    }
-  };
-  
-  // First, get all units to count total available lessons
-  db.ref('units').once('value').then(snapshot => {
-    const allUnits = snapshot.val() || {};
+function generateUserProgressReport(users, units, progress, options) {
+  return new Promise((resolve) => {
+    const report = {
+      title: 'User Progress Report',
+      generatedAt: new Date().toISOString(),
+      options: options,
+      data: {
+        totalUsers: Object.keys(users).length,
+        usersWithProgress: Object.keys(progress).length,
+        userDetails: []
+      }
+    };
+    
+    // Calculate total available lessons across all units
+    let totalAvailableLessons = 0;
+    Object.values(units).forEach(unit => {
+      // Count lessons in 'lessons' subfolder
+      if (unit.lessons) {
+        totalAvailableLessons += Object.keys(unit.lessons).length;
+      }
+      
+      // Count direct lessons (not in subfolder)
+      Object.keys(unit).forEach(key => {
+        if (key !== 'lessons' && typeof unit[key] === 'object' && unit[key] !== null) {
+          // Check if this is a lesson (has lesson properties)
+          if (unit[key].title || unit[key].description || unit[key].videoURL || unit[key].videoFile) {
+            totalAvailableLessons++;
+          }
+        }
+      });
+    });
     
     Object.entries(users).forEach(([userId, userData]) => {
       const userProgress = progress[userId] || {};
@@ -1556,27 +1579,8 @@ function generateUserProgressReport(users, progress, options) {
         lastStudyDates: userProgress.lastStudyDates ? userProgress.lastStudyDates.join(', ') : 'No study dates'
       };
       
-      // Calculate completion stats based on actual lesson structure
-      let totalLessons = 0;
+      // Calculate completion stats for this user
       let completedLessons = 0;
-      
-      // Count total available lessons across all units
-      Object.values(allUnits).forEach(unit => {
-        // Count lessons in 'lessons' subfolder
-        if (unit.lessons) {
-          totalLessons += Object.keys(unit.lessons).length;
-        }
-        
-        // Count direct lessons (not in subfolder)
-        Object.keys(unit).forEach(key => {
-          if (key !== 'lessons' && typeof unit[key] === 'object' && unit[key] !== null) {
-            // Check if this is a lesson (has lesson properties)
-            if (unit[key].title || unit[key].description || unit[key].videoURL || unit[key].videoFile) {
-              totalLessons++;
-            }
-          }
-        });
-      });
       
       // Count completed lessons for this user
       Object.entries(userProgress).forEach(([unitKey, unitProgress]) => {
@@ -1589,15 +1593,15 @@ function generateUserProgressReport(users, progress, options) {
         }
       });
       
-      userDetail.completionRate = totalLessons > 0 ? Math.round((completedLessons / totalLessons) * 100) : 0;
-      userDetail.totalLessons = totalLessons;
+      userDetail.completionRate = totalAvailableLessons > 0 ? Math.round((completedLessons / totalAvailableLessons) * 100) : 0;
+      userDetail.totalLessons = totalAvailableLessons;
       userDetail.completedLessons = completedLessons;
       
       report.data.userDetails.push(userDetail);
     });
+    
+    resolve(report);
   });
-  
-  return report;
 }
 
 function generateContentAnalyticsReport(units, progress, options) {
@@ -1753,15 +1757,17 @@ function generateCompletionRatesReport(units, progress, options) {
 }
 
 function generateFullReport(users, units, progress, options) {
-  return {
-    title: 'Comprehensive Report',
-    generatedAt: new Date().toISOString(),
-    options: options,
-    userProgress: generateUserProgressReport(users, progress, options).data,
-    contentAnalytics: generateContentAnalyticsReport(units, progress, options).data,
-    usageStatistics: generateUsageStatisticsReport(users, progress, options).data,
-    completionRates: generateCompletionRatesReport(units, progress, options).data
-  };
+  return generateUserProgressReport(users, units, progress, options).then(userProgressReport => {
+    return {
+      title: 'Comprehensive Report',
+      generatedAt: new Date().toISOString(),
+      options: options,
+      userProgress: userProgressReport.data,
+      contentAnalytics: generateContentAnalyticsReport(units, progress, options).data,
+      usageStatistics: generateUsageStatisticsReport(users, progress, options).data,
+      completionRates: generateCompletionRatesReport(units, progress, options).data
+    };
+  });
 }
 
 function downloadReport(reportData, reportType, format) {
@@ -2304,7 +2310,7 @@ function createVideoCard(container, unitKey, lessonKey, lessonData, type) {
   videoCard.className = 'video-card';
   videoCard.setAttribute('data-unit', unitKey);
   videoCard.setAttribute('data-lesson', lessonKey);
-  videoCard.style.cssText = 'background: #f8f9fa; padding: 16px; border-radius: 8px; border: 1px solid #e0e0e0; margin-bottom: 12px;';
+  videoCard.style.cssText = 'padding: 16px; border-radius: 8px; border: 1px solid #e0e0e0; margin-bottom: 12px;';
   
   const thumbnail = lessonData.thumbnail || lessonData.thumbnailURL || 'https://via.placeholder.com/150x100?text=Video';
   const title = lessonData.title || lessonKey;
@@ -2377,26 +2383,27 @@ function previewVideo(unitKey, lessonKey, type) {
   db.ref(path).once('value').then(snapshot => {
     if (snapshot.exists()) {
       const lessonData = snapshot.val();
-      let videoURL = lessonData.videoURL;
+      const videoFile = lessonData.videoURL || lessonData.videoFile;
       
-      // If videoURL is not a full URL, try to get it from Firebase Storage
-      if (videoURL && !videoURL.startsWith('http')) {
-        // This might be a relative path, try to get the full URL from storage
-        if (lessonData.videoFile) {
-          storage.ref('videos/' + lessonData.videoFile).getDownloadURL().then(url => {
-            showVideoPreview(unitKey, lessonKey, lessonData, url);
-          }).catch(error => {
-            console.error('Error getting download URL:', error);
-            NotificationManager.showToast('Error loading video URL from storage');
-          });
-          return;
-        }
+      if (!videoFile) {
+        NotificationManager.showToast('No video available for this lesson');
+        return;
       }
       
-      if (videoURL) {
-        showVideoPreview(unitKey, lessonKey, lessonData, videoURL);
+      // If videoFile is already a full URL, use it directly
+      if (videoFile.startsWith('http')) {
+        showVideoPreview(unitKey, lessonKey, lessonData, videoFile);
       } else {
-        NotificationManager.showToast('Video URL not found');
+        // Get video URL from Firebase Storage (like unitdetail.js)
+        storage.ref('videos/' + videoFile).getDownloadURL()
+          .then(url => {
+            console.log('Video URL loaded:', url);
+            showVideoPreview(unitKey, lessonKey, lessonData, url);
+          })
+          .catch(error => {
+            console.error('Error loading video from storage:', error);
+            NotificationManager.showToast('Error loading video: ' + error.message);
+          });
       }
     } else {
       NotificationManager.showToast('Video data not found');
