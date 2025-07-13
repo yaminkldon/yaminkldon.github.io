@@ -581,19 +581,7 @@ function generateReport() {
           <label class="form-label">Report Type</label>
           <select id="reportType" class="form-input">
             <option value="user-progress">User Progress Report</option>
-            <option value="content-analytics">Content Analytics</option>
-            <option value="usage-statistics">Usage Statistics</option>
-            <option value="completion-rates">Completion Rates</option>
-            <option value="full-report">Comprehensive Report</option>
           </select>
-        </div>
-        
-        <div class="form-group">
-          <label class="form-label">Date Range</label>
-          <div style="display: flex; gap: 8px;">
-            <input type="date" id="reportStartDate" class="form-input" style="flex: 1;">
-            <input type="date" id="reportEndDate" class="form-input" style="flex: 1;">
-          </div>
         </div>
         
         <div class="form-group">
@@ -607,9 +595,8 @@ function generateReport() {
         <div class="form-group">
           <label class="form-label">Include</label>
           <div class="checkbox-group">
-            <label><input type="checkbox" id="includeCharts" checked> Charts and Graphs</label><br>
             <label><input type="checkbox" id="includeDetails" checked> Detailed Data</label><br>
-            <label><input type="checkbox" id="includeSummary" checked> Executive Summary</label>
+            <label><input type="checkbox" id="includeSummary" checked> Summary Statistics</label>
           </div>
         </div>
         
@@ -623,14 +610,6 @@ function generateReport() {
   
   document.body.appendChild(modal);
   document.body.style.overflow = 'hidden';
-  
-  // Set default dates (last 30 days)
-  const endDate = new Date();
-  const startDate = new Date();
-  startDate.setDate(startDate.getDate() - 30);
-  
-  document.getElementById('reportStartDate').value = startDate.toISOString().split('T')[0];
-  document.getElementById('reportEndDate').value = endDate.toISOString().split('T')[0];
 }
 
 function exportData() {
@@ -1461,9 +1440,6 @@ function exportAnalyticsData() {
 function processReport() {
   const reportType = document.getElementById('reportType').value;
   const format = document.getElementById('reportFormat').value;
-  const startDate = document.getElementById('reportStartDate').value;
-  const endDate = document.getElementById('reportEndDate').value;
-  const includeCharts = document.getElementById('includeCharts').checked;
   const includeDetails = document.getElementById('includeDetails').checked;
   const includeSummary = document.getElementById('includeSummary').checked;
   
@@ -1472,9 +1448,6 @@ function processReport() {
   // Simulate report generation
   setTimeout(() => {
     generateActualReport(reportType, format, {
-      startDate,
-      endDate,
-      includeCharts,
       includeDetails,
       includeSummary
     });
@@ -1482,7 +1455,7 @@ function processReport() {
 }
 
 function generateActualReport(reportType, format, options) {
-  // Gather data based on report type
+  // Gather data for user progress report
   Promise.all([
     db.ref('users').once('value'),
     db.ref('units').once('value'),
@@ -1492,28 +1465,8 @@ function generateActualReport(reportType, format, options) {
     const units = unitsSnapshot.val() || {};
     const progress = progressSnapshot.val() || {};
     
-    // Generate report based on type
-    let reportPromise;
-    
-    switch(reportType) {
-      case 'user-progress':
-        reportPromise = generateUserProgressReport(users, units, progress, options);
-        break;
-      case 'content-analytics':
-        reportPromise = Promise.resolve(generateContentAnalyticsReport(units, progress, options));
-        break;
-      case 'usage-statistics':
-        reportPromise = Promise.resolve(generateUsageStatisticsReport(users, progress, options));
-        break;
-      case 'completion-rates':
-        reportPromise = Promise.resolve(generateCompletionRatesReport(units, progress, options));
-        break;
-      case 'full-report':
-        reportPromise = generateFullReport(users, units, progress, options);
-        break;
-      default:
-        reportPromise = Promise.resolve(generateUserProgressReport(users, units, progress, options));
-    }
+    // Generate user progress report using progress.js logic
+    const reportPromise = generateUserProgressReport(users, units, progress, options);
     
     // Wait for report generation to complete
     return reportPromise;
@@ -1620,172 +1573,6 @@ function generateUserProgressReport(users, units, progress, options) {
     });
     
     resolve(report);
-  });
-}
-
-function generateContentAnalyticsReport(units, progress, options) {
-  const report = {
-    title: 'Content Analytics Report',
-    generatedAt: new Date().toISOString(),
-    options: options,
-    data: {
-      totalUnits: Object.keys(units).length,
-      unitAnalytics: []
-    }
-  };
-  
-  Object.entries(units).forEach(([unitKey, unitData]) => {
-    const unitAnalytic = {
-      unitName: unitKey,
-      totalLessons: 0,
-      viewCounts: {},
-      completionCounts: {}
-    };
-    
-    // Count lessons in both main structure and lessons subfolder
-    if (unitData.lessons) {
-      unitAnalytic.totalLessons += Object.keys(unitData.lessons).length;
-    }
-    
-    // Count direct lessons (like Lesson-1, Lesson-2, etc.)
-    Object.keys(unitData).forEach(key => {
-      if (key.startsWith('Lesson-')) {
-        unitAnalytic.totalLessons++;
-      }
-    });
-    
-    // Analyze progress data for this unit
-    Object.values(progress).forEach(userProgress => {
-      if (userProgress[unitKey]) {
-        Object.entries(userProgress[unitKey]).forEach(([lessonKey, lessonData]) => {
-          if (lessonKey !== 'lastStudyDates') {
-            unitAnalytic.viewCounts[lessonKey] = (unitAnalytic.viewCounts[lessonKey] || 0) + 1;
-            if (lessonData.completed) {
-              unitAnalytic.completionCounts[lessonKey] = (unitAnalytic.completionCounts[lessonKey] || 0) + 1;
-            }
-          }
-        });
-      }
-    });
-    
-    report.data.unitAnalytics.push(unitAnalytic);
-  });
-  
-  return report;
-}
-
-function generateUsageStatisticsReport(users, progress, options) {
-  const report = {
-    title: 'Usage Statistics Report',
-    generatedAt: new Date().toISOString(),
-    options: options,
-    data: {
-      totalUsers: Object.keys(users).length,
-      activeUsers: 0,
-      expiredUsers: 0,
-      teacherCount: 0,
-      studentCount: 0,
-      dailyUsage: {}
-    }
-  };
-  
-  const now = Date.now();
-  
-  Object.values(users).forEach(userData => {
-    if (userData.expirationDate > now) {
-      report.data.activeUsers++;
-    } else {
-      report.data.expiredUsers++;
-    }
-    
-    if (userData.type === 'teacher') {
-      report.data.teacherCount++;
-    } else {
-      report.data.studentCount++;
-    }
-  });
-  
-  // Analyze usage patterns from progress data
-  Object.values(progress).forEach(userProgress => {
-    if (userProgress.lastStudyDates) {
-      userProgress.lastStudyDates.forEach(date => {
-        report.data.dailyUsage[date] = (report.data.dailyUsage[date] || 0) + 1;
-      });
-    }
-  });
-  
-  return report;
-}
-
-function generateCompletionRatesReport(units, progress, options) {
-  const report = {
-    title: 'Completion Rates Report',
-    generatedAt: new Date().toISOString(),
-    options: options,
-    data: {
-      overallCompletionRate: 0,
-      unitCompletionRates: []
-    }
-  };
-  
-  let totalLessons = 0;
-  let totalCompletions = 0;
-  
-  Object.entries(units).forEach(([unitKey, unitData]) => {
-    const unitStats = {
-      unitName: unitKey,
-      totalLessons: 0,
-      completions: 0,
-      completionRate: 0
-    };
-    
-    // Count lessons
-    if (unitData.lessons) {
-      unitStats.totalLessons += Object.keys(unitData.lessons).length;
-    }
-    Object.keys(unitData).forEach(key => {
-      if (key.startsWith('Lesson-')) {
-        unitStats.totalLessons++;
-      }
-    });
-    
-    // Count completions
-    Object.values(progress).forEach(userProgress => {
-      if (userProgress[unitKey]) {
-        Object.values(userProgress[unitKey]).forEach(lessonData => {
-          if (lessonData.completed) {
-            unitStats.completions++;
-          }
-        });
-      }
-    });
-    
-    unitStats.completionRate = unitStats.totalLessons > 0 ? 
-      Math.round((unitStats.completions / (unitStats.totalLessons * Object.keys(progress).length)) * 100) : 0;
-    
-    totalLessons += unitStats.totalLessons;
-    totalCompletions += unitStats.completions;
-    
-    report.data.unitCompletionRates.push(unitStats);
-  });
-  
-  report.data.overallCompletionRate = totalLessons > 0 ? 
-    Math.round((totalCompletions / totalLessons) * 100) : 0;
-  
-  return report;
-}
-
-function generateFullReport(users, units, progress, options) {
-  return generateUserProgressReport(users, units, progress, options).then(userProgressReport => {
-    return {
-      title: 'Comprehensive Report',
-      generatedAt: new Date().toISOString(),
-      options: options,
-      userProgress: userProgressReport.data,
-      contentAnalytics: generateContentAnalyticsReport(units, progress, options).data,
-      usageStatistics: generateUsageStatisticsReport(users, progress, options).data,
-      completionRates: generateCompletionRatesReport(units, progress, options).data
-    };
   });
 }
 
