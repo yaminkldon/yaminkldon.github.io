@@ -355,6 +355,12 @@ function openTeacherSettings() {
   modal.id = 'teacherSettingsModal';
   modal.style.display = 'flex';
   
+  // Get session info
+  const sessionTimeRemaining = AuthManager.getSessionTimeRemaining();
+  const sessionInfo = sessionTimeRemaining ? 
+    `${Math.floor(sessionTimeRemaining / 60000)} minutes remaining` : 
+    'Session info not available';
+  
   modal.innerHTML = `
     <div class="modal-content" style="max-width: 600px; width: 95%;">
       <div class="modal-header">
@@ -363,6 +369,19 @@ function openTeacherSettings() {
       </div>
       
       <div class="teacher-settings-form">
+        <div class="setting-group" style="margin-bottom: 20px; padding: 16px; background: #f8f9fa; border-radius: 8px;">
+          <label class="form-label" style="font-weight: bold; color: #6c4fc1;">Session Information</label>
+          <div style="margin-top: 8px;">
+            <div><strong>Current User:</strong> ${firebase.auth().currentUser?.email || 'Unknown'}</div>
+            <div><strong>Session Status:</strong> ${sessionInfo}</div>
+            <div><strong>Auto-Logout:</strong> Enabled (1 hour inactivity)</div>
+          </div>
+          <div style="margin-top: 12px;">
+            <button onclick="refreshSessionTimer()" class="action-btn secondary" style="margin-right: 8px;">Extend Session</button>
+            <button onclick="showSessionInfo()" class="action-btn secondary">Session Details</button>
+          </div>
+        </div>
+        
         <div class="setting-group" style="margin-bottom: 20px;">
           <label class="form-label">Dashboard Theme</label>
           <select id="teacherTheme" class="form-input">
@@ -404,6 +423,7 @@ function openTeacherSettings() {
         <div class="feature-actions">
           <button class="action-btn" onclick="saveTeacherSettings()">Save Settings</button>
           <button class="action-btn secondary" onclick="resetToDefaults()">Reset to Defaults</button>
+          <button class="action-btn" onclick="AuthManager.logout()" style="background: #dc3545;">Logout Now</button>
         </div>
       </div>
     </div>
@@ -1945,6 +1965,42 @@ function viewTokenDetails(tokenKey) {
     document.body.appendChild(modal);
     document.body.style.overflow = 'hidden';
   });
+}
+
+// Session Management Helper Functions
+function refreshSessionTimer() {
+  if (window.sessionManager) {
+    window.sessionManager.resetTimer();
+    NotificationManager.showToast('Session timer refreshed - you have another hour');
+    // Refresh the settings modal to update the time display
+    setTimeout(() => {
+      closeModal('teacherSettingsModal');
+      openTeacherSettings();
+    }, 1000);
+  } else {
+    NotificationManager.showToast('Session manager not available');
+  }
+}
+
+function showSessionInfo() {
+  const sessionTimeRemaining = AuthManager.getSessionTimeRemaining();
+  const lastActivity = localStorage.getItem('lastActivity');
+  
+  let message = 'Session Information:\n\n';
+  if (sessionTimeRemaining) {
+    const hours = Math.floor(sessionTimeRemaining / 3600000);
+    const minutes = Math.floor((sessionTimeRemaining % 3600000) / 60000);
+    const seconds = Math.floor((sessionTimeRemaining % 60000) / 1000);
+    message += `⏰ Time remaining: ${hours}h ${minutes}m ${seconds}s\n\n`;
+  }
+  if (lastActivity) {
+    message += `🕒 Last activity: ${new Date(parseInt(lastActivity)).toLocaleString()}\n\n`;
+  }
+  message += '🔒 Auto-logout: After 1 hour of inactivity\n';
+  message += '⚠️ Warning: Shown 5 minutes before logout\n';
+  message += '💡 Tip: Any mouse/keyboard activity resets the timer';
+  
+  alert(message);
 }
 
 function goBack() {
