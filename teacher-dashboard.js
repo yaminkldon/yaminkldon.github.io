@@ -369,7 +369,7 @@ function openTeacherSettings() {
       </div>
       
       <div class="teacher-settings-form">
-        <div class="setting-group" style="margin-bottom: 20px; padding: 16px; background: #f8f9fa; border-radius: 8px;">
+        <div class="setting-group" style="margin-bottom: 20px; padding: 16px; border-radius: 8px;">
           <label class="form-label" style="font-weight: bold; color: #6c4fc1;">Session Information</label>
           <div style="margin-top: 8px;">
             <div><strong>Current User:</strong> ${firebase.auth().currentUser?.email || 'Unknown'}</div>
