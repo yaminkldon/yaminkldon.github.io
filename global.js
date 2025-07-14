@@ -320,7 +320,7 @@ class SessionManager {
     }
     
     // Calculate warning time based on current session timeout
-    const warningTime = Math.min(this.warningTime, this.sessionTimeout * 0.1); // 10% of session time or 5 minutes, whichever is smaller
+    const warningTime = Math.min(this.warningTime, this.sessionTimeout); // Use full warning time (5 minutes) or session timeout, whichever is smaller
     
     // Set warning timer
     this.warningTimer = setTimeout(() => {
@@ -348,9 +348,10 @@ class SessionManager {
     this.warningShown = true;
     
     // Calculate actual warning time
-    const warningTime = Math.min(this.warningTime, this.sessionTimeout * 0.1);
+    const warningTime = Math.min(this.warningTime, this.sessionTimeout);
     const warningMinutes = Math.floor(warningTime / 60000);
-    const initialDisplay = `${warningMinutes}:00`;
+    const warningSeconds = Math.floor((warningTime % 60000) / 1000);
+    const initialDisplay = `${warningMinutes}:${warningSeconds.toString().padStart(2, '0')}`;
     
     // Create warning modal
     const modal = document.createElement('div');
@@ -381,7 +382,7 @@ class SessionManager {
         <div style="color: #ff6b35; font-size: 48px; margin-bottom: 16px;">⚠️</div>
         <h3 style="margin: 0 0 16px 0; color: #333;">Session Timeout Warning</h3>
         <p style="margin: 0 0 20px 0; color: #666; line-height: 1.4;">
-          Your session will expire in <strong id="countdown">${initialDisplay}</strong> minutes due to inactivity.
+          Your session will expire in <strong id="countdown">${initialDisplay}</strong> due to inactivity.
           Click "Stay Logged In" to continue your session.
         </p>
         <div style="display: flex; gap: 12px; justify-content: center;">
@@ -420,7 +421,7 @@ class SessionManager {
     }
     
     // Calculate actual warning time based on session timeout
-    const warningTime = Math.min(this.warningTime, this.sessionTimeout * 0.1);
+    const warningTime = Math.min(this.warningTime, this.sessionTimeout);
     let timeLeft = Math.floor(warningTime / 1000); // Convert to seconds
     
     const countdownElement = document.getElementById('countdown');
@@ -541,7 +542,7 @@ class SessionManager {
         
         // Check if we need to show warning immediately after coming back
         const timeSinceLastActivity = Date.now() - this.lastActivity;
-        const warningTime = Math.min(this.warningTime, this.sessionTimeout * 0.1);
+        const warningTime = Math.min(this.warningTime, this.sessionTimeout);
         
         if (timeSinceLastActivity > (this.sessionTimeout - warningTime)) {
           // Show warning immediately if we're in warning period
