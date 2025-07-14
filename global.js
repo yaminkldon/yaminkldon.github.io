@@ -538,7 +538,18 @@ class SessionManager {
       // If page was hidden for significant time, adjust the timer
       if (hiddenDuration > 60000) { // More than 1 minute
         this.lastActivity = Date.now() - hiddenDuration;
-        this.resetTimer();
+        
+        // Check if we need to show warning immediately after coming back
+        const timeSinceLastActivity = Date.now() - this.lastActivity;
+        const warningTime = Math.min(this.warningTime, this.sessionTimeout * 0.1);
+        
+        if (timeSinceLastActivity > (this.sessionTimeout - warningTime)) {
+          // Show warning immediately if we're in warning period
+          setTimeout(() => this.showWarning(), 500);
+        } else {
+          // Otherwise reset timer normally
+          this.resetTimer();
+        }
       }
       
       localStorage.removeItem('pageHiddenTime');
@@ -556,8 +567,11 @@ class SessionManager {
         return;
       }
       
+      // Calculate adaptive warning time (same logic as in resetTimer)
+      const warningTime = Math.min(this.warningTime, this.sessionTimeout * 0.1);
+      
       // If close to timeout, show warning immediately
-      if (timeSinceLastActivity > (this.sessionTimeout - this.warningTime)) {
+      if (timeSinceLastActivity > (this.sessionTimeout - warningTime)) {
         setTimeout(() => this.showWarning(), 1000);
       }
     }
