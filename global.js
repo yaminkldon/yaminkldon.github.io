@@ -265,6 +265,7 @@ class SessionManager {
     this.lastActivity = Date.now();
     this.warningTimer = null;
     this.logoutTimer = null;
+    this.countdownTimer = null; // Add countdown timer property
     this.warningShown = false;
     this.isActive = true;
     
@@ -308,6 +309,13 @@ class SessionManager {
     // Clear existing timers
     if (this.warningTimer) clearTimeout(this.warningTimer);
     if (this.logoutTimer) clearTimeout(this.logoutTimer);
+    if (this.countdownTimer) clearInterval(this.countdownTimer);
+    
+    // Remove any existing warning modal
+    const existingModal = document.getElementById('sessionWarningModal');
+    if (existingModal) {
+      existingModal.remove();
+    }
     
     // Set warning timer (55 minutes)
     this.warningTimer = setTimeout(() => {
@@ -325,6 +333,12 @@ class SessionManager {
 
   showWarning() {
     if (this.warningShown || !firebase.auth().currentUser) return;
+    
+    // Check if modal already exists and remove it
+    const existingModal = document.getElementById('sessionWarningModal');
+    if (existingModal) {
+      existingModal.remove();
+    }
     
     this.warningShown = true;
     
@@ -390,10 +404,15 @@ class SessionManager {
   }
 
   startCountdown() {
+    // Clear any existing countdown timer
+    if (this.countdownTimer) {
+      clearInterval(this.countdownTimer);
+    }
+    
     let timeLeft = 5 * 60; // 5 minutes in seconds
     const countdownElement = document.getElementById('countdown');
     
-    const countdown = setInterval(() => {
+    this.countdownTimer = setInterval(() => {
       const minutes = Math.floor(timeLeft / 60);
       const seconds = timeLeft % 60;
       
@@ -403,13 +422,21 @@ class SessionManager {
       
       timeLeft--;
       
+      // Stop countdown if time is up or modal is removed
       if (timeLeft < 0 || !document.getElementById('sessionWarningModal')) {
-        clearInterval(countdown);
+        clearInterval(this.countdownTimer);
+        this.countdownTimer = null;
       }
     }, 1000);
   }
 
   extendSession() {
+    // Clear countdown timer
+    if (this.countdownTimer) {
+      clearInterval(this.countdownTimer);
+      this.countdownTimer = null;
+    }
+    
     // Remove warning modal
     const modal = document.getElementById('sessionWarningModal');
     if (modal) modal.remove();
@@ -427,9 +454,10 @@ class SessionManager {
   async autoLogout() {
     this.isActive = false;
     
-    // Clear timers
+    // Clear all timers
     if (this.warningTimer) clearTimeout(this.warningTimer);
     if (this.logoutTimer) clearTimeout(this.logoutTimer);
+    if (this.countdownTimer) clearInterval(this.countdownTimer);
     
     // Remove warning modal if exists
     const modal = document.getElementById('sessionWarningModal');
@@ -502,9 +530,17 @@ class SessionManager {
 
   destroy() {
     this.isActive = false;
+    
+    // Clear all timers
     if (this.warningTimer) clearTimeout(this.warningTimer);
     if (this.logoutTimer) clearTimeout(this.logoutTimer);
+    if (this.countdownTimer) clearInterval(this.countdownTimer);
     
+    // Remove any existing warning modal
+    const modal = document.getElementById('sessionWarningModal');
+    if (modal) modal.remove();
+    
+    // Remove event listeners
     this.activityEvents.forEach(event => {
       document.removeEventListener(event, () => this.resetTimer(), true);
     });
