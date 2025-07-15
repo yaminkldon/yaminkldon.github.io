@@ -6422,7 +6422,7 @@ function displayAssessmentsList(assessments) {
           <div style="display: flex; align-items: center; gap: 12px;">
             <span class="material-icons" style="color: #6c4fc1;">${typeIcon}</span>
             <div>
-              <h4 style="margin: 0; color: #fff;">${assessment.title}</h4>
+              <h4 style="margin: 0; color: #6c4fc1;text-decoration: underline;">${assessment.title}</h4>
               <p style="margin: 4px 0; color: #666; font-size: 14px;">${typeLabel} • Unit: ${assessment.unit}</p>
               <p style="margin: 0; color: #888; font-size: 12px;">Created: ${createdDate}</p>
             </div>
