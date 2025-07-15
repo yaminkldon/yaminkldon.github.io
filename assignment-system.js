@@ -3,13 +3,30 @@
 
 class AssignmentSubmissionSystem {
   constructor() {
-    this.storage = firebase.storage();
-    this.db = firebase.database();
     this.maxFileSize = 10 * 1024 * 1024; // 10MB limit
+    this.storage = null;
+    this.db = null;
+    this.initializeFirebase();
+  }
+
+  initializeFirebase() {
+    // Wait for Firebase to be initialized
+    if (typeof firebase !== 'undefined' && firebase.apps && firebase.apps.length > 0) {
+      this.storage = firebase.storage();
+      this.db = firebase.database();
+    } else {
+      // Retry after a short delay
+      setTimeout(() => this.initializeFirebase(), 100);
+    }
   }
 
   // Initialize assignment submission interface
   initializeSubmissionInterface(assignmentId, containerId) {
+    if (!this.db) {
+      console.error('Database not initialized yet');
+      return;
+    }
+    
     this.db.ref(`assignments/${assignmentId}`).once('value').then(snapshot => {
       if (snapshot.exists()) {
         const assignment = snapshot.val();
@@ -162,6 +179,11 @@ class AssignmentSubmissionSystem {
   }
 
   uploadFile(file) {
+    if (!this.storage) {
+      console.error('Storage not initialized yet');
+      return;
+    }
+    
     const progressBar = document.getElementById('uploadProgress');
     const progressFill = document.getElementById('progressFill');
     const uploadedFiles = document.getElementById('uploadedFiles');
@@ -210,6 +232,11 @@ class AssignmentSubmissionSystem {
   }
 
   loadExistingSubmission(assignmentId) {
+    if (!this.db) {
+      console.error('Database not initialized yet');
+      return;
+    }
+    
     const currentUser = firebase.auth().currentUser;
     if (!currentUser) return;
     
@@ -259,6 +286,11 @@ class AssignmentSubmissionSystem {
   }
 
   async submitAssignment(assignmentId) {
+    if (!this.db) {
+      console.error('Database not initialized yet');
+      return;
+    }
+    
     const currentUser = firebase.auth().currentUser;
     if (!currentUser) {
       alert('Please log in to submit assignment');
@@ -318,6 +350,11 @@ class AssignmentSubmissionSystem {
   }
 
   async saveDraft(assignmentId) {
+    if (!this.db) {
+      console.error('Database not initialized yet');
+      return;
+    }
+    
     const currentUser = firebase.auth().currentUser;
     if (!currentUser) return;
     
@@ -350,30 +387,52 @@ class AssignmentSubmissionSystem {
   }
 }
 
-// Initialize the submission system
-const submissionSystem = new AssignmentSubmissionSystem();
+// Initialize the submission system after Firebase is ready
+let submissionSystem = null;
 
 // Global functions for onclick events
 function submitAssignment(assignmentId) {
-  submissionSystem.submitAssignment(assignmentId);
+  if (submissionSystem) {
+    submissionSystem.submitAssignment(assignmentId);
+  }
 }
 
 function saveDraft(assignmentId) {
-  submissionSystem.saveDraft(assignmentId);
+  if (submissionSystem) {
+    submissionSystem.saveDraft(assignmentId);
+  }
 }
 
 function removeUploadedFile(button) {
-  submissionSystem.removeUploadedFile(button);
+  if (submissionSystem) {
+    submissionSystem.removeUploadedFile(button);
+  }
 }
 
 // Auto-grading system for quizzes
 class AutoGradingSystem {
   constructor() {
-    this.db = firebase.database();
+    this.db = null;
+    this.initializeFirebase();
+  }
+
+  initializeFirebase() {
+    // Wait for Firebase to be initialized
+    if (typeof firebase !== 'undefined' && firebase.apps && firebase.apps.length > 0) {
+      this.db = firebase.database();
+    } else {
+      // Retry after a short delay
+      setTimeout(() => this.initializeFirebase(), 100);
+    }
   }
 
   // Grade a quiz submission automatically
   gradeQuizSubmission(submissionId, quizId, answers) {
+    if (!this.db) {
+      console.error('Database not initialized yet');
+      return Promise.reject('Database not initialized');
+    }
+    
     return new Promise((resolve, reject) => {
       this.db.ref(`quizzes/${quizId}`).once('value').then(quizSnapshot => {
         if (!quizSnapshot.exists()) {
@@ -471,13 +530,34 @@ class AutoGradingSystem {
   }
 }
 
-// Initialize auto-grading system
-const autoGradingSystem = new AutoGradingSystem();
+// Initialize auto-grading system after Firebase is ready
+let autoGradingSystem = null;
+
+// Initialize systems when Firebase is ready
+function initializeAssignmentSystems() {
+  if (typeof firebase !== 'undefined' && firebase.apps && firebase.apps.length > 0) {
+    submissionSystem = new AssignmentSubmissionSystem();
+    autoGradingSystem = new AutoGradingSystem();
+  } else {
+    // Retry after a short delay
+    setTimeout(initializeAssignmentSystems, 100);
+  }
+}
 
 // Export for use in other files
 if (typeof window !== 'undefined') {
   window.AssignmentSubmissionSystem = AssignmentSubmissionSystem;
   window.AutoGradingSystem = AutoGradingSystem;
-  window.submissionSystem = submissionSystem;
-  window.autoGradingSystem = autoGradingSystem;
+  window.initializeAssignmentSystems = initializeAssignmentSystems;
+  
+  // Initialize when this script loads
+  initializeAssignmentSystems();
+  
+  // Also make systems available globally once initialized
+  Object.defineProperty(window, 'submissionSystem', {
+    get: function() { return submissionSystem; }
+  });
+  Object.defineProperty(window, 'autoGradingSystem', {
+    get: function() { return autoGradingSystem; }
+  });
 }

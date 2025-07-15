@@ -5670,3 +5670,46 @@ function loadAssessmentOverview() {
   // This would load and display an overview of all assessments
   console.log('Loading assessment overview...');
 }
+
+// Wait for Firebase to be initialized
+function waitForFirebase() {
+  return new Promise((resolve) => {
+    if (typeof firebase !== 'undefined' && firebase.apps && firebase.apps.length > 0) {
+      resolve();
+    } else {
+      setTimeout(() => waitForFirebase().then(resolve), 100);
+    }
+  });
+}
+
+// Load assignment system after Firebase is ready
+async function loadAssignmentSystem() {
+  try {
+    // Wait for Firebase to be ready
+    await waitForFirebase();
+    
+    // Initialize assignment systems
+    if (typeof initializeAssignmentSystems === 'function') {
+      initializeAssignmentSystems();
+    }
+    
+    // Wait for systems to be ready
+    await new Promise(resolve => {
+      const checkSystems = () => {
+        if (window.submissionSystem && window.autoGradingSystem) {
+          resolve();
+        } else {
+          setTimeout(checkSystems, 50);
+        }
+      };
+      checkSystems();
+    });
+    
+    console.log('Assignment systems loaded successfully');
+  } catch (error) {
+    console.error('Error loading assignment systems:', error);
+  }
+}
+
+// Initialize assignment systems when the page loads
+document.addEventListener('DOMContentLoaded', loadAssignmentSystem);
