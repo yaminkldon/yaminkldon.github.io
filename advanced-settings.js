@@ -1,4 +1,4 @@
-// Advanced Settings JavaScript - V4.1.0
+// Advanced Settings JavaScript - V5.0
 // Handles all advanced features settings and UI interactions
 
 class AdvancedSettingsManager {

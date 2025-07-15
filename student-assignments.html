@@ -1,0 +1,1049 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Student Assignments</title>
+  <link rel="stylesheet" href="styles.css">
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+  <style>
+    body {
+      margin: 0;
+      background: #f7f4fb;
+      font-family: 'Segoe UI', Arial, sans-serif;
+      transition: background-color 0.3s, color 0.3s;
+    }
+    
+    body.dark-mode {
+      background: #1a1a1a;
+      color: #fff;
+    }
+    
+    .appbar {
+      height: 56px;
+      background: #6c4fc1;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      padding: 0 16px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      z-index: 1001;
+    }
+    
+    .appbar .material-icons {
+      cursor: pointer;
+      margin-right: 16px;
+    }
+    
+    .container {
+      margin-top: 56px;
+      padding: 24px;
+      max-width: 1200px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+    
+    .assignments-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+      gap: 24px;
+      margin-bottom: 32px;
+    }
+    
+    .assignment-card {
+      background: #fff;
+      border-radius: 12px;
+      padding: 24px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+      transition: transform 0.2s, box-shadow 0.2s;
+      cursor: pointer;
+    }
+    
+    .assignment-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+    }
+    
+    body.dark-mode .assignment-card {
+      background: #2d2d2d;
+      color: #fff;
+    }
+    
+    .assignment-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 16px;
+    }
+    
+    .assignment-title {
+      font-size: 1.3em;
+      font-weight: bold;
+      color: #222c5c;
+      margin: 0;
+    }
+    
+    body.dark-mode .assignment-title {
+      color: #fff;
+    }
+    
+    .assignment-status {
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-size: 12px;
+      font-weight: bold;
+    }
+    
+    .assignment-status.pending {
+      background: #fff3cd;
+      color: #856404;
+    }
+    
+    .assignment-status.submitted {
+      background: #d4edda;
+      color: #155724;
+    }
+    
+    .assignment-status.graded {
+      background: #cce7ff;
+      color: #004085;
+    }
+    
+    .assignment-status.overdue {
+      background: #f8d7da;
+      color: #721c24;
+    }
+    
+    .assignment-description {
+      color: #666;
+      margin-bottom: 16px;
+      line-height: 1.5;
+    }
+    
+    body.dark-mode .assignment-description {
+      color: #ccc;
+    }
+    
+    .assignment-meta {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+      font-size: 14px;
+    }
+    
+    .due-date {
+      color: #666;
+    }
+    
+    .points {
+      color: #6c4fc1;
+      font-weight: bold;
+    }
+    
+    body.dark-mode .due-date {
+      color: #ccc;
+    }
+    
+    .assignment-actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    
+    .action-btn {
+      background: #6c4fc1;
+      color: #fff;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 14px;
+      transition: background-color 0.2s;
+    }
+    
+    .action-btn:hover {
+      background: #5436a7;
+    }
+    
+    .action-btn.secondary {
+      background: #e0e0e0;
+      color: #333;
+    }
+    
+    .action-btn.secondary:hover {
+      background: #d0d0d0;
+    }
+    
+    .quiz-card {
+      background: #fff;
+      border-radius: 12px;
+      padding: 24px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+      margin-bottom: 24px;
+    }
+    
+    body.dark-mode .quiz-card {
+      background: #2d2d2d;
+      color: #fff;
+    }
+    
+    .quiz-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 16px;
+    }
+    
+    .quiz-title {
+      font-size: 1.3em;
+      font-weight: bold;
+      color: #222c5c;
+      margin: 0;
+    }
+    
+    body.dark-mode .quiz-title {
+      color: #fff;
+    }
+    
+    .quiz-meta {
+      display: flex;
+      gap: 16px;
+      margin-bottom: 16px;
+      font-size: 14px;
+    }
+    
+    .quiz-meta span {
+      color: #666;
+    }
+    
+    body.dark-mode .quiz-meta span {
+      color: #ccc;
+    }
+    
+    .tabs {
+      display: flex;
+      margin-bottom: 24px;
+      border-bottom: 2px solid #e0e0e0;
+    }
+    
+    .tab {
+      padding: 12px 24px;
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      transition: all 0.2s;
+    }
+    
+    .tab.active {
+      border-bottom-color: #6c4fc1;
+      color: #6c4fc1;
+    }
+    
+    .tab-content {
+      display: none;
+    }
+    
+    .tab-content.active {
+      display: block;
+    }
+    
+    .empty-state {
+      text-align: center;
+      padding: 48px 24px;
+      color: #666;
+    }
+    
+    body.dark-mode .empty-state {
+      color: #ccc;
+    }
+    
+    .empty-state .material-icons {
+      font-size: 64px;
+      margin-bottom: 16px;
+      color: #ccc;
+    }
+    
+    /* Modal styles */
+    .modal {
+      display: none;
+      position: fixed;
+      z-index: 10000;
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0,0,0,0.5);
+      align-items: center;
+      justify-content: center;
+    }
+    
+    .modal-content {
+      background: #fff;
+      border-radius: 12px;
+      padding: 24px;
+      max-width: 800px;
+      width: 90%;
+      max-height: 80vh;
+      overflow-y: auto;
+    }
+    
+    body.dark-mode .modal-content {
+      background: #2d2d2d;
+      color: #fff;
+    }
+    
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+    }
+    
+    .modal-title {
+      font-size: 1.5em;
+      font-weight: bold;
+      color: #222c5c;
+    }
+    
+    body.dark-mode .modal-title {
+      color: #fff;
+    }
+    
+    .modal-close {
+      background: none;
+      border: none;
+      font-size: 24px;
+      cursor: pointer;
+      color: #666;
+      width: 15%;
+    }
+    
+    body.dark-mode .modal-close {
+      color: #ccc;
+    }
+    
+    @media (max-width: 768px) {
+      .assignments-grid {
+        grid-template-columns: 1fr;
+      }
+      
+      .tabs {
+        flex-direction: column;
+      }
+      
+      .tab {
+        text-align: center;
+      }
+    }
+    
+    /* Assignment submission styles */
+    .assignment-submission-container {
+      max-width: 100%;
+    }
+    
+    .assignment-header {
+      margin-bottom: 24px;
+    }
+    
+    .assignment-meta {
+      display: flex;
+      gap: 16px;
+      margin-top: 12px;
+      font-size: 14px;
+    }
+    
+    .file-upload-section {
+      margin-bottom: 24px;
+    }
+    
+    .file-upload-section h4 {
+      margin-bottom: 16px;
+      color: #222c5c;
+    }
+    
+    body.dark-mode .file-upload-section h4 {
+      color: #fff;
+    }
+    
+    .file-upload {
+      border: 2px dashed #ddd;
+      border-radius: 8px;
+      padding: 40px 20px;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color 0.2s, background-color 0.2s;
+      background: #f9f9f9;
+    }
+    
+    .file-upload:hover {
+      border-color: #6c4fc1;
+      background: #f5f3ff;
+    }
+    
+    .file-upload.drag-over {
+      border-color: #6c4fc1;
+      background: rgba(108, 79, 193, 0.1);
+    }
+    
+    body.dark-mode .file-upload {
+      background: #333;
+      border-color: #555;
+    }
+    
+    body.dark-mode .file-upload:hover {
+      background: #444;
+    }
+    
+    .upload-icon {
+      margin-bottom: 16px;
+    }
+    
+    .file-types {
+      color: #666;
+      font-size: 12px;
+      margin-top: 8px;
+    }
+    
+    body.dark-mode .file-types {
+      color: #ccc;
+    }
+    
+    .uploaded-files {
+      margin-top: 16px;
+    }
+    
+    .uploaded-file-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      background: #f0f0f0;
+      border-radius: 4px;
+      margin-bottom: 8px;
+    }
+    
+    body.dark-mode .uploaded-file-item {
+      background: #444;
+    }
+    
+    .file-name {
+      flex: 1;
+      font-size: 14px;
+    }
+    
+    .text-submission-section {
+      margin-bottom: 24px;
+    }
+    
+    .text-submission-section h4 {
+      margin-bottom: 16px;
+      color: #222c5c;
+    }
+    
+    body.dark-mode .text-submission-section h4 {
+      color: #fff;
+    }
+    
+    .text-formatting-tools {
+      margin-top: 8px;
+    }
+    
+    .text-formatting-tools small {
+      color: #666;
+    }
+    
+    body.dark-mode .text-formatting-tools small {
+      color: #ccc;
+    }
+    
+    .submission-actions {
+      margin-top: 24px;
+      display: flex;
+      gap: 12px;
+    }
+    
+    .submission-status {
+      margin-top: 24px;
+    }
+    
+    .submission-submitted {
+      padding: 16px;
+      background: #d4edda;
+      border: 1px solid #c3e6cb;
+      border-radius: 8px;
+      color: #155724;
+    }
+    
+    body.dark-mode .submission-submitted {
+      background: #1f4a25;
+      border-color: #4caf50;
+      color: #4caf50;
+    }
+    
+    .submission-draft {
+      padding: 16px;
+      background: #fff3cd;
+      border: 1px solid #ffeaa7;
+      border-radius: 8px;
+      color: #856404;
+    }
+    
+    body.dark-mode .submission-draft {
+      background: #332f00;
+      border-color: #ffc107;
+      color: #ffc107;
+    }
+    
+    .form-input, .form-textarea {
+      width: 100%;
+      padding: 12px;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      font-size: 14px;
+      background: #fff;
+      transition: border-color 0.2s;
+    }
+    
+    .form-input:focus, .form-textarea:focus {
+      outline: none;
+      border-color: #6c4fc1;
+    }
+    
+    body.dark-mode .form-input,
+    body.dark-mode .form-textarea {
+      background: #444;
+      border-color: #666;
+      color: #fff;
+    }
+    
+    .progress-bar {
+      width: 100%;
+      height: 8px;
+      background: #e0e0e0;
+      border-radius: 4px;
+      overflow: hidden;
+      margin-top: 16px;
+    }
+    
+    .progress-fill {
+      height: 100%;
+      background: #6c4fc1;
+      transition: width 0.3s ease;
+    }
+  </style>
+</head>
+<body>
+  <div class="appbar">
+    <span class="material-icons" onclick="goBack()">arrow_back</span>
+    <span style="font-size:1.2em;flex:1;" data-translate="studentAssignments">Student Assignments</span>
+  </div>
+
+  <div class="container">
+    <div class="tabs">
+      <div class="tab active" onclick="switchTab('assignments')">
+        <span class="material-icons" style="vertical-align: middle; margin-right: 8px;">assignment</span>
+        Assignments
+      </div>
+      <div class="tab" onclick="switchTab('quizzes')">
+        <span class="material-icons" style="vertical-align: middle; margin-right: 8px;">quiz</span>
+        Quizzes
+      </div>
+    </div>
+
+    <!-- Assignments Tab -->
+    <div id="assignments-tab" class="tab-content active">
+      <div class="assignments-grid" id="assignmentsGrid">
+        <!-- Assignments will be loaded here -->
+      </div>
+    </div>
+
+    <!-- Quizzes Tab -->
+    <div id="quizzes-tab" class="tab-content">
+      <div id="quizzesContainer">
+        <!-- Quizzes will be loaded here -->
+      </div>
+    </div>
+  </div>
+
+  <!-- Assignment Submission Modal -->
+  <div id="assignmentModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 class="modal-title" id="assignmentModalTitle">Assignment Submission</h3>
+        <button class="modal-close" onclick="closeModal('assignmentModal')">&times;</button>
+      </div>
+      <div id="assignmentSubmissionContainer">
+        <!-- Assignment submission interface will be loaded here -->
+      </div>
+    </div>
+  </div>
+
+  <!-- Quiz Taking Modal -->
+  <div id="quizModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 class="modal-title" id="quizModalTitle">Take Quiz</h3>
+        <div class="quiz-timer" id="quizTimer" style="color: #6c4fc1; font-weight: bold;"></div>
+        <button class="modal-close" onclick="closeModal('quizModal')">&times;</button>
+      </div>
+      
+      <div id="quizContent">
+        <!-- Quiz content will be loaded here -->
+      </div>
+      
+      <div class="quiz-navigation" style="margin-top: 20px; display: flex; justify-content: space-between; align-items: center; border-top: 1px solid #ddd; padding-top: 16px;">
+        <button class="action-btn secondary" onclick="previousQuestion()" id="prevBtn" style="display: none;">Previous</button>
+        <button class="action-btn" onclick="nextQuestion()" id="nextBtn">Next</button>
+        <button class="action-btn" onclick="submitQuiz()" id="submitBtn" style="display: none;">Submit Quiz</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
+  <script src="global.js"></script>
+  <script src="assignment-system.js"></script>
+  <script>
+    // Firebase configuration
+    const firebaseConfig = {
+      apiKey: "AIzaSyCVoy2aBaQO1RDpoGGPIBqriFnGdKeNqHk",
+      authDomain: "raednusairat-68b52.firebaseapp.com",
+      databaseURL: "https://raednusairat-68b52-default-rtdb.asia-southeast1.firebasedatabase.app",
+      projectId: "raednusairat-68b52",
+      storageBucket: "raednusairat-68b52.appspot.com",
+      messagingSenderId: "852022576722",
+      appId: "1:852022576722:web:8546d7cd4d3f6b0f8fc18b"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+    const storage = firebase.storage();
+
+    // Authentication check
+    firebase.auth().onAuthStateChanged(function(user) {
+      if (user) {
+        loadAssignments();
+        loadQuizzes();
+      } else {
+        Navigation.goToLogin();
+      }
+    });
+
+    // Tab switching
+    function switchTab(tabName) {
+      const tabs = document.querySelectorAll('.tab');
+      const contents = document.querySelectorAll('.tab-content');
+      
+      tabs.forEach(tab => tab.classList.remove('active'));
+      contents.forEach(content => content.classList.remove('active'));
+      
+      document.querySelector(`[onclick="switchTab('${tabName}')"]`).classList.add('active');
+      document.getElementById(`${tabName}-tab`).classList.add('active');
+    }
+
+    // Load assignments for current user
+    function loadAssignments() {
+      const grid = document.getElementById('assignmentsGrid');
+      grid.innerHTML = '<div style="text-align: center; padding: 20px;">Loading assignments...</div>';
+      
+      db.ref('assignments').once('value').then(snapshot => {
+        grid.innerHTML = '';
+        if (snapshot.exists()) {
+          const assignments = [];
+          snapshot.forEach(child => {
+            assignments.push({
+              id: child.key,
+              ...child.val()
+            });
+          });
+          
+          assignments.forEach(assignment => {
+            checkSubmissionStatus(assignment.id).then(status => {
+              const card = createAssignmentCard(assignment, status);
+              grid.insertAdjacentHTML('beforeend', card);
+            });
+          });
+        } else {
+          grid.innerHTML = `
+            <div class="empty-state">
+              <span class="material-icons">assignment</span>
+              <h3>No assignments available</h3>
+              <p>Check back later for new assignments</p>
+            </div>
+          `;
+        }
+      });
+    }
+
+    // Load quizzes for current user
+    function loadQuizzes() {
+      const container = document.getElementById('quizzesContainer');
+      container.innerHTML = '<div style="text-align: center; padding: 20px;">Loading quizzes...</div>';
+      
+      db.ref('quizzes').once('value').then(snapshot => {
+        container.innerHTML = '';
+        if (snapshot.exists()) {
+          const quizzes = [];
+          snapshot.forEach(child => {
+            quizzes.push({
+              id: child.key,
+              ...child.val()
+            });
+          });
+          
+          quizzes.forEach(quiz => {
+            checkQuizAttempts(quiz.id).then(attempts => {
+              const card = createQuizCard(quiz, attempts);
+              container.insertAdjacentHTML('beforeend', card);
+            });
+          });
+        } else {
+          container.innerHTML = `
+            <div class="empty-state">
+              <span class="material-icons">quiz</span>
+              <h3>No quizzes available</h3>
+              <p>Check back later for new quizzes</p>
+            </div>
+          `;
+        }
+      });
+    }
+
+    // Check submission status for an assignment
+    function checkSubmissionStatus(assignmentId) {
+      return new Promise((resolve) => {
+        const currentUser = firebase.auth().currentUser;
+        if (!currentUser) {
+          resolve({ status: 'pending' });
+          return;
+        }
+        
+        db.ref('submissions').orderByChild('assignmentId').equalTo(assignmentId).once('value').then(snapshot => {
+          let userSubmission = null;
+          
+          if (snapshot.exists()) {
+            snapshot.forEach(child => {
+              const submission = child.val();
+              if (submission.studentId === currentUser.uid) {
+                userSubmission = submission;
+              }
+            });
+          }
+          
+          if (userSubmission) {
+            if (userSubmission.graded) {
+              resolve({ 
+                status: 'graded', 
+                grade: userSubmission.grade,
+                maxPoints: userSubmission.maxPoints,
+                feedback: userSubmission.feedback 
+              });
+            } else if (userSubmission.submitted) {
+              resolve({ status: 'submitted' });
+            } else {
+              resolve({ status: 'draft' });
+            }
+          } else {
+            resolve({ status: 'pending' });
+          }
+        });
+      });
+    }
+
+    // Check quiz attempts for a quiz
+    function checkQuizAttempts(quizId) {
+      return new Promise((resolve) => {
+        const currentUser = firebase.auth().currentUser;
+        if (!currentUser) {
+          resolve({ attempts: 0, bestScore: null });
+          return;
+        }
+        
+        db.ref('quizSubmissions').orderByChild('quizId').equalTo(quizId).once('value').then(snapshot => {
+          let userAttempts = 0;
+          let bestScore = null;
+          
+          if (snapshot.exists()) {
+            snapshot.forEach(child => {
+              const submission = child.val();
+              if (submission.studentId === currentUser.uid) {
+                userAttempts++;
+                if (bestScore === null || submission.score > bestScore) {
+                  bestScore = submission.score;
+                }
+              }
+            });
+          }
+          
+          resolve({ attempts: userAttempts, bestScore: bestScore });
+        });
+      });
+    }
+
+    // Create assignment card HTML
+    function createAssignmentCard(assignment, status) {
+      const dueDate = new Date(assignment.dueDate);
+      const isOverdue = dueDate < new Date() && status.status === 'pending';
+      const finalStatus = isOverdue ? 'overdue' : status.status;
+      
+      let statusText = '';
+      switch (finalStatus) {
+        case 'pending': statusText = 'Not Started'; break;
+        case 'draft': statusText = 'Draft Saved'; break;
+        case 'submitted': statusText = 'Submitted'; break;
+        case 'graded': statusText = `Graded: ${status.grade}/${status.maxPoints}`; break;
+        case 'overdue': statusText = 'Overdue'; break;
+      }
+      
+      return `
+        <div class="assignment-card" onclick="openAssignment('${assignment.id}')">
+          <div class="assignment-header">
+            <h3 class="assignment-title">${assignment.title}</h3>
+            <span class="assignment-status ${finalStatus}">${statusText}</span>
+          </div>
+          <p class="assignment-description">${assignment.description}</p>
+          <div class="assignment-meta">
+            <span class="due-date">Due: ${dueDate.toLocaleDateString()}</span>
+            <span class="points">${assignment.maxPoints} points</span>
+          </div>
+          <div class="assignment-actions">
+            <button class="action-btn" onclick="event.stopPropagation(); openAssignment('${assignment.id}')">
+              ${status.status === 'pending' ? 'Start Assignment' : 'View Assignment'}
+            </button>
+            ${status.status === 'graded' && status.feedback ? 
+              `<button class="action-btn secondary" onclick="event.stopPropagation(); showFeedback('${assignment.id}')">View Feedback</button>` : 
+              ''
+            }
+          </div>
+        </div>
+      `;
+    }
+
+    // Create quiz card HTML
+    function createQuizCard(quiz, attempts) {
+      const canTakeQuiz = attempts.attempts < quiz.maxAttempts;
+      
+      return `
+        <div class="quiz-card">
+          <div class="quiz-header">
+            <h3 class="quiz-title">${quiz.title}</h3>
+            <span class="assignment-status ${canTakeQuiz ? 'pending' : 'completed'}">
+              ${canTakeQuiz ? 'Available' : 'Completed'}
+            </span>
+          </div>
+          <p class="assignment-description">${quiz.description}</p>
+          <div class="quiz-meta">
+            <span>Time Limit: ${quiz.timeLimit} minutes</span>
+            <span>Attempts: ${attempts.attempts}/${quiz.maxAttempts}</span>
+            <span>Questions: ${quiz.questions.length}</span>
+            ${attempts.bestScore !== null ? `<span>Best Score: ${attempts.bestScore.toFixed(1)}%</span>` : ''}
+          </div>
+          <div class="assignment-actions">
+            <button class="action-btn ${canTakeQuiz ? '' : 'secondary'}" 
+                    onclick="takeQuiz('${quiz.id}')" 
+                    ${canTakeQuiz ? '' : 'disabled'}>
+              ${canTakeQuiz ? 'Take Quiz' : 'No Attempts Left'}
+            </button>
+          </div>
+        </div>
+      `;
+    }
+
+    // Open assignment for submission
+    function openAssignment(assignmentId) {
+      document.getElementById('assignmentModal').style.display = 'flex';
+      submissionSystem.initializeSubmissionInterface(assignmentId, 'assignmentSubmissionContainer');
+    }
+
+    // Take quiz
+    function takeQuiz(quizId) {
+      db.ref(`quizzes/${quizId}`).once('value').then(snapshot => {
+        if (snapshot.exists()) {
+          const quiz = snapshot.val();
+          quiz.id = quizId;
+          startQuiz(quiz);
+        }
+      });
+    }
+
+    // Quiz taking functionality
+    let currentQuizData = null;
+    let currentQuizIndex = 0;
+    let userAnswers = [];
+    let quizTimer = null;
+
+    function startQuiz(quiz) {
+      currentQuizData = quiz;
+      currentQuizIndex = 0;
+      userAnswers = [];
+      
+      document.getElementById('quizModal').style.display = 'flex';
+      document.getElementById('quizModalTitle').textContent = quiz.title;
+      
+      startQuizTimer();
+      displayQuizQuestion();
+    }
+
+    function startQuizTimer() {
+      if (currentQuizData.timeLimit) {
+        let timeLeft = currentQuizData.timeLimit * 60;
+        const timerElement = document.getElementById('quizTimer');
+        
+        quizTimer = setInterval(() => {
+          const minutes = Math.floor(timeLeft / 60);
+          const seconds = timeLeft % 60;
+          timerElement.textContent = `Time Left: ${minutes}:${seconds.toString().padStart(2, '0')}`;
+          
+          if (timeLeft <= 0) {
+            clearInterval(quizTimer);
+            submitQuiz();
+          }
+          timeLeft--;
+        }, 1000);
+      }
+    }
+
+    function displayQuizQuestion() {
+      const question = currentQuizData.questions[currentQuizIndex];
+      const quizContent = document.getElementById('quizContent');
+      
+      let questionHtml = `
+        <div class="quiz-question" style="margin-bottom: 24px; padding: 20px; border: 1px solid #ddd; border-radius: 8px; background: #f9f9f9;">
+          <h3>Question ${currentQuizIndex + 1} of ${currentQuizData.questions.length}</h3>
+          <p style="font-size: 1.1em; margin-bottom: 20px;">${question.text}</p>
+          <div class="quiz-options">
+      `;
+      
+      if (question.type === 'multiple-choice' || question.type === 'true-false') {
+        question.options.forEach((option, index) => {
+          questionHtml += `
+            <div class="quiz-option" onclick="selectQuizOption(${index})" style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px; padding: 12px; border-radius: 4px; cursor: pointer; transition: background-color 0.2s;">
+              <input type="radio" name="quiz-answer" value="${index}" id="option-${index}">
+              <label for="option-${index}" style="cursor: pointer; flex: 1;">${option}</label>
+            </div>
+          `;
+        });
+      } else if (question.type === 'fill-blank') {
+        questionHtml += `
+          <input type="text" class="form-input" id="quiz-text-answer" placeholder="Enter your answer..." style="width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 4px;">
+        `;
+      } else if (question.type === 'short-answer') {
+        questionHtml += `
+          <textarea class="form-textarea" id="quiz-text-answer" placeholder="Enter your answer..." rows="4" style="width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 4px; resize: vertical;"></textarea>
+        `;
+      }
+      
+      questionHtml += `
+          </div>
+        </div>
+      `;
+      
+      quizContent.innerHTML = questionHtml;
+      
+      // Update navigation buttons
+      document.getElementById('prevBtn').style.display = currentQuizIndex > 0 ? 'inline-block' : 'none';
+      document.getElementById('nextBtn').style.display = currentQuizIndex < currentQuizData.questions.length - 1 ? 'inline-block' : 'none';
+      document.getElementById('submitBtn').style.display = currentQuizIndex === currentQuizData.questions.length - 1 ? 'inline-block' : 'none';
+    }
+
+    function selectQuizOption(optionIndex) {
+      const options = document.querySelectorAll('.quiz-option');
+      options.forEach(option => {
+        option.classList.remove('selected');
+        option.style.background = '';
+      });
+      
+      const selectedOption = document.querySelector(`.quiz-option:nth-child(${optionIndex + 1})`);
+      selectedOption.classList.add('selected');
+      selectedOption.style.background = '#e3f2fd';
+      
+      userAnswers[currentQuizIndex] = optionIndex;
+    }
+
+    function nextQuestion() {
+      saveCurrentAnswer();
+      currentQuizIndex++;
+      displayQuizQuestion();
+    }
+
+    function previousQuestion() {
+      saveCurrentAnswer();
+      currentQuizIndex--;
+      displayQuizQuestion();
+    }
+
+    function saveCurrentAnswer() {
+      const question = currentQuizData.questions[currentQuizIndex];
+      
+      if (question.type === 'multiple-choice' || question.type === 'true-false') {
+        const selectedOption = document.querySelector('input[name="quiz-answer"]:checked');
+        if (selectedOption) {
+          userAnswers[currentQuizIndex] = parseInt(selectedOption.value);
+        }
+      } else {
+        const textAnswer = document.getElementById('quiz-text-answer').value;
+        userAnswers[currentQuizIndex] = textAnswer;
+      }
+    }
+
+    function submitQuiz() {
+      if (quizTimer) {
+        clearInterval(quizTimer);
+      }
+      
+      saveCurrentAnswer();
+      
+      const submissionData = {
+        quizId: currentQuizData.id,
+        studentId: firebase.auth().currentUser.uid,
+        studentEmail: firebase.auth().currentUser.email,
+        answers: userAnswers,
+        submittedAt: Date.now()
+      };
+      
+      // Auto-grade the quiz
+      autoGradingSystem.gradeQuizSubmission(null, currentQuizData.id, userAnswers).then(results => {
+        submissionData.score = results.score;
+        submissionData.totalQuestions = results.totalQuestions;
+        submissionData.correctAnswers = results.correctAnswers;
+        submissionData.autoGraded = true;
+        
+        return db.ref('quizSubmissions').push(submissionData);
+      }).then(() => {
+        alert(`Quiz submitted! Your score: ${submissionData.score.toFixed(1)}%`);
+        closeModal('quizModal');
+        loadQuizzes(); // Refresh the quiz list
+      }).catch(error => {
+        console.error('Error submitting quiz:', error);
+        alert('Error submitting quiz. Please try again.');
+      });
+    }
+
+    function showFeedback(assignmentId) {
+      // Implementation for showing feedback
+      console.log('Showing feedback for assignment:', assignmentId);
+    }
+
+    function closeModal(modalId) {
+      document.getElementById(modalId).style.display = 'none';
+      
+      // Clean up quiz timer if closing quiz modal
+      if (modalId === 'quizModal' && quizTimer) {
+        clearInterval(quizTimer);
+        quizTimer = null;
+      }
+    }
+
+    function goBack() {
+      window.history.back();
+    }
+
+    // Initialize theme
+    const themeManager = new ThemeManager();
+  </script>
+</body>
+</html>

@@ -4811,3 +4811,862 @@ document.addEventListener('DOMContentLoaded', function() {
   const savedTheme = localStorage.getItem('teacherTheme') || 'light';
   applyTheme(savedTheme);
 });
+
+// ========= ASSESSMENT MANAGEMENT FUNCTIONS =========
+
+// Global variables for assessment management
+let currentQuizQuestionCount = 1;
+let currentCriteriaCount = 1;
+let currentQuizTimer = null;
+let currentQuizIndex = 0;
+let currentQuizData = null;
+let userAnswers = [];
+
+// Assessment Management Functions
+function openAssessmentManagement() {
+  // Display assessment overview with existing quizzes and assignments
+  loadAssessmentOverview();
+}
+
+function openCreateQuizModal() {
+  document.getElementById('createQuizModal').style.display = 'flex';
+  loadUnitsForQuiz();
+}
+
+function openCreateAssignmentModal() {
+  document.getElementById('createAssignmentModal').style.display = 'flex';
+  loadUnitsForAssignment();
+  loadRubricsForAssignment();
+}
+
+function openCreateRubricModal() {
+  document.getElementById('createRubricModal').style.display = 'flex';
+}
+
+function openGradingCenter() {
+  document.getElementById('gradingCenterModal').style.display = 'flex';
+  loadSubmissions();
+}
+
+function openPendingGrades() {
+  document.getElementById('gradingCenterModal').style.display = 'flex';
+  document.getElementById('gradingFilter').value = 'pending';
+  loadSubmissions();
+}
+
+function viewAssessments() {
+  // Show all assessments in a modal or navigate to a dedicated page
+  showAssessmentList();
+}
+
+// Quiz Creation Functions
+function loadUnitsForQuiz() {
+  const select = document.getElementById('quizUnit');
+  select.innerHTML = '<option value="">Choose a unit...</option>';
+  
+  db.ref('units').once('value').then(snapshot => {
+    if (snapshot.exists()) {
+      snapshot.forEach(child => {
+        const unit = child.val();
+        const option = document.createElement('option');
+        option.value = child.key;
+        option.textContent = unit.name || unit.title;
+        select.appendChild(option);
+      });
+    }
+  });
+}
+
+function addQuestion() {
+  currentQuizQuestionCount++;
+  const container = document.getElementById('questionsContainer');
+  
+  const questionHtml = `
+    <div class="question-item" data-question="${currentQuizQuestionCount}">
+      <div class="question-header">
+        <span>Question ${currentQuizQuestionCount}</span>
+        <select class="question-type" onchange="updateQuestionType(this)">
+          <option value="multiple-choice">Multiple Choice</option>
+          <option value="fill-blank">Fill in the Blank</option>
+          <option value="true-false">True/False</option>
+          <option value="short-answer">Short Answer</option>
+        </select>
+        <button type="button" class="action-btn secondary" onclick="removeQuestion(this)" style="padding: 4px 8px; margin-left: 8px;">Remove</button>
+      </div>
+      <div class="question-content">
+        <input type="text" class="form-input question-text" placeholder="Enter question text..." required>
+        <div class="question-options" id="options-${currentQuizQuestionCount}">
+          <div class="option-item">
+            <input type="radio" name="correct-${currentQuizQuestionCount}" value="0">
+            <input type="text" class="form-input option-text" placeholder="Option A" required>
+          </div>
+          <div class="option-item">
+            <input type="radio" name="correct-${currentQuizQuestionCount}" value="1">
+            <input type="text" class="form-input option-text" placeholder="Option B" required>
+          </div>
+          <div class="option-item">
+            <input type="radio" name="correct-${currentQuizQuestionCount}" value="2">
+            <input type="text" class="form-input option-text" placeholder="Option C" required>
+          </div>
+          <div class="option-item">
+            <input type="radio" name="correct-${currentQuizQuestionCount}" value="3">
+            <input type="text" class="form-input option-text" placeholder="Option D" required>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+  
+  container.insertAdjacentHTML('beforeend', questionHtml);
+}
+
+function removeQuestion(button) {
+  const questionItem = button.closest('.question-item');
+  if (document.querySelectorAll('.question-item').length > 1) {
+    questionItem.remove();
+  } else {
+    alert('At least one question is required.');
+  }
+}
+
+function updateQuestionType(select) {
+  const questionItem = select.closest('.question-item');
+  const optionsContainer = questionItem.querySelector('.question-options');
+  const questionNumber = questionItem.dataset.question;
+  
+  switch(select.value) {
+    case 'multiple-choice':
+      optionsContainer.innerHTML = `
+        <div class="option-item">
+          <input type="radio" name="correct-${questionNumber}" value="0">
+          <input type="text" class="form-input option-text" placeholder="Option A" required>
+        </div>
+        <div class="option-item">
+          <input type="radio" name="correct-${questionNumber}" value="1">
+          <input type="text" class="form-input option-text" placeholder="Option B" required>
+        </div>
+        <div class="option-item">
+          <input type="radio" name="correct-${questionNumber}" value="2">
+          <input type="text" class="form-input option-text" placeholder="Option C" required>
+        </div>
+        <div class="option-item">
+          <input type="radio" name="correct-${questionNumber}" value="3">
+          <input type="text" class="form-input option-text" placeholder="Option D" required>
+        </div>
+      `;
+      break;
+    case 'true-false':
+      optionsContainer.innerHTML = `
+        <div class="option-item">
+          <input type="radio" name="correct-${questionNumber}" value="0">
+          <span>True</span>
+        </div>
+        <div class="option-item">
+          <input type="radio" name="correct-${questionNumber}" value="1">
+          <span>False</span>
+        </div>
+      `;
+      break;
+    case 'fill-blank':
+      optionsContainer.innerHTML = `
+        <div class="option-item">
+          <label>Correct Answer:</label>
+          <input type="text" class="form-input" placeholder="Enter the correct answer" required>
+        </div>
+      `;
+      break;
+    case 'short-answer':
+      optionsContainer.innerHTML = `
+        <div class="option-item">
+          <label>Sample Answer (for reference):</label>
+          <textarea class="form-textarea" placeholder="Enter a sample answer for grading reference"></textarea>
+        </div>
+      `;
+      break;
+  }
+}
+
+// Quiz Form Submission
+document.getElementById('createQuizForm').addEventListener('submit', function(e) {
+  e.preventDefault();
+  
+  const quizData = {
+    title: document.getElementById('quizTitle').value,
+    description: document.getElementById('quizDescription').value,
+    unit: document.getElementById('quizUnit').value,
+    timeLimit: parseInt(document.getElementById('quizTimeLimit').value),
+    maxAttempts: parseInt(document.getElementById('quizAttempts').value),
+    questions: [],
+    createdBy: firebase.auth().currentUser.uid,
+    createdAt: Date.now(),
+    active: true
+  };
+  
+  // Collect questions
+  const questionItems = document.querySelectorAll('.question-item');
+  questionItems.forEach(item => {
+    const questionText = item.querySelector('.question-text').value;
+    const questionType = item.querySelector('.question-type').value;
+    const questionNumber = item.dataset.question;
+    
+    const question = {
+      text: questionText,
+      type: questionType,
+      options: [],
+      correctAnswer: null
+    };
+    
+    if (questionType === 'multiple-choice') {
+      const options = item.querySelectorAll('.option-text');
+      options.forEach((option, index) => {
+        question.options.push(option.value);
+      });
+      const correctRadio = item.querySelector(`input[name="correct-${questionNumber}"]:checked`);
+      if (correctRadio) {
+        question.correctAnswer = parseInt(correctRadio.value);
+      }
+    } else if (questionType === 'true-false') {
+      question.options = ['True', 'False'];
+      const correctRadio = item.querySelector(`input[name="correct-${questionNumber}"]:checked`);
+      if (correctRadio) {
+        question.correctAnswer = parseInt(correctRadio.value);
+      }
+    } else if (questionType === 'fill-blank') {
+      const correctAnswer = item.querySelector('.option-item input[type="text"]').value;
+      question.correctAnswer = correctAnswer;
+    } else if (questionType === 'short-answer') {
+      const sampleAnswer = item.querySelector('.option-item textarea').value;
+      question.sampleAnswer = sampleAnswer;
+    }
+    
+    quizData.questions.push(question);
+  });
+  
+  // Save quiz to database
+  const quizRef = db.ref('quizzes').push();
+  quizRef.set(quizData).then(() => {
+    alert('Quiz created successfully!');
+    closeModal('createQuizModal');
+    document.getElementById('createQuizForm').reset();
+    currentQuizQuestionCount = 1;
+    document.getElementById('questionsContainer').innerHTML = `
+      <div class="question-item" data-question="1">
+        <div class="question-header">
+          <span>Question 1</span>
+          <select class="question-type" onchange="updateQuestionType(this)">
+            <option value="multiple-choice">Multiple Choice</option>
+            <option value="fill-blank">Fill in the Blank</option>
+            <option value="true-false">True/False</option>
+            <option value="short-answer">Short Answer</option>
+          </select>
+        </div>
+        <div class="question-content">
+          <input type="text" class="form-input question-text" placeholder="Enter question text..." required>
+          <div class="question-options" id="options-1">
+            <div class="option-item">
+              <input type="radio" name="correct-1" value="0">
+              <input type="text" class="form-input option-text" placeholder="Option A" required>
+            </div>
+            <div class="option-item">
+              <input type="radio" name="correct-1" value="1">
+              <input type="text" class="form-input option-text" placeholder="Option B" required>
+            </div>
+            <div class="option-item">
+              <input type="radio" name="correct-1" value="2">
+              <input type="text" class="form-input option-text" placeholder="Option C" required>
+            </div>
+            <div class="option-item">
+              <input type="radio" name="correct-1" value="3">
+              <input type="text" class="form-input option-text" placeholder="Option D" required>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+  }).catch(error => {
+    console.error('Error creating quiz:', error);
+    alert('Error creating quiz. Please try again.');
+  });
+});
+
+// Assignment Creation Functions
+function loadUnitsForAssignment() {
+  const select = document.getElementById('assignmentUnit');
+  select.innerHTML = '<option value="">Choose a unit...</option>';
+  
+  db.ref('units').once('value').then(snapshot => {
+    if (snapshot.exists()) {
+      snapshot.forEach(child => {
+        const unit = child.val();
+        const option = document.createElement('option');
+        option.value = child.key;
+        option.textContent = unit.name || unit.title;
+        select.appendChild(option);
+      });
+    }
+  });
+}
+
+function loadRubricsForAssignment() {
+  const select = document.getElementById('assignmentRubric');
+  select.innerHTML = '<option value="">Select existing rubric (optional)</option>';
+  
+  db.ref('rubrics').once('value').then(snapshot => {
+    if (snapshot.exists()) {
+      snapshot.forEach(child => {
+        const rubric = child.val();
+        const option = document.createElement('option');
+        option.value = child.key;
+        option.textContent = rubric.name;
+        select.appendChild(option);
+      });
+    }
+  });
+}
+
+// Assignment Form Submission
+document.getElementById('createAssignmentForm').addEventListener('submit', function(e) {
+  e.preventDefault();
+  
+  const assignmentData = {
+    title: document.getElementById('assignmentTitle').value,
+    description: document.getElementById('assignmentDescription').value,
+    unit: document.getElementById('assignmentUnit').value,
+    dueDate: document.getElementById('assignmentDueDate').value,
+    maxPoints: parseInt(document.getElementById('assignmentMaxPoints').value),
+    submissionType: document.getElementById('assignmentSubmissionType').value,
+    allowedFileTypes: document.getElementById('assignmentFileTypes').value.split(',').map(type => type.trim()),
+    rubric: document.getElementById('assignmentRubric').value,
+    createdBy: firebase.auth().currentUser.uid,
+    createdAt: Date.now(),
+    active: true
+  };
+  
+  // Save assignment to database
+  const assignmentRef = db.ref('assignments').push();
+  assignmentRef.set(assignmentData).then(() => {
+    alert('Assignment created successfully!');
+    closeModal('createAssignmentModal');
+    document.getElementById('createAssignmentForm').reset();
+  }).catch(error => {
+    console.error('Error creating assignment:', error);
+    alert('Error creating assignment. Please try again.');
+  });
+});
+
+// Rubric Creation Functions
+function addCriteria() {
+  currentCriteriaCount++;
+  const container = document.getElementById('criteriaContainer');
+  
+  const criteriaHtml = `
+    <div class="criteria-item" data-criteria="${currentCriteriaCount}">
+      <div class="criteria-header">
+        <input type="text" class="form-input criteria-name" placeholder="Criteria name (e.g., Content Quality)" required>
+        <input type="number" class="form-input criteria-weight" placeholder="Weight %" min="1" max="100" value="25" required>
+        <button type="button" class="action-btn secondary" onclick="removeCriteria(this)" style="padding: 4px 8px; margin-left: 8px;">Remove</button>
+      </div>
+      <div class="criteria-levels">
+        <div class="level-item">
+          <label>Excellent (4)</label>
+          <textarea class="form-textarea level-description" placeholder="Describe excellent performance..." required></textarea>
+        </div>
+        <div class="level-item">
+          <label>Good (3)</label>
+          <textarea class="form-textarea level-description" placeholder="Describe good performance..." required></textarea>
+        </div>
+        <div class="level-item">
+          <label>Fair (2)</label>
+          <textarea class="form-textarea level-description" placeholder="Describe fair performance..." required></textarea>
+        </div>
+        <div class="level-item">
+          <label>Poor (1)</label>
+          <textarea class="form-textarea level-description" placeholder="Describe poor performance..." required></textarea>
+        </div>
+      </div>
+    </div>
+  `;
+  
+  container.insertAdjacentHTML('beforeend', criteriaHtml);
+}
+
+function removeCriteria(button) {
+  const criteriaItem = button.closest('.criteria-item');
+  if (document.querySelectorAll('.criteria-item').length > 1) {
+    criteriaItem.remove();
+  } else {
+    alert('At least one criteria is required.');
+  }
+}
+
+// Rubric Form Submission
+document.getElementById('createRubricForm').addEventListener('submit', function(e) {
+  e.preventDefault();
+  
+  const rubricData = {
+    name: document.getElementById('rubricName').value,
+    description: document.getElementById('rubricDescription').value,
+    criteria: [],
+    createdBy: firebase.auth().currentUser.uid,
+    createdAt: Date.now()
+  };
+  
+  // Collect criteria
+  const criteriaItems = document.querySelectorAll('.criteria-item');
+  criteriaItems.forEach(item => {
+    const criteriaName = item.querySelector('.criteria-name').value;
+    const criteriaWeight = parseInt(item.querySelector('.criteria-weight').value);
+    const levels = [];
+    
+    const levelItems = item.querySelectorAll('.level-item');
+    levelItems.forEach((levelItem, index) => {
+      const description = levelItem.querySelector('.level-description').value;
+      levels.push({
+        level: 4 - index, // 4 = Excellent, 3 = Good, 2 = Fair, 1 = Poor
+        description: description
+      });
+    });
+    
+    rubricData.criteria.push({
+      name: criteriaName,
+      weight: criteriaWeight,
+      levels: levels
+    });
+  });
+  
+  // Save rubric to database
+  const rubricRef = db.ref('rubrics').push();
+  rubricRef.set(rubricData).then(() => {
+    alert('Rubric created successfully!');
+    closeModal('createRubricModal');
+    document.getElementById('createRubricForm').reset();
+    currentCriteriaCount = 1;
+    document.getElementById('criteriaContainer').innerHTML = `
+      <div class="criteria-item" data-criteria="1">
+        <div class="criteria-header">
+          <input type="text" class="form-input criteria-name" placeholder="Criteria name (e.g., Content Quality)" required>
+          <input type="number" class="form-input criteria-weight" placeholder="Weight %" min="1" max="100" value="25" required>
+        </div>
+        <div class="criteria-levels">
+          <div class="level-item">
+            <label>Excellent (4)</label>
+            <textarea class="form-textarea level-description" placeholder="Describe excellent performance..." required></textarea>
+          </div>
+          <div class="level-item">
+            <label>Good (3)</label>
+            <textarea class="form-textarea level-description" placeholder="Describe good performance..." required></textarea>
+          </div>
+          <div class="level-item">
+            <label>Fair (2)</label>
+            <textarea class="form-textarea level-description" placeholder="Describe fair performance..." required></textarea>
+          </div>
+          <div class="level-item">
+            <label>Poor (1)</label>
+            <textarea class="form-textarea level-description" placeholder="Describe poor performance..." required></textarea>
+          </div>
+        </div>
+      </div>
+    `;
+  }).catch(error => {
+    console.error('Error creating rubric:', error);
+    alert('Error creating rubric. Please try again.');
+  });
+});
+
+// Grading Center Functions
+function loadSubmissions() {
+  const container = document.getElementById('submissionsContainer');
+  container.innerHTML = '<div style="text-align: center; padding: 20px;">Loading submissions...</div>';
+  
+  // Load assignment submissions
+  db.ref('submissions').once('value').then(snapshot => {
+    container.innerHTML = '';
+    if (snapshot.exists()) {
+      snapshot.forEach(child => {
+        const submission = child.val();
+        const submissionHtml = createSubmissionItem(child.key, submission);
+        container.insertAdjacentHTML('beforeend', submissionHtml);
+      });
+    } else {
+      container.innerHTML = '<div style="text-align: center; padding: 20px;">No submissions found.</div>';
+    }
+  });
+  
+  // Load assignment filter options
+  loadAssignmentFilterOptions();
+}
+
+function loadAssignmentFilterOptions() {
+  const select = document.getElementById('assignmentFilter');
+  select.innerHTML = '<option value="all">All Assignments</option>';
+  
+  db.ref('assignments').once('value').then(snapshot => {
+    if (snapshot.exists()) {
+      snapshot.forEach(child => {
+        const assignment = child.val();
+        const option = document.createElement('option');
+        option.value = child.key;
+        option.textContent = assignment.title;
+        select.appendChild(option);
+      });
+    }
+  });
+}
+
+function createSubmissionItem(submissionId, submission) {
+  const status = submission.graded ? 'graded' : 'pending';
+  const statusText = submission.graded ? 'Graded' : 'Pending';
+  
+  return `
+    <div class="submission-item" onclick="openGradeSubmissionModal('${submissionId}')">
+      <div class="submission-header">
+        <h4>${submission.studentName || 'Unknown Student'}</h4>
+        <span class="submission-status ${status}">${statusText}</span>
+      </div>
+      <p><strong>Assignment:</strong> ${submission.assignmentTitle}</p>
+      <p><strong>Submitted:</strong> ${new Date(submission.submittedAt).toLocaleDateString()}</p>
+      ${submission.graded ? `<p><strong>Grade:</strong> ${submission.grade}/${submission.maxPoints}</p>` : ''}
+    </div>
+  `;
+}
+
+function filterSubmissions() {
+  const statusFilter = document.getElementById('gradingFilter').value;
+  const assignmentFilter = document.getElementById('assignmentFilter').value;
+  
+  // Reload submissions with filters
+  loadSubmissions();
+}
+
+function openGradeSubmissionModal(submissionId) {
+  window.currentSubmissionId = submissionId; // Store for later use
+  document.getElementById('gradeSubmissionModal').style.display = 'flex';
+  loadSubmissionDetails(submissionId);
+}
+
+function loadSubmissionDetails(submissionId) {
+  db.ref(`submissions/${submissionId}`).once('value').then(snapshot => {
+    if (snapshot.exists()) {
+      const submission = snapshot.val();
+      displaySubmissionDetails(submissionId, submission);
+    }
+  });
+}
+
+function displaySubmissionDetails(submissionId, submission) {
+  const detailsContainer = document.getElementById('submissionDetails');
+  detailsContainer.innerHTML = `
+    <div style="margin-bottom: 20px;">
+      <h4>${submission.studentName || 'Unknown Student'}</h4>
+      <p><strong>Assignment:</strong> ${submission.assignmentTitle}</p>
+      <p><strong>Submitted:</strong> ${new Date(submission.submittedAt).toLocaleDateString()}</p>
+      <p><strong>Max Points:</strong> ${submission.maxPoints}</p>
+    </div>
+    <div style="margin-bottom: 20px;">
+      <h4>Submission Content:</h4>
+      <div style="background: #f5f5f5; padding: 15px; border-radius: 5px;">
+        ${submission.content || 'No text content'}
+      </div>
+    </div>
+    ${submission.fileUrl ? `<div style="margin-bottom: 20px;">
+      <h4>Submitted File:</h4>
+      <a href="${submission.fileUrl}" target="_blank" class="action-btn secondary">Download File</a>
+    </div>` : ''}
+  `;
+  
+  // Load grading interface
+  loadGradingInterface(submissionId, submission);
+}
+
+function loadGradingInterface(submissionId, submission) {
+  const gradingContainer = document.getElementById('gradingInterface');
+  
+  if (submission.rubricId) {
+    // Load rubric-based grading
+    loadRubricGrading(submissionId, submission);
+  } else {
+    // Load simple points grading
+    gradingContainer.innerHTML = `
+      <div class="grading-rubric">
+        <h4>Grade Assignment</h4>
+        <div class="form-group">
+          <label class="form-label">Points (out of ${submission.maxPoints})</label>
+          <input type="number" class="form-input" id="gradePoints" min="0" max="${submission.maxPoints}" value="${submission.grade || ''}">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Feedback</label>
+          <textarea class="form-textarea" id="gradeFeedback" placeholder="Enter feedback for the student...">${submission.feedback || ''}</textarea>
+        </div>
+      </div>
+    `;
+  }
+}
+
+function loadRubricGrading(submissionId, submission) {
+  db.ref(`rubrics/${submission.rubricId}`).once('value').then(snapshot => {
+    if (snapshot.exists()) {
+      const rubric = snapshot.val();
+      displayRubricGrading(submissionId, submission, rubric);
+    }
+  });
+}
+
+function displayRubricGrading(submissionId, submission, rubric) {
+  const gradingContainer = document.getElementById('gradingInterface');
+  
+  let rubricHtml = `
+    <div class="grading-rubric">
+      <h4>Rubric: ${rubric.name}</h4>
+      <p>${rubric.description}</p>
+  `;
+  
+  rubric.criteria.forEach((criteria, index) => {
+    rubricHtml += `
+      <div class="rubric-criteria">
+        <h4>${criteria.name} (Weight: ${criteria.weight}%)</h4>
+        <div class="rubric-levels">
+          ${criteria.levels.map(level => `
+            <div class="rubric-level" onclick="selectRubricLevel(${index}, ${level.level})" data-criteria="${index}" data-level="${level.level}">
+              <strong>Level ${level.level}</strong>
+              <p>${level.description}</p>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    `;
+  });
+  
+  rubricHtml += `
+      <div class="form-group">
+        <label class="form-label">Additional Feedback</label>
+        <textarea class="form-textarea" id="gradeFeedback" placeholder="Enter additional feedback...">${submission.feedback || ''}</textarea>
+      </div>
+      <div class="grade-summary">
+        <h4>Total Grade: <span id="totalGrade">0</span>/${submission.maxPoints}</h4>
+      </div>
+    </div>
+  `;
+  
+  gradingContainer.innerHTML = rubricHtml;
+}
+
+function selectRubricLevel(criteriaIndex, level) {
+  // Remove selection from other levels in this criteria
+  const criteriaLevels = document.querySelectorAll(`[data-criteria="${criteriaIndex}"]`);
+  criteriaLevels.forEach(levelElement => {
+    levelElement.classList.remove('selected');
+  });
+  
+  // Add selection to clicked level
+  const selectedLevel = document.querySelector(`[data-criteria="${criteriaIndex}"][data-level="${level}"]`);
+  selectedLevel.classList.add('selected');
+  
+  // Calculate total grade
+  calculateRubricGrade();
+}
+
+function calculateRubricGrade() {
+  const selectedLevels = document.querySelectorAll('.rubric-level.selected');
+  let totalGrade = 0;
+  
+  selectedLevels.forEach(level => {
+    const criteriaIndex = parseInt(level.dataset.criteria);
+    const levelValue = parseInt(level.dataset.level);
+    // This is a simplified calculation - in practice you'd use the criteria weights
+    totalGrade += levelValue * 25; // Assuming equal weights for simplicity
+  });
+  
+  document.getElementById('totalGrade').textContent = Math.min(totalGrade, 100);
+}
+
+function saveGrade() {
+  const submissionId = getCurrentSubmissionId(); // You'd need to store this when opening the modal
+  const grade = document.getElementById('gradePoints') ? 
+    parseInt(document.getElementById('gradePoints').value) : 
+    parseInt(document.getElementById('totalGrade').textContent);
+  const feedback = document.getElementById('gradeFeedback').value;
+  
+  const gradeData = {
+    grade: grade,
+    feedback: feedback,
+    gradedBy: firebase.auth().currentUser.uid,
+    gradedAt: Date.now(),
+    graded: true
+  };
+  
+  db.ref(`submissions/${submissionId}`).update(gradeData).then(() => {
+    alert('Grade saved successfully!');
+    closeModal('gradeSubmissionModal');
+    loadSubmissions(); // Refresh the submissions list
+  }).catch(error => {
+    console.error('Error saving grade:', error);
+    alert('Error saving grade. Please try again.');
+  });
+}
+
+// Helper function to get current submission ID (you'd need to implement this)
+function getCurrentSubmissionId() {
+  // This should be stored when opening the grading modal
+  return window.currentSubmissionId;
+}
+
+// Quiz Taking Functions (for testing purposes)
+function takeQuiz(quizId) {
+  db.ref(`quizzes/${quizId}`).once('value').then(snapshot => {
+    if (snapshot.exists()) {
+      currentQuizData = snapshot.val();
+      currentQuizIndex = 0;
+      userAnswers = [];
+      document.getElementById('quizTakingModal').style.display = 'flex';
+      startQuizTimer();
+      displayQuizQuestion();
+    }
+  });
+}
+
+function startQuizTimer() {
+  if (currentQuizData.timeLimit) {
+    let timeLeft = currentQuizData.timeLimit * 60; // Convert to seconds
+    const timerElement = document.getElementById('quizTimer');
+    
+    currentQuizTimer = setInterval(() => {
+      const minutes = Math.floor(timeLeft / 60);
+      const seconds = timeLeft % 60;
+      timerElement.textContent = `Time Left: ${minutes}:${seconds.toString().padStart(2, '0')}`;
+      
+      if (timeLeft <= 0) {
+        clearInterval(currentQuizTimer);
+        submitQuiz();
+      }
+      timeLeft--;
+    }, 1000);
+  }
+}
+
+function displayQuizQuestion() {
+  const question = currentQuizData.questions[currentQuizIndex];
+  const quizContent = document.getElementById('quizContent');
+  
+  let questionHtml = `
+    <div class="quiz-question">
+      <h3>Question ${currentQuizIndex + 1} of ${currentQuizData.questions.length}</h3>
+      <p>${question.text}</p>
+      <div class="quiz-options">
+  `;
+  
+  if (question.type === 'multiple-choice' || question.type === 'true-false') {
+    question.options.forEach((option, index) => {
+      questionHtml += `
+        <div class="quiz-option" onclick="selectQuizOption(${index})">
+          <input type="radio" name="quiz-answer" value="${index}" id="option-${index}">
+          <label for="option-${index}">${option}</label>
+        </div>
+      `;
+    });
+  } else if (question.type === 'fill-blank') {
+    questionHtml += `
+      <input type="text" class="form-input" id="quiz-text-answer" placeholder="Enter your answer...">
+    `;
+  } else if (question.type === 'short-answer') {
+    questionHtml += `
+      <textarea class="form-textarea" id="quiz-text-answer" placeholder="Enter your answer..."></textarea>
+    `;
+  }
+  
+  questionHtml += `
+      </div>
+    </div>
+  `;
+  
+  quizContent.innerHTML = questionHtml;
+  
+  // Update navigation buttons
+  document.getElementById('prevBtn').style.display = currentQuizIndex > 0 ? 'inline-block' : 'none';
+  document.getElementById('nextBtn').style.display = currentQuizIndex < currentQuizData.questions.length - 1 ? 'inline-block' : 'none';
+  document.getElementById('submitBtn').style.display = currentQuizIndex === currentQuizData.questions.length - 1 ? 'inline-block' : 'none';
+}
+
+function selectQuizOption(optionIndex) {
+  const options = document.querySelectorAll('.quiz-option');
+  options.forEach(option => option.classList.remove('selected'));
+  
+  const selectedOption = document.querySelector(`.quiz-option:nth-child(${optionIndex + 1})`);
+  selectedOption.classList.add('selected');
+  
+  // Store the answer
+  userAnswers[currentQuizIndex] = optionIndex;
+}
+
+function nextQuestion() {
+  // Save current answer
+  const question = currentQuizData.questions[currentQuizIndex];
+  
+  if (question.type === 'multiple-choice' || question.type === 'true-false') {
+    const selectedOption = document.querySelector('input[name="quiz-answer"]:checked');
+    if (selectedOption) {
+      userAnswers[currentQuizIndex] = parseInt(selectedOption.value);
+    }
+  } else {
+    const textAnswer = document.getElementById('quiz-text-answer').value;
+    userAnswers[currentQuizIndex] = textAnswer;
+  }
+  
+  currentQuizIndex++;
+  displayQuizQuestion();
+}
+
+function previousQuestion() {
+  currentQuizIndex--;
+  displayQuizQuestion();
+}
+
+function submitQuiz() {
+  if (currentQuizTimer) {
+    clearInterval(currentQuizTimer);
+  }
+  
+  // Calculate score for auto-gradable questions
+  let score = 0;
+  let totalAutoGraded = 0;
+  
+  currentQuizData.questions.forEach((question, index) => {
+    if (question.type === 'multiple-choice' || question.type === 'true-false') {
+      totalAutoGraded++;
+      if (userAnswers[index] === question.correctAnswer) {
+        score++;
+      }
+    } else if (question.type === 'fill-blank') {
+      totalAutoGraded++;
+      if (userAnswers[index] && userAnswers[index].toLowerCase().trim() === question.correctAnswer.toLowerCase().trim()) {
+        score++;
+      }
+    }
+  });
+  
+  const finalScore = totalAutoGraded > 0 ? (score / totalAutoGraded) * 100 : 0;
+  
+  // Save quiz submission
+  const submissionData = {
+    quizId: currentQuizData.id,
+    studentId: firebase.auth().currentUser.uid,
+    answers: userAnswers,
+    score: finalScore,
+    submittedAt: Date.now(),
+    autoGraded: totalAutoGraded === currentQuizData.questions.length
+  };
+  
+  db.ref('quizSubmissions').push(submissionData).then(() => {
+    alert(`Quiz submitted! Your score: ${finalScore.toFixed(1)}%`);
+    closeModal('quizTakingModal');
+  });
+}
+
+function showAssessmentList() {
+  // This would show a list of all assessments
+  console.log('Showing assessment list...');
+}
+
+function loadAssessmentOverview() {
+  // This would load and display an overview of all assessments
+  console.log('Loading assessment overview...');
+}

@@ -634,3 +634,7 @@ function addTeacherDashboardIfApplicable() {
   });
 }
 
+// Open assignments and quizzes page
+function openAssignments() {
+  window.location.href = "student-assignments.html";
+}
