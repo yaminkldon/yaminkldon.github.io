@@ -5032,8 +5032,6 @@ function loadUnitsForQuiz() {
         unitSelect.appendChild(option);
       });
     }
-    console.log('Quiz unit-1:', quiz.unit);
-    document.getElementById('quizUnit').value = quiz.unit || '';
   }).catch(error => {
     console.error('Error loading units for quiz:', error);
   });
