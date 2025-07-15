@@ -944,6 +944,18 @@
       
       quizContent.innerHTML = questionHtml;
       
+      // Restore previous answer if it exists
+      if (userAnswers[currentQuizIndex] !== undefined) {
+        if (question.type === 'multiple-choice' || question.type === 'true-false') {
+          selectQuizOption(userAnswers[currentQuizIndex]);
+        } else {
+          const textAnswer = document.getElementById('quiz-text-answer');
+          if (textAnswer) {
+            textAnswer.value = userAnswers[currentQuizIndex];
+          }
+        }
+      }
+      
       // Update navigation buttons
       document.getElementById('prevBtn').style.display = currentQuizIndex > 0 ? 'inline-block' : 'none';
       document.getElementById('nextBtn').style.display = currentQuizIndex < currentQuizData.questions.length - 1 ? 'inline-block' : 'none';
@@ -962,6 +974,12 @@
       selectedOption.classList.add('selected');
       selectedOption.style.background = '#6c4fc1';
       selectedOption.style.outlineStyle = 'dashed';
+      
+      // Check the radio button
+      const radioButton = document.getElementById(`option-${optionIndex}`);
+      if (radioButton) {
+        radioButton.checked = true;
+      }
       
       userAnswers[currentQuizIndex] = optionIndex;
     }
