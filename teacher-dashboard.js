@@ -7340,6 +7340,7 @@ async function editQuiz(quizId) {
     // Now populate the form
     document.getElementById('quizTitle').value = quiz.title || '';
     document.getElementById('quizDescription').value = quiz.description || '';
+    console.log('Quiz unit:', quiz.unit);
     document.getElementById('quizUnit').value = quiz.unit || '';
     document.getElementById('quizTimeLimit').value = quiz.timeLimit || '';
     document.getElementById('quizAttempts').value = quiz.maxAttempts || '';
@@ -7357,7 +7358,7 @@ async function editQuiz(quizId) {
         question.options.forEach((option, optIndex) => {
           optionsHtml += `
             <div class="option-item">
-              <input type="radio" name="correct-${questionNumber}" value="${optIndex}" ${question.correctAnswer === optIndex ? 'checked' : ''}>
+              <input type="radio" name="correct-${questionNumber}" value="${optIndex}" ${question.correctAnswer === optIndex ? 'checked' : ''} style="width: 15%;">
               <input type="text" class="form-input option-text" value="${option}" required>
             </div>
           `;
@@ -7365,11 +7366,11 @@ async function editQuiz(quizId) {
       } else if (question.type === 'true-false') {
         optionsHtml = `
           <div class="option-item">
-            <input type="radio" name="correct-${questionNumber}" value="0" ${question.correctAnswer === 0 ? 'checked' : ''}>
+            <input type="radio" name="correct-${questionNumber}" value="0" ${question.correctAnswer === 0 ? 'checked' : ''} style="width: 15%;">
             <span>True</span>
           </div>
           <div class="option-item">
-            <input type="radio" name="correct-${questionNumber}" value="1" ${question.correctAnswer === 1 ? 'checked' : ''}>
+            <input type="radio" name="correct-${questionNumber}" value="1" ${question.correctAnswer === 1 ? 'checked' : ''} style="width: 15%;">
             <span>False</span>
           </div>
         `;
@@ -7387,7 +7388,7 @@ async function editQuiz(quizId) {
               <option value="true-false" ${question.type === 'true-false' ? 'selected' : ''}>True/False</option>
               <option value="short-answer" ${question.type === 'short-answer' ? 'selected' : ''}>Short Answer</option>
             </select>
-            ${questionNumber > 1 ? '<button type="button" class="action-btn secondary" onclick="removeQuestion(this)" style="padding: 4px 8px; margin-left: 8px;">Remove</button>' : ''}
+            ${questionNumber > 1 ? '<button type="button" class="action-btn secondary" onclick="removeQuestion(this)" style="padding: 4px 8px; margin-left: 8px;" width: 15%;>Remove</button>' : ''}
           </div>
           <div class="question-content">
             <input type="text" class="form-input question-text" value="${question.text}" required>
