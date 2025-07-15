@@ -7365,7 +7365,7 @@ if (unitSelect && quiz.unit) {
     // Now populate the form
     document.getElementById('quizTitle').value = quiz.title || '';
     document.getElementById('quizDescription').value = quiz.description || '';
-    console.log('Quiz unit:', quiz.unit);
+    console.log('Quiz unit:', (quiz.unit || '').trim());
     document.getElementById('quizTimeLimit').value = quiz.timeLimit || '';
     document.getElementById('quizAttempts').value = quiz.maxAttempts || '';
 
