@@ -5000,7 +5000,7 @@ function loadUnitsForQuiz() {
   const unitSelect = document.getElementById('quizUnit');
   if (!unitSelect) {
     console.error('Quiz unit select element not found');
-    return Promise.resolve();
+    return Promise.resolve([]);
   }
 
   unitSelect.innerHTML = '';
@@ -5012,30 +5012,32 @@ function loadUnitsForQuiz() {
 
   return db.ref('units').once('value')
     .then(snapshot => {
-      if (snapshot.exists()) {
-        const availableUnits = [];
+      const availableUnits = [];
 
+      if (snapshot.exists()) {
         snapshot.forEach(child => {
           const unit = child.val();
+          const unitId = child.key;
           availableUnits.push({
-            id: child.key,
-            name: unit.name || unit.title || child.key
+            id: unitId,
+            name: unit.name || unit.title || unitId
           });
-        });
 
-        // Populate the dropdown
-        availableUnits.forEach(unit => {
           const option = document.createElement('option');
-          option.value = unit.id;
-          option.textContent = unit.name;
+          option.value = unitId;
+          option.textContent = unit.name || unit.title || unitId;
           unitSelect.appendChild(option);
         });
       }
+
+      return availableUnits;
     })
     .catch(error => {
       console.error('Error loading units for quiz:', error);
+      return [];
     });
 }
+
 
 
 function addQuestion() {
