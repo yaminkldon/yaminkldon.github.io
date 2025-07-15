@@ -5639,13 +5639,13 @@ function displayQuizSubmissionModal(attempts, quiz) {
       </div>
       
       <div style="padding: 20px;">
-        <div style="margin-bottom: 20px; padding: 16px; background: #f8f9fa; border-radius: 8px;">
-          <h4 style="margin: 0 0 8px 0; color: #222c5c;">Student: ${attempts[0].studentEmail}</h4>
+        <div style="margin-bottom: 20px; padding: 16px; border-radius: 8px;">
+          <h4 style="margin: 0 0 8px 0; color: #fff;">Student: ${attempts[0].studentEmail}</h4>
           <p style="margin: 4px 0;"><strong>Total Attempts:</strong> ${attempts.length}</p>
         </div>
         
         <div style="margin-bottom: 20px;">
-          <h4 style="color: #222c5c;">Select Attempt to View:</h4>
+          <h4 style="color: #fff;">Select Attempt to View:</h4>
           <div style="display: flex; gap: 8px; flex-wrap: wrap;">
             ${attempts.map((attempt, index) => `
               <button class="action-btn ${index === 0 ? '' : 'secondary'}" 
@@ -5697,8 +5697,8 @@ function selectAttempt(index) {
   const attemptContent = document.getElementById('attemptContent');
   
   attemptContent.innerHTML = `
-    <div style="margin-bottom: 20px; padding: 16px; background: #f8f9fa; border-radius: 8px;">
-      <h4 style="margin: 0 0 8px 0; color: #222c5c;">Attempt ${index + 1} Details</h4>
+    <div style="margin-bottom: 20px; padding: 16px; border-radius: 8px;">
+      <h4 style="margin: 0 0 8px 0; color: #fff;">Attempt ${index + 1} Details</h4>
       <p style="margin: 4px 0;"><strong>Score:</strong> ${selectedAttempt.score ? selectedAttempt.score.toFixed(1) : 'N/A'}%</p>
       <p style="margin: 4px 0;"><strong>Correct Answers:</strong> ${selectedAttempt.correctAnswers}/${selectedAttempt.totalQuestions}</p>
       <p style="margin: 4px 0;"><strong>Submitted:</strong> ${new Date(selectedAttempt.submittedAt).toLocaleString()}</p>
@@ -5706,7 +5706,7 @@ function selectAttempt(index) {
     </div>
     
     <div style="margin-bottom: 20px;">
-      <h4 style="color: #222c5c;">Question Review</h4>
+      <h4 style="color: #fff;">Question Review</h4>
       <div style="max-height: 400px; overflow-y: auto;">
         ${quiz.questions.map((question, qIndex) => {
           const userAnswer = selectedAttempt.answers[qIndex];
@@ -5715,7 +5715,7 @@ function selectAttempt(index) {
           return `
             <div style="margin-bottom: 16px; padding: 12px; border: 1px solid #ddd; border-radius: 8px; background: #fff;">
               <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
-                <span style="font-weight: bold; color: #222c5c;">Question ${qIndex + 1}</span>
+                <span style="font-weight: bold; color: #fff;">Question ${qIndex + 1}</span>
                 <span class="material-icons" style="color: ${isCorrect ? '#28a745' : '#dc3545'}; font-size: 18px;">
                   ${isCorrect ? 'check_circle' : 'cancel'}
                 </span>
@@ -6268,7 +6268,7 @@ function displayAssessmentsList(assessments) {
           <div style="display: flex; align-items: center; gap: 12px;">
             <span class="material-icons" style="color: #6c4fc1;">${typeIcon}</span>
             <div>
-              <h4 style="margin: 0; color: #222c5c;">${assessment.title}</h4>
+              <h4 style="margin: 0; color: #fff;">${assessment.title}</h4>
               <p style="margin: 4px 0; color: #666; font-size: 14px;">${typeLabel} • Unit: ${assessment.unit}</p>
               <p style="margin: 0; color: #888; font-size: 12px;">Created: ${createdDate}</p>
             </div>
@@ -6906,18 +6906,18 @@ function displayTestResults(score, correctAnswers, totalQuestions, detailedResul
       </div>
       
       <div style="padding: 20px;">
-        <div style="margin-bottom: 20px; padding: 16px; background: #f8f9fa; border-radius: 8px; text-align: center;">
+        <div style="margin-bottom: 20px; padding: 16px; border-radius: 8px; text-align: center;">
           <h2 style="margin: 0; color: ${score >= 70 ? '#28a745' : score >= 50 ? '#ffc107' : '#dc3545'};">${score.toFixed(1)}%</h2>
           <p style="margin: 8px 0 0 0; color: #666;">Score: ${correctAnswers}/${totalQuestions} correct</p>
         </div>
         
         <div style="margin-bottom: 20px;">
-          <h4 style="color: #222c5c;">Question Review</h4>
+          <h4 style="color: #fff;">Question Review</h4>
           <div style="max-height: 400px; overflow-y: auto;">
             ${detailedResults.map((result, index) => `
               <div style="margin-bottom: 16px; padding: 12px; border: 1px solid #ddd; border-radius: 8px; background: #fff;">
                 <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
-                  <span style="font-weight: bold; color: #222c5c;">Question ${index + 1}</span>
+                  <span style="font-weight: bold; color: #fff;">Question ${index + 1}</span>
                   <span class="material-icons" style="color: ${result.isCorrect ? '#28a745' : '#dc3545'}; font-size: 18px;">
                     ${result.isCorrect ? 'check_circle' : 'cancel'}
                   </span>
