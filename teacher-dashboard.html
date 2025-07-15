@@ -1117,6 +1117,27 @@
     </div>
   </div>
 
+  <!-- Quiz Test Modal -->
+  <div id="quizTestModal" class="modal">
+    <div class="modal-content" style="max-width: 800px;">
+      <div class="modal-header">
+        <h3 class="modal-title" id="quizTestTitle">Test Quiz</h3>
+        <div class="quiz-timer" id="quizTestTimer" style="color: #6c4fc1; font-weight: bold;"></div>
+        <button class="modal-close" onclick="closeModal('quizTestModal')">&times;</button>
+      </div>
+      
+      <div id="quizTestContent">
+        <!-- Quiz test content will be loaded here -->
+      </div>
+      
+      <div class="quiz-navigation" style="margin-top: 20px; display: flex; justify-content: space-between; align-items: center; border-top: 1px solid #ddd; padding-top: 16px;">
+        <button class="action-btn secondary" onclick="previousTestQuestion()" id="prevTestBtn" style="display: none;">Previous</button>
+        <button class="action-btn" onclick="nextTestQuestion()" id="nextTestBtn">Next</button>
+        <button class="action-btn" onclick="submitTestQuiz()" id="submitTestBtn" style="display: none;">Submit Test</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Create Assignment Modal -->
   <div id="createAssignmentModal" class="modal">
     <div class="modal-content" style="max-width: 600px;">

@@ -129,6 +129,12 @@ function closeModal(modalId) {
     modal.style.display = 'none';
     document.body.style.overflow = 'auto';
   }
+  
+  // Clean up quiz test timer if closing quiz test modal
+  if (modalId === 'quizTestModal' && testQuizTimer) {
+    clearInterval(testQuizTimer);
+    testQuizTimer = null;
+  }
 }
 
 // Feature Card Click Handlers
@@ -5331,35 +5337,108 @@ function loadSubmissions() {
   const container = document.getElementById('submissionsContainer');
   container.innerHTML = '<div style="text-align: center; padding: 20px;">Loading submissions...</div>';
   
+  const allSubmissions = [];
+  
   // Load assignment submissions
   db.ref('submissions').once('value').then(snapshot => {
-    container.innerHTML = '';
     if (snapshot.exists()) {
       snapshot.forEach(child => {
         const submission = child.val();
-        const submissionHtml = createSubmissionItem(child.key, submission);
-        container.insertAdjacentHTML('beforeend', submissionHtml);
+        allSubmissions.push({
+          id: child.key,
+          type: 'assignment',
+          data: submission,
+          submittedAt: submission.submittedAt,
+          graded: submission.graded,
+          studentName: submission.studentName || 'Unknown Student',
+          title: submission.assignmentTitle,
+          grade: submission.grade,
+          maxPoints: submission.maxPoints
+        });
       });
-    } else {
-      container.innerHTML = '<div style="text-align: center; padding: 20px;">No submissions found.</div>';
     }
+    
+    // Load quiz submissions
+    db.ref('quizSubmissions').once('value').then(quizSnapshot => {
+      if (quizSnapshot.exists()) {
+        quizSnapshot.forEach(child => {
+          const quizSubmission = child.val();
+          // Get quiz title
+          db.ref(`quizzes/${quizSubmission.quizId}`).once('value').then(quizData => {
+            if (quizData.exists()) {
+              const quiz = quizData.val();
+              allSubmissions.push({
+                id: child.key,
+                type: 'quiz',
+                data: quizSubmission,
+                submittedAt: quizSubmission.submittedAt,
+                graded: quizSubmission.autoGraded || false,
+                studentName: quizSubmission.studentEmail || 'Unknown Student',
+                title: quiz.title,
+                grade: quizSubmission.score ? quizSubmission.score.toFixed(1) : 'N/A',
+                maxPoints: '100',
+                correctAnswers: quizSubmission.correctAnswers,
+                totalQuestions: quizSubmission.totalQuestions
+              });
+              
+              // Update container after all submissions are loaded
+              displayAllSubmissions(allSubmissions, container);
+            }
+          });
+        });
+      } else {
+        // No quiz submissions, just display assignment submissions
+        displayAllSubmissions(allSubmissions, container);
+      }
+    });
   });
   
   // Load assignment filter options
   loadAssignmentFilterOptions();
 }
 
+function displayAllSubmissions(submissions, container) {
+  container.innerHTML = '';
+  
+  if (submissions.length === 0) {
+    container.innerHTML = '<div style="text-align: center; padding: 20px;">No submissions found.</div>';
+    return;
+  }
+  
+  // Sort by submission date (newest first)
+  submissions.sort((a, b) => b.submittedAt - a.submittedAt);
+  
+  submissions.forEach(submission => {
+    const submissionHtml = createSubmissionItem(submission.id, submission);
+    container.insertAdjacentHTML('beforeend', submissionHtml);
+  });
+}
+
 function loadAssignmentFilterOptions() {
   const select = document.getElementById('assignmentFilter');
-  select.innerHTML = '<option value="all">All Assignments</option>';
+  select.innerHTML = '<option value="all">All Submissions</option>';
   
+  // Add assignments
   db.ref('assignments').once('value').then(snapshot => {
     if (snapshot.exists()) {
       snapshot.forEach(child => {
         const assignment = child.val();
         const option = document.createElement('option');
         option.value = child.key;
-        option.textContent = assignment.title;
+        option.textContent = `Assignment: ${assignment.title}`;
+        select.appendChild(option);
+      });
+    }
+  });
+  
+  // Add quizzes
+  db.ref('quizzes').once('value').then(snapshot => {
+    if (snapshot.exists()) {
+      snapshot.forEach(child => {
+        const quiz = child.val();
+        const option = document.createElement('option');
+        option.value = child.key;
+        option.textContent = `Quiz: ${quiz.title}`;
         select.appendChild(option);
       });
     }
@@ -5369,16 +5448,30 @@ function loadAssignmentFilterOptions() {
 function createSubmissionItem(submissionId, submission) {
   const status = submission.graded ? 'graded' : 'pending';
   const statusText = submission.graded ? 'Graded' : 'Pending';
+  const typeIcon = submission.type === 'quiz' ? 'quiz' : 'assignment';
+  const typeLabel = submission.type === 'quiz' ? 'Quiz' : 'Assignment';
+  
+  let gradeDisplay = '';
+  if (submission.graded) {
+    if (submission.type === 'quiz') {
+      gradeDisplay = `<p><strong>Score:</strong> ${submission.grade}% (${submission.correctAnswers}/${submission.totalQuestions})</p>`;
+    } else {
+      gradeDisplay = `<p><strong>Grade:</strong> ${submission.grade}/${submission.maxPoints}</p>`;
+    }
+  }
   
   return `
-    <div class="submission-item" onclick="openGradeSubmissionModal('${submissionId}')">
+    <div class="submission-item" onclick="openGradeSubmissionModal('${submissionId}', '${submission.type}')">
       <div class="submission-header">
-        <h4>${submission.studentName || 'Unknown Student'}</h4>
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span class="material-icons" style="color: #6c4fc1;">${typeIcon}</span>
+          <h4>${submission.studentName}</h4>
+        </div>
         <span class="submission-status ${status}">${statusText}</span>
       </div>
-      <p><strong>Assignment:</strong> ${submission.assignmentTitle}</p>
+      <p><strong>${typeLabel}:</strong> ${submission.title}</p>
       <p><strong>Submitted:</strong> ${new Date(submission.submittedAt).toLocaleDateString()}</p>
-      ${submission.graded ? `<p><strong>Grade:</strong> ${submission.grade}/${submission.maxPoints}</p>` : ''}
+      ${gradeDisplay}
     </div>
   `;
 }
@@ -5391,10 +5484,169 @@ function filterSubmissions() {
   loadSubmissions();
 }
 
-function openGradeSubmissionModal(submissionId) {
-  window.currentSubmissionId = submissionId; // Store for later use
-  document.getElementById('gradeSubmissionModal').style.display = 'flex';
-  loadSubmissionDetails(submissionId);
+function openGradeSubmissionModal(submissionId, type = 'assignment') {
+  if (type === 'quiz') {
+    openQuizSubmissionModal(submissionId);
+  } else {
+    window.currentSubmissionId = submissionId; // Store for later use
+    document.getElementById('gradeSubmissionModal').style.display = 'flex';
+    loadSubmissionDetails(submissionId);
+  }
+}
+
+function openQuizSubmissionModal(submissionId) {
+  db.ref(`quizSubmissions/${submissionId}`).once('value').then(snapshot => {
+    if (snapshot.exists()) {
+      const submission = snapshot.val();
+      
+      // Get quiz details
+      db.ref(`quizzes/${submission.quizId}`).once('value').then(quizSnapshot => {
+        if (quizSnapshot.exists()) {
+          const quiz = quizSnapshot.val();
+          displayQuizSubmissionModal(submissionId, submission, quiz);
+        }
+      });
+    }
+  });
+}
+
+function displayQuizSubmissionModal(submissionId, submission, quiz) {
+  const modal = document.createElement('div');
+  modal.className = 'modal';
+  modal.id = 'quizSubmissionModal';
+  modal.style.display = 'flex';
+  
+  modal.innerHTML = `
+    <div class="modal-content" style="max-width: 800px;">
+      <div class="modal-header">
+        <h3 class="modal-title">Quiz Submission: ${quiz.title}</h3>
+        <button class="modal-close" onclick="closeModal('quizSubmissionModal'); this.parentElement.parentElement.parentElement.remove();">&times;</button>
+      </div>
+      
+      <div style="padding: 20px;">
+        <div style="margin-bottom: 20px; padding: 16px; background: #f8f9fa; border-radius: 8px;">
+          <h4 style="margin: 0 0 8px 0; color: #222c5c;">Submission Details</h4>
+          <p style="margin: 4px 0;"><strong>Student:</strong> ${submission.studentEmail}</p>
+          <p style="margin: 4px 0;"><strong>Score:</strong> ${submission.score ? submission.score.toFixed(1) : 'N/A'}%</p>
+          <p style="margin: 4px 0;"><strong>Correct Answers:</strong> ${submission.correctAnswers}/${submission.totalQuestions}</p>
+          <p style="margin: 4px 0;"><strong>Submitted:</strong> ${new Date(submission.submittedAt).toLocaleString()}</p>
+          <p style="margin: 4px 0;"><strong>Auto-graded:</strong> ${submission.autoGraded ? 'Yes' : 'No'}</p>
+        </div>
+        
+        <div style="margin-bottom: 20px;">
+          <h4 style="color: #222c5c;">Question Review</h4>
+          <div style="max-height: 400px; overflow-y: auto;">
+            ${quiz.questions.map((question, index) => {
+              const userAnswer = submission.answers[index];
+              const isCorrect = checkQuizAnswer(question, userAnswer);
+              
+              return `
+                <div style="margin-bottom: 16px; padding: 12px; border: 1px solid #ddd; border-radius: 8px; background: #fff;">
+                  <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+                    <span style="font-weight: bold; color: #222c5c;">Question ${index + 1}</span>
+                    <span class="material-icons" style="color: ${isCorrect ? '#28a745' : '#dc3545'}; font-size: 18px;">
+                      ${isCorrect ? 'check_circle' : 'cancel'}
+                    </span>
+                  </div>
+                  <p style="margin-bottom: 8px; font-weight: 500;">${question.text}</p>
+                  ${generateQuizSubmissionReview(question, userAnswer, isCorrect)}
+                </div>
+              `;
+            }).join('')}
+          </div>
+        </div>
+        
+        <div class="feature-actions">
+          <button class="action-btn secondary" onclick="closeModal('quizSubmissionModal'); this.parentElement.parentElement.parentElement.remove();">Close</button>
+        </div>
+      </div>
+    </div>
+  `;
+  
+  document.body.appendChild(modal);
+}
+
+function checkQuizAnswer(question, userAnswer) {
+  if (question.type === 'multiple-choice' || question.type === 'true-false') {
+    return userAnswer === question.correctAnswer;
+  } else {
+    return userAnswer && userAnswer.toLowerCase().trim() === question.correctAnswer.toLowerCase().trim();
+  }
+}
+
+function generateQuizSubmissionReview(question, userAnswer, isCorrect) {
+  let reviewHtml = '';
+  
+  if (question.type === 'multiple-choice') {
+    reviewHtml += '<div style="margin-bottom: 12px;">';
+    question.options.forEach((option, index) => {
+      const isUserAnswer = userAnswer === index;
+      const isCorrectAnswer = question.correctAnswer === index;
+      
+      let optionStyle = 'padding: 6px 10px; margin: 2px 0; border-radius: 4px; border: 1px solid #ddd; font-size: 14px;';
+      
+      if (isCorrectAnswer) {
+        optionStyle += ' background: #d4edda; border-color: #28a745; color: #155724;';
+      } else if (isUserAnswer && !isCorrect) {
+        optionStyle += ' background: #f8d7da; border-color: #dc3545; color: #721c24;';
+      }
+      
+      reviewHtml += `
+        <div style="${optionStyle}">
+          <span style="margin-right: 8px;">${isUserAnswer ? '●' : '○'}</span>
+          ${option}
+          ${isCorrectAnswer ? ' <span style="font-weight: bold;">(Correct)</span>' : ''}
+          ${isUserAnswer && !isCorrect ? ' <span style="font-weight: bold;">(Student Answer)</span>' : ''}
+        </div>
+      `;
+    });
+    reviewHtml += '</div>';
+  } else if (question.type === 'true-false') {
+    const options = ['True', 'False'];
+    reviewHtml += '<div style="margin-bottom: 12px;">';
+    options.forEach((option, index) => {
+      const isUserAnswer = userAnswer === index;
+      const isCorrectAnswer = question.correctAnswer === index;
+      
+      let optionStyle = 'padding: 6px 10px; margin: 2px 0; border-radius: 4px; border: 1px solid #ddd; font-size: 14px;';
+      
+      if (isCorrectAnswer) {
+        optionStyle += ' background: #d4edda; border-color: #28a745; color: #155724;';
+      } else if (isUserAnswer && !isCorrect) {
+        optionStyle += ' background: #f8d7da; border-color: #dc3545; color: #721c24;';
+      }
+      
+      reviewHtml += `
+        <div style="${optionStyle}">
+          <span style="margin-right: 8px;">${isUserAnswer ? '●' : '○'}</span>
+          ${option}
+          ${isCorrectAnswer ? ' <span style="font-weight: bold;">(Correct)</span>' : ''}
+          ${isUserAnswer && !isCorrect ? ' <span style="font-weight: bold;">(Student Answer)</span>' : ''}
+        </div>
+      `;
+    });
+    reviewHtml += '</div>';
+  } else {
+    reviewHtml += `
+      <div style="margin-bottom: 12px;">
+        <div style="margin-bottom: 8px;">
+          <strong>Student Answer:</strong>
+          <span style="padding: 4px 8px; background: ${isCorrect ? '#d4edda' : '#f8d7da'}; 
+                       border-radius: 4px; color: ${isCorrect ? '#155724' : '#721c24'}; font-size: 14px;">
+            ${userAnswer || 'No answer provided'}
+          </span>
+        </div>
+        <div>
+          <strong>Correct Answer:</strong>
+          <span style="padding: 4px 8px; background: #d4edda; border-radius: 4px; color: #155724; font-size: 14px;">
+            ${question.correctAnswer}
+          </span>
+        </div>
+      </div>
+    `;
+  }
+  
+  return reviewHtml;
 }
 
 function loadSubmissionDetails(submissionId) {
@@ -5932,6 +6184,7 @@ function viewQuizDetails(quizId) {
             </div>
             
             <div class="feature-actions">
+              <button class="action-btn" onclick="testQuiz('${quizId}')">Test Quiz</button>
               <button class="action-btn" onclick="editAssessment('${quizId}', 'quiz')">Edit Quiz</button>
               <button class="action-btn secondary" onclick="toggleQuizAnswerView('${quizId}', ${quiz.allowViewAnswers})">
                 ${quiz.allowViewAnswers ? 'Disable' : 'Enable'} Answer View
@@ -6281,6 +6534,324 @@ function deleteAssessment(assessmentId, type) {
 function filterAssessments() {
   // Filter functionality would go here
   console.log('Filtering assessments...');
+}
+
+// Quiz testing functionality for teachers
+let currentTestQuizData = null;
+let currentTestQuizIndex = 0;
+let testUserAnswers = [];
+let testQuizTimer = null;
+
+function testQuiz(quizId) {
+  db.ref(`quizzes/${quizId}`).once('value').then(snapshot => {
+    if (snapshot.exists()) {
+      const quiz = snapshot.val();
+      quiz.id = quizId;
+      startTestQuiz(quiz);
+    }
+  });
+}
+
+function startTestQuiz(quiz) {
+  currentTestQuizData = quiz;
+  currentTestQuizIndex = 0;
+  testUserAnswers = [];
+  
+  document.getElementById('quizTestModal').style.display = 'flex';
+  document.getElementById('quizTestTitle').textContent = `Test: ${quiz.title}`;
+  
+  startTestQuizTimer();
+  displayTestQuizQuestion();
+}
+
+function startTestQuizTimer() {
+  if (currentTestQuizData.timeLimit) {
+    let timeLeft = currentTestQuizData.timeLimit * 60;
+    const timerElement = document.getElementById('quizTestTimer');
+    
+    testQuizTimer = setInterval(() => {
+      const minutes = Math.floor(timeLeft / 60);
+      const seconds = timeLeft % 60;
+      timerElement.textContent = `Time Left: ${minutes}:${seconds.toString().padStart(2, '0')}`;
+      
+      if (timeLeft <= 0) {
+        clearInterval(testQuizTimer);
+        submitTestQuiz();
+      }
+      timeLeft--;
+    }, 1000);
+  }
+}
+
+function displayTestQuizQuestion() {
+  const question = currentTestQuizData.questions[currentTestQuizIndex];
+  const quizContent = document.getElementById('quizTestContent');
+  
+  let questionHtml = `
+    <div class="quiz-question" style="margin-bottom: 24px; padding: 20px; border: 1px solid #ddd; border-radius: 8px;">
+      <h3>Question ${currentTestQuizIndex + 1} of ${currentTestQuizData.questions.length}</h3>
+      <p style="font-size: 1.1em; margin-bottom: 20px;">${question.text}</p>
+      <div class="quiz-options">
+  `;
+  
+  if (question.type === 'multiple-choice' || question.type === 'true-false') {
+    question.options.forEach((option, index) => {
+      questionHtml += `
+        <div class="quiz-option" onclick="selectTestQuizOption(${index})" style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px; padding: 12px; border-radius: 4px; cursor: pointer; transition: background-color 0.2s; outline-style: auto;">
+          <input type="radio" name="test-quiz-answer" value="${index}" id="test-option-${index}">
+          <label for="test-option-${index}" style="cursor: pointer; flex: 1;">${option}</label>
+        </div>
+      `;
+    });
+  } else if (question.type === 'fill-blank') {
+    questionHtml += `
+      <input type="text" class="form-input" id="test-quiz-text-answer" placeholder="Enter your answer..." style="width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 4px;">
+    `;
+  } else if (question.type === 'short-answer') {
+    questionHtml += `
+      <textarea class="form-textarea" id="test-quiz-text-answer" placeholder="Enter your answer..." rows="4" style="width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 4px; resize: vertical;"></textarea>
+    `;
+  }
+  
+  questionHtml += `
+      </div>
+    </div>
+  `;
+  
+  quizContent.innerHTML = questionHtml;
+  
+  // Restore previous answer if it exists
+  if (testUserAnswers[currentTestQuizIndex] !== undefined) {
+    if (question.type === 'multiple-choice' || question.type === 'true-false') {
+      selectTestQuizOption(testUserAnswers[currentTestQuizIndex]);
+    } else {
+      const textAnswer = document.getElementById('test-quiz-text-answer');
+      if (textAnswer) {
+        textAnswer.value = testUserAnswers[currentTestQuizIndex];
+      }
+    }
+  }
+  
+  // Update navigation buttons
+  document.getElementById('prevTestBtn').style.display = currentTestQuizIndex > 0 ? 'inline-block' : 'none';
+  document.getElementById('nextTestBtn').style.display = currentTestQuizIndex < currentTestQuizData.questions.length - 1 ? 'inline-block' : 'none';
+  document.getElementById('submitTestBtn').style.display = currentTestQuizIndex === currentTestQuizData.questions.length - 1 ? 'inline-block' : 'none';
+}
+
+function selectTestQuizOption(optionIndex) {
+  const options = document.querySelectorAll('.quiz-option');
+  options.forEach(option => {
+    option.classList.remove('selected');
+    option.style.background = '';
+    option.style.outlineStyle = 'auto';
+  });
+  
+  const selectedOption = document.querySelector(`.quiz-option:nth-child(${optionIndex + 1})`);
+  selectedOption.classList.add('selected');
+  selectedOption.style.background = '#6c4fc1';
+  selectedOption.style.outlineStyle = 'dashed';
+  
+  // Check the radio button
+  const radioButton = document.getElementById(`test-option-${optionIndex}`);
+  if (radioButton) {
+    radioButton.checked = true;
+  }
+  
+  testUserAnswers[currentTestQuizIndex] = optionIndex;
+}
+
+function nextTestQuestion() {
+  saveCurrentTestAnswer();
+  currentTestQuizIndex++;
+  displayTestQuizQuestion();
+}
+
+function previousTestQuestion() {
+  saveCurrentTestAnswer();
+  currentTestQuizIndex--;
+  displayTestQuizQuestion();
+}
+
+function saveCurrentTestAnswer() {
+  const question = currentTestQuizData.questions[currentTestQuizIndex];
+  
+  if (question.type === 'multiple-choice' || question.type === 'true-false') {
+    const selectedOption = document.querySelector('input[name="test-quiz-answer"]:checked');
+    if (selectedOption) {
+      testUserAnswers[currentTestQuizIndex] = parseInt(selectedOption.value);
+    }
+  } else {
+    const textAnswer = document.getElementById('test-quiz-text-answer');
+    if (textAnswer) {
+      testUserAnswers[currentTestQuizIndex] = textAnswer.value;
+    }
+  }
+}
+
+function submitTestQuiz() {
+  if (testQuizTimer) {
+    clearInterval(testQuizTimer);
+  }
+  
+  saveCurrentTestAnswer();
+  
+  // Grade the test quiz
+  let correctAnswers = 0;
+  let totalQuestions = currentTestQuizData.questions.length;
+  
+  const detailedResults = currentTestQuizData.questions.map((question, index) => {
+    const userAnswer = testUserAnswers[index];
+    let isCorrect = false;
+    
+    if (question.type === 'multiple-choice' || question.type === 'true-false') {
+      isCorrect = userAnswer === question.correctAnswer;
+    } else {
+      // For text-based questions, do a simple comparison
+      isCorrect = userAnswer && userAnswer.toLowerCase().trim() === question.correctAnswer.toLowerCase().trim();
+    }
+    
+    if (isCorrect) correctAnswers++;
+    
+    return {
+      question: question.text,
+      userAnswer: userAnswer,
+      correctAnswer: question.correctAnswer,
+      isCorrect: isCorrect,
+      type: question.type,
+      options: question.options
+    };
+  });
+  
+  const score = (correctAnswers / totalQuestions) * 100;
+  
+  // Display test results
+  displayTestResults(score, correctAnswers, totalQuestions, detailedResults);
+}
+
+function displayTestResults(score, correctAnswers, totalQuestions, detailedResults) {
+  const modal = document.createElement('div');
+  modal.className = 'modal';
+  modal.id = 'testResultsModal';
+  modal.style.display = 'flex';
+  
+  modal.innerHTML = `
+    <div class="modal-content" style="max-width: 800px;">
+      <div class="modal-header">
+        <h3 class="modal-title">Test Results: ${currentTestQuizData.title}</h3>
+        <button class="modal-close" onclick="closeModal('testResultsModal'); this.parentElement.parentElement.parentElement.remove();">&times;</button>
+      </div>
+      
+      <div style="padding: 20px;">
+        <div style="margin-bottom: 20px; padding: 16px; background: #f8f9fa; border-radius: 8px; text-align: center;">
+          <h2 style="margin: 0; color: ${score >= 70 ? '#28a745' : score >= 50 ? '#ffc107' : '#dc3545'};">${score.toFixed(1)}%</h2>
+          <p style="margin: 8px 0 0 0; color: #666;">Score: ${correctAnswers}/${totalQuestions} correct</p>
+        </div>
+        
+        <div style="margin-bottom: 20px;">
+          <h4 style="color: #222c5c;">Question Review</h4>
+          <div style="max-height: 400px; overflow-y: auto;">
+            ${detailedResults.map((result, index) => `
+              <div style="margin-bottom: 16px; padding: 12px; border: 1px solid #ddd; border-radius: 8px; background: #fff;">
+                <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+                  <span style="font-weight: bold; color: #222c5c;">Question ${index + 1}</span>
+                  <span class="material-icons" style="color: ${result.isCorrect ? '#28a745' : '#dc3545'}; font-size: 18px;">
+                    ${result.isCorrect ? 'check_circle' : 'cancel'}
+                  </span>
+                </div>
+                <p style="margin-bottom: 8px; font-weight: 500;">${result.question}</p>
+                ${generateTestResultReview(result)}
+              </div>
+            `).join('')}
+          </div>
+        </div>
+        
+        <div class="feature-actions">
+          <button class="action-btn" onclick="testQuiz('${currentTestQuizData.id}')">Test Again</button>
+          <button class="action-btn secondary" onclick="closeModal('testResultsModal'); this.parentElement.parentElement.parentElement.remove();">Close</button>
+        </div>
+      </div>
+    </div>
+  `;
+  
+  document.body.appendChild(modal);
+  
+  // Close the test modal
+  closeModal('quizTestModal');
+}
+
+function generateTestResultReview(result) {
+  let reviewHtml = '';
+  
+  if (result.type === 'multiple-choice') {
+    reviewHtml += '<div style="margin-bottom: 12px;">';
+    result.options.forEach((option, index) => {
+      const isUserAnswer = result.userAnswer === index;
+      const isCorrectAnswer = result.correctAnswer === index;
+      
+      let optionStyle = 'padding: 6px 10px; margin: 2px 0; border-radius: 4px; border: 1px solid #ddd; font-size: 14px;';
+      
+      if (isCorrectAnswer) {
+        optionStyle += ' background: #d4edda; border-color: #28a745; color: #155724;';
+      } else if (isUserAnswer && !result.isCorrect) {
+        optionStyle += ' background: #f8d7da; border-color: #dc3545; color: #721c24;';
+      }
+      
+      reviewHtml += `
+        <div style="${optionStyle}">
+          <span style="margin-right: 8px;">${isUserAnswer ? '●' : '○'}</span>
+          ${option}
+          ${isCorrectAnswer ? ' <span style="font-weight: bold;">(Correct)</span>' : ''}
+          ${isUserAnswer && !result.isCorrect ? ' <span style="font-weight: bold;">(Your Answer)</span>' : ''}
+        </div>
+      `;
+    });
+    reviewHtml += '</div>';
+  } else if (result.type === 'true-false') {
+    const options = ['True', 'False'];
+    reviewHtml += '<div style="margin-bottom: 12px;">';
+    options.forEach((option, index) => {
+      const isUserAnswer = result.userAnswer === index;
+      const isCorrectAnswer = result.correctAnswer === index;
+      
+      let optionStyle = 'padding: 6px 10px; margin: 2px 0; border-radius: 4px; border: 1px solid #ddd; font-size: 14px;';
+      
+      if (isCorrectAnswer) {
+        optionStyle += ' background: #d4edda; border-color: #28a745; color: #155724;';
+      } else if (isUserAnswer && !result.isCorrect) {
+        optionStyle += ' background: #f8d7da; border-color: #dc3545; color: #721c24;';
+      }
+      
+      reviewHtml += `
+        <div style="${optionStyle}">
+          <span style="margin-right: 8px;">${isUserAnswer ? '●' : '○'}</span>
+          ${option}
+          ${isCorrectAnswer ? ' <span style="font-weight: bold;">(Correct)</span>' : ''}
+          ${isUserAnswer && !result.isCorrect ? ' <span style="font-weight: bold;">(Your Answer)</span>' : ''}
+        </div>
+      `;
+    });
+    reviewHtml += '</div>';
+  } else {
+    reviewHtml += `
+      <div style="margin-bottom: 12px;">
+        <div style="margin-bottom: 8px;">
+          <strong>Your Answer:</strong>
+          <span style="padding: 4px 8px; background: ${result.isCorrect ? '#d4edda' : '#f8d7da'}; 
+                       border-radius: 4px; color: ${result.isCorrect ? '#155724' : '#721c24'}; font-size: 14px;">
+            ${result.userAnswer || 'No answer provided'}
+          </span>
+        </div>
+        <div>
+          <strong>Correct Answer:</strong>
+          <span style="padding: 4px 8px; background: #d4edda; border-radius: 4px; color: #155724; font-size: 14px;">
+            ${result.correctAnswer}
+          </span>
+        </div>
+      </div>
+    `;
+  }
+  
+  return reviewHtml;
 }
 
 function loadAssessmentOverview() {
