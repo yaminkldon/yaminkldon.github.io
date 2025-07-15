@@ -1025,7 +1025,7 @@
       </form>
       
       <!-- Token Display Area -->
-      <div id="tokenDisplay" style="display: none; margin-top: 20px; padding: 16px; background: #f8f9fa; border-radius: 8px; border: 1px solid #e0e0e0;">
+      <div id="tokenDisplay" style="display: none; margin-top: 20px; padding: 16px; border-radius: 8px; border: 1px solid #e0e0e0;">
         <h4 style="margin-top: 0; color: #28a745;">Token Generated Successfully!</h4>
         <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
           <input type="text" id="generatedToken" readonly style=" padding: 8px; border: 1px solid #ddd; border-radius: 4px; background: #fff; font-family: monospace; font-size: 14px;">
@@ -1269,6 +1269,12 @@
         </select>
         <select class="form-input" id="assignmentFilter" onchange="filterSubmissions()" style="width: 200px; display: inline-block; margin-left: 10px;">
           <option value="all">All Assignments</option>
+        </select>
+        <select class="form-input" id="sortFilter" onchange="filterSubmissions()" style="width: 200px; display: inline-block; margin-left: 10px;">
+          <option value="newest">Newest First</option>
+          <option value="oldest">Oldest First</option>
+          <option value="student">Student Name</option>
+          <option value="score">Score</option>
         </select>
       </div>
       

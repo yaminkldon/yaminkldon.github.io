@@ -5358,30 +5358,67 @@ function loadSubmissions() {
       });
     }
     
-    // Load quiz submissions
+    // Load quiz submissions - group by quiz and student
     db.ref('quizSubmissions').once('value').then(quizSnapshot => {
       if (quizSnapshot.exists()) {
+        const quizSubmissions = {};
+        
         quizSnapshot.forEach(child => {
           const quizSubmission = child.val();
+          const key = `${quizSubmission.quizId}_${quizSubmission.studentId}`;
+          
+          if (!quizSubmissions[key]) {
+            quizSubmissions[key] = {
+              quizId: quizSubmission.quizId,
+              studentId: quizSubmission.studentId,
+              studentEmail: quizSubmission.studentEmail,
+              attempts: []
+            };
+          }
+          
+          quizSubmissions[key].attempts.push({
+            id: child.key,
+            ...quizSubmission
+          });
+        });
+        
+        // Process grouped quiz submissions
+        let processedQuizzes = 0;
+        const totalQuizzes = Object.keys(quizSubmissions).length;
+        
+        if (totalQuizzes === 0) {
+          displayAllSubmissions(allSubmissions, container);
+          return;
+        }
+        
+        Object.values(quizSubmissions).forEach(groupedSubmission => {
+          // Sort attempts by submission date (newest first)
+          groupedSubmission.attempts.sort((a, b) => b.submittedAt - a.submittedAt);
+          
           // Get quiz title
-          db.ref(`quizzes/${quizSubmission.quizId}`).once('value').then(quizData => {
+          db.ref(`quizzes/${groupedSubmission.quizId}`).once('value').then(quizData => {
             if (quizData.exists()) {
               const quiz = quizData.val();
-              allSubmissions.push({
-                id: child.key,
-                type: 'quiz',
-                data: quizSubmission,
-                submittedAt: quizSubmission.submittedAt,
-                graded: quizSubmission.autoGraded || false,
-                studentName: quizSubmission.studentEmail || 'Unknown Student',
-                title: quiz.title,
-                grade: quizSubmission.score ? quizSubmission.score.toFixed(1) : 'N/A',
-                maxPoints: '100',
-                correctAnswers: quizSubmission.correctAnswers,
-                totalQuestions: quizSubmission.totalQuestions
-              });
+              const latestAttempt = groupedSubmission.attempts[0];
               
-              // Update container after all submissions are loaded
+              allSubmissions.push({
+                id: `quiz_${groupedSubmission.quizId}_${groupedSubmission.studentId}`,
+                type: 'quiz',
+                data: groupedSubmission,
+                submittedAt: latestAttempt.submittedAt,
+                graded: latestAttempt.autoGraded || false,
+                studentName: groupedSubmission.studentEmail || 'Unknown Student',
+                title: quiz.title,
+                grade: latestAttempt.score ? latestAttempt.score.toFixed(1) : 'N/A',
+                maxPoints: '100',
+                correctAnswers: latestAttempt.correctAnswers,
+                totalQuestions: latestAttempt.totalQuestions,
+                attemptCount: groupedSubmission.attempts.length
+              });
+            }
+            
+            processedQuizzes++;
+            if (processedQuizzes === totalQuizzes) {
               displayAllSubmissions(allSubmissions, container);
             }
           });
@@ -5393,7 +5430,7 @@ function loadSubmissions() {
     });
   });
   
-  // Load assignment filter options
+  // Load assignment and quiz filter options
   loadAssignmentFilterOptions();
 }
 
@@ -5405,10 +5442,54 @@ function displayAllSubmissions(submissions, container) {
     return;
   }
   
-  // Sort by submission date (newest first)
-  submissions.sort((a, b) => b.submittedAt - a.submittedAt);
+  // Apply filters
+  const statusFilter = document.getElementById('gradingFilter').value;
+  const assignmentFilter = document.getElementById('assignmentFilter').value;
+  const sortFilter = document.getElementById('sortFilter').value;
   
-  submissions.forEach(submission => {
+  let filteredSubmissions = submissions.filter(submission => {
+    // Status filter
+    if (statusFilter !== 'all') {
+      if (statusFilter === 'pending' && submission.graded) return false;
+      if (statusFilter === 'graded' && !submission.graded) return false;
+    }
+    
+    // Assignment/Quiz filter
+    if (assignmentFilter !== 'all') {
+      if (submission.type === 'assignment' && submission.data.assignmentId !== assignmentFilter) return false;
+      if (submission.type === 'quiz' && submission.data.quizId !== assignmentFilter) return false;
+    }
+    
+    return true;
+  });
+  
+  // Apply sorting
+  switch (sortFilter) {
+    case 'newest':
+      filteredSubmissions.sort((a, b) => b.submittedAt - a.submittedAt);
+      break;
+    case 'oldest':
+      filteredSubmissions.sort((a, b) => a.submittedAt - b.submittedAt);
+      break;
+    case 'student':
+      filteredSubmissions.sort((a, b) => {
+        const emailA = a.data.studentEmail || '';
+        const emailB = b.data.studentEmail || '';
+        return emailA.localeCompare(emailB);
+      });
+      break;
+    case 'score':
+      filteredSubmissions.sort((a, b) => {
+        const scoreA = a.data.score || 0;
+        const scoreB = b.data.score || 0;
+        return scoreB - scoreA; // Highest score first
+      });
+      break;
+    default:
+      filteredSubmissions.sort((a, b) => b.submittedAt - a.submittedAt);
+  }
+  
+  filteredSubmissions.forEach(submission => {
     const submissionHtml = createSubmissionItem(submission.id, submission);
     container.insertAdjacentHTML('beforeend', submissionHtml);
   });
@@ -5460,6 +5541,11 @@ function createSubmissionItem(submissionId, submission) {
     }
   }
   
+  let attemptInfo = '';
+  if (submission.type === 'quiz' && submission.attemptCount) {
+    attemptInfo = `<p><strong>Attempts:</strong> ${submission.attemptCount}</p>`;
+  }
+  
   return `
     <div class="submission-item" onclick="openGradeSubmissionModal('${submissionId}', '${submission.type}')">
       <div class="submission-header">
@@ -5472,6 +5558,7 @@ function createSubmissionItem(submissionId, submission) {
       <p><strong>${typeLabel}:</strong> ${submission.title}</p>
       <p><strong>Submitted:</strong> ${new Date(submission.submittedAt).toLocaleDateString()}</p>
       ${gradeDisplay}
+      ${attemptInfo}
     </div>
   `;
 }
@@ -5486,7 +5573,13 @@ function filterSubmissions() {
 
 function openGradeSubmissionModal(submissionId, type = 'assignment') {
   if (type === 'quiz') {
-    openQuizSubmissionModal(submissionId);
+    // Extract quiz ID and student ID from the grouped submission ID
+    const parts = submissionId.split('_');
+    if (parts.length >= 3) {
+      const quizId = parts[1];
+      const studentId = parts[2];
+      openQuizSubmissionModal(quizId, studentId);
+    }
   } else {
     window.currentSubmissionId = submissionId; // Store for later use
     document.getElementById('gradeSubmissionModal').style.display = 'flex';
@@ -5494,66 +5587,80 @@ function openGradeSubmissionModal(submissionId, type = 'assignment') {
   }
 }
 
-function openQuizSubmissionModal(submissionId) {
-  db.ref(`quizSubmissions/${submissionId}`).once('value').then(snapshot => {
+function openQuizSubmissionModal(quizId, studentId) {
+  // Get all attempts for this quiz and student
+  db.ref('quizSubmissions').orderByChild('quizId').equalTo(quizId).once('value').then(snapshot => {
     if (snapshot.exists()) {
-      const submission = snapshot.val();
+      const attempts = [];
+      
+      snapshot.forEach(child => {
+        const submission = child.val();
+        if (submission.studentId === studentId) {
+          attempts.push({
+            id: child.key,
+            ...submission
+          });
+        }
+      });
+      
+      if (attempts.length === 0) {
+        showNotification('No submissions found for this quiz', 'info');
+        return;
+      }
+      
+      // Sort attempts by submission date (newest first for display, but we'll show attempt 1 by default)
+      attempts.sort((a, b) => a.submittedAt - b.submittedAt);
       
       // Get quiz details
-      db.ref(`quizzes/${submission.quizId}`).once('value').then(quizSnapshot => {
+      db.ref(`quizzes/${quizId}`).once('value').then(quizSnapshot => {
         if (quizSnapshot.exists()) {
           const quiz = quizSnapshot.val();
-          displayQuizSubmissionModal(submissionId, submission, quiz);
+          displayQuizSubmissionModal(attempts, quiz);
         }
       });
     }
   });
 }
 
-function displayQuizSubmissionModal(submissionId, submission, quiz) {
+function displayQuizSubmissionModal(attempts, quiz) {
   const modal = document.createElement('div');
   modal.className = 'modal';
   modal.id = 'quizSubmissionModal';
   modal.style.display = 'flex';
   
+  // Show first attempt by default
+  let currentAttemptIndex = 0;
+  
   modal.innerHTML = `
-    <div class="modal-content" style="max-width: 800px;">
+    <div class="modal-content" style="max-width: 900px;">
       <div class="modal-header">
-        <h3 class="modal-title">Quiz Submission: ${quiz.title}</h3>
+        <h3 class="modal-title">Quiz Submissions: ${quiz.title}</h3>
         <button class="modal-close" onclick="closeModal('quizSubmissionModal'); this.parentElement.parentElement.parentElement.remove();">&times;</button>
       </div>
       
       <div style="padding: 20px;">
         <div style="margin-bottom: 20px; padding: 16px; background: #f8f9fa; border-radius: 8px;">
-          <h4 style="margin: 0 0 8px 0; color: #222c5c;">Submission Details</h4>
-          <p style="margin: 4px 0;"><strong>Student:</strong> ${submission.studentEmail}</p>
-          <p style="margin: 4px 0;"><strong>Score:</strong> ${submission.score ? submission.score.toFixed(1) : 'N/A'}%</p>
-          <p style="margin: 4px 0;"><strong>Correct Answers:</strong> ${submission.correctAnswers}/${submission.totalQuestions}</p>
-          <p style="margin: 4px 0;"><strong>Submitted:</strong> ${new Date(submission.submittedAt).toLocaleString()}</p>
-          <p style="margin: 4px 0;"><strong>Auto-graded:</strong> ${submission.autoGraded ? 'Yes' : 'No'}</p>
+          <h4 style="margin: 0 0 8px 0; color: #222c5c;">Student: ${attempts[0].studentEmail}</h4>
+          <p style="margin: 4px 0;"><strong>Total Attempts:</strong> ${attempts.length}</p>
         </div>
         
         <div style="margin-bottom: 20px;">
-          <h4 style="color: #222c5c;">Question Review</h4>
-          <div style="max-height: 400px; overflow-y: auto;">
-            ${quiz.questions.map((question, index) => {
-              const userAnswer = submission.answers[index];
-              const isCorrect = checkQuizAnswer(question, userAnswer);
-              
-              return `
-                <div style="margin-bottom: 16px; padding: 12px; border: 1px solid #ddd; border-radius: 8px; background: #fff;">
-                  <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
-                    <span style="font-weight: bold; color: #222c5c;">Question ${index + 1}</span>
-                    <span class="material-icons" style="color: ${isCorrect ? '#28a745' : '#dc3545'}; font-size: 18px;">
-                      ${isCorrect ? 'check_circle' : 'cancel'}
-                    </span>
-                  </div>
-                  <p style="margin-bottom: 8px; font-weight: 500;">${question.text}</p>
-                  ${generateQuizSubmissionReview(question, userAnswer, isCorrect)}
-                </div>
-              `;
-            }).join('')}
+          <h4 style="color: #222c5c;">Select Attempt to View:</h4>
+          <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+            ${attempts.map((attempt, index) => `
+              <button class="action-btn ${index === 0 ? '' : 'secondary'}" 
+                      onclick="selectAttempt(${index})"
+                      id="attempt-btn-${index}"
+                      style="padding: 8px 16px;">
+                Attempt ${index + 1}
+                <br><small style="font-size: 11px;">${attempt.score ? attempt.score.toFixed(1) : 'N/A'}%</small>
+              </button>
+            `).join('')}
           </div>
+        </div>
+        
+        <div id="attemptContent">
+          <!-- Attempt content will be loaded here -->
         </div>
         
         <div class="feature-actions">
@@ -5564,6 +5671,63 @@ function displayQuizSubmissionModal(submissionId, submission, quiz) {
   `;
   
   document.body.appendChild(modal);
+  
+  // Store attempts data and quiz data globally for the modal
+  window.quizModalAttempts = attempts;
+  window.quizModalQuiz = quiz;
+  
+  // Show first attempt by default
+  selectAttempt(0);
+}
+
+function selectAttempt(index) {
+  const attempts = window.quizModalAttempts;
+  const quiz = window.quizModalQuiz;
+  const selectedAttempt = attempts[index];
+  
+  // Update button styles
+  attempts.forEach((_, i) => {
+    const btn = document.getElementById(`attempt-btn-${i}`);
+    if (btn) {
+      btn.className = i === index ? 'action-btn' : 'action-btn secondary';
+    }
+  });
+  
+  // Display attempt content
+  const attemptContent = document.getElementById('attemptContent');
+  
+  attemptContent.innerHTML = `
+    <div style="margin-bottom: 20px; padding: 16px; background: #f8f9fa; border-radius: 8px;">
+      <h4 style="margin: 0 0 8px 0; color: #222c5c;">Attempt ${index + 1} Details</h4>
+      <p style="margin: 4px 0;"><strong>Score:</strong> ${selectedAttempt.score ? selectedAttempt.score.toFixed(1) : 'N/A'}%</p>
+      <p style="margin: 4px 0;"><strong>Correct Answers:</strong> ${selectedAttempt.correctAnswers}/${selectedAttempt.totalQuestions}</p>
+      <p style="margin: 4px 0;"><strong>Submitted:</strong> ${new Date(selectedAttempt.submittedAt).toLocaleString()}</p>
+      <p style="margin: 4px 0;"><strong>Auto-graded:</strong> ${selectedAttempt.autoGraded ? 'Yes' : 'No'}</p>
+    </div>
+    
+    <div style="margin-bottom: 20px;">
+      <h4 style="color: #222c5c;">Question Review</h4>
+      <div style="max-height: 400px; overflow-y: auto;">
+        ${quiz.questions.map((question, qIndex) => {
+          const userAnswer = selectedAttempt.answers[qIndex];
+          const isCorrect = checkQuizAnswer(question, userAnswer);
+          
+          return `
+            <div style="margin-bottom: 16px; padding: 12px; border: 1px solid #ddd; border-radius: 8px; background: #fff;">
+              <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+                <span style="font-weight: bold; color: #222c5c;">Question ${qIndex + 1}</span>
+                <span class="material-icons" style="color: ${isCorrect ? '#28a745' : '#dc3545'}; font-size: 18px;">
+                  ${isCorrect ? 'check_circle' : 'cancel'}
+                </span>
+              </div>
+              <p style="margin-bottom: 8px; font-weight: 500;">${question.text}</p>
+              ${generateQuizSubmissionReview(question, userAnswer, isCorrect)}
+            </div>
+          `;
+        }).join('')}
+      </div>
+    </div>
+  `;
 }
 
 function checkQuizAnswer(question, userAnswer) {
