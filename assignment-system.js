@@ -300,6 +300,30 @@ class AssignmentSubmissionSystem {
     const textContent = document.getElementById('textSubmission')?.value || '';
     const uploadedFiles = document.querySelectorAll('.uploaded-file-item');
     
+    // Check for incomplete assignment submission
+    const incompleteFields = [];
+    
+    // Check if assignment requires text content
+    const textSubmissionElement = document.getElementById('textSubmission');
+    if (textSubmissionElement && !textContent.trim()) {
+      incompleteFields.push('Text content');
+    }
+    
+    // Check if assignment requires file upload
+    const fileUploadArea = document.getElementById('fileUploadArea');
+    if (fileUploadArea && uploadedFiles.length === 0) {
+      incompleteFields.push('File upload');
+    }
+    
+    // If there are incomplete fields, show confirmation
+    if (incompleteFields.length > 0) {
+      const confirmMessage = `You have ${incompleteFields.length} incomplete field(s):\n\n${incompleteFields.join(', ')}\n\nAre you sure you want to submit the assignment with incomplete fields?`;
+      
+      if (!confirm(confirmMessage)) {
+        return; // Don't submit if user cancels
+      }
+    }
+    
     if (!textContent && uploadedFiles.length === 0) {
       alert('Please provide either text content or upload a file');
       return;
