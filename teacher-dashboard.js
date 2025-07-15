@@ -7358,6 +7358,7 @@ async function editQuiz(quizId) {
     await loadUnitsForQuiz();
 const unitSelect = document.getElementById('quizUnit');
 if (unitSelect && quiz.unit) {
+  console.log('Quiz unit found:', quiz.unit);
   unitSelect.value = quiz.unit;
 }
 
