@@ -7313,7 +7313,7 @@ function editAssessment(assessmentId, type) {
   }
 }
 
-function editQuiz(quizId) {
+async function editQuiz(quizId) {
   // Close existing modals first to prevent layering issues
   const existingModals = ['assessmentsListModal', 'quizDetailsModal'];
   existingModals.forEach(modalId => {
@@ -7322,91 +7322,93 @@ function editQuiz(quizId) {
       modal.remove();
     }
   });
-  
-  db.ref(`quizzes/${quizId}`).once('value').then(snapshot => {
-    if (snapshot.exists()) {
-      const quiz = snapshot.val();
-      
-      // Load units first, then populate form
-      loadUnitsForQuiz().then(() => {
-        // Add a small delay to ensure DOM is updated
-        setTimeout(() => {
-          // Populate the create quiz modal with existing data
-          document.getElementById('quizTitle').value = quiz.title;
-          document.getElementById('quizDescription').value = quiz.description || '';
-          document.getElementById('quizUnit').value = quiz.unit;
-          document.getElementById('quizTimeLimit').value = quiz.timeLimit;
-          document.getElementById('quizAttempts').value = quiz.maxAttempts;
-          
-          // Store quiz ID for updating
-          window.editingQuizId = quizId;
-          
-          // Populate questions
-          const questionsContainer = document.getElementById('questionsContainer');
-          questionsContainer.innerHTML = '';
-          
-          quiz.questions.forEach((question, index) => {
-            const questionNumber = index + 1;
-            let optionsHtml = '';
-            
-            if (question.type === 'multiple-choice') {
-              question.options.forEach((option, optIndex) => {
-                optionsHtml += `
-                  <div class="option-item">
-                    <input type="radio" name="correct-${questionNumber}" value="${optIndex}" ${question.correctAnswer === optIndex ? 'checked' : ''}>
-                    <input type="text" class="form-input option-text" value="${option}" required>
-                  </div>
-                `;
-              });
-            } else if (question.type === 'true-false') {
-              optionsHtml = `
-                <div class="option-item">
-                  <input type="radio" name="correct-${questionNumber}" value="0" ${question.correctAnswer === 0 ? 'checked' : ''}>
-                  <span>True</span>
-                </div>
-                <div class="option-item">
-                  <input type="radio" name="correct-${questionNumber}" value="1" ${question.correctAnswer === 1 ? 'checked' : ''}>
-                  <span>False</span>
-                </div>
-              `;
-            } else {
-              optionsHtml = `<input type="text" class="form-input" value="${question.correctAnswer || ''}" placeholder="Correct answer">`;
-            }
-            
-            questionsContainer.innerHTML += `
-              <div class="question-item" data-question="${questionNumber}">
-                <div class="question-header">
-                  <span>Question ${questionNumber}</span>
-                  <select class="question-type" onchange="updateQuestionType(this)">
-                    <option value="multiple-choice" ${question.type === 'multiple-choice' ? 'selected' : ''}>Multiple Choice</option>
-                    <option value="fill-blank" ${question.type === 'fill-blank' ? 'selected' : ''}>Fill in the Blank</option>
-                    <option value="true-false" ${question.type === 'true-false' ? 'selected' : ''}>True/False</option>
-                    <option value="short-answer" ${question.type === 'short-answer' ? 'selected' : ''}>Short Answer</option>
-                  </select>
-                  ${questionNumber > 1 ? '<button type="button" class="action-btn secondary" onclick="removeQuestion(this)" style="padding: 4px 8px; margin-left: 8px;">Remove</button>' : ''}
-                </div>
-                <div class="question-content">
-                  <input type="text" class="form-input question-text" value="${question.text}" required>
-                  <div class="question-options" id="options-${questionNumber}">
-                    ${optionsHtml}
-                  </div>
-                </div>
-              </div>
-            `;
-          });
-          
-          currentQuizQuestionCount = quiz.questions.length;
-          
-          // Open the modal
-          openModal('createQuizModal');
-          
-          // Update the form submit to handle editing
-          updateQuizFormForEditing();
-        }, 200); // 200ms delay to ensure DOM is updated
-      });
+
+  try {
+    // Wait for quiz data
+    const snapshot = await db.ref(`quizzes/${quizId}`).once('value');
+
+    if (!snapshot.exists()) {
+      console.warn('Quiz does not exist.');
+      return;
     }
-  });
+
+    const quiz = snapshot.val();
+
+    // Wait for units to be loaded
+    await loadUnitsForQuiz();
+
+    // Now populate the form
+    document.getElementById('quizTitle').value = quiz.title || '';
+    document.getElementById('quizDescription').value = quiz.description || '';
+    document.getElementById('quizUnit').value = quiz.unit || '';
+    document.getElementById('quizTimeLimit').value = quiz.timeLimit || '';
+    document.getElementById('quizAttempts').value = quiz.maxAttempts || '';
+
+    window.editingQuizId = quizId;
+
+    const questionsContainer = document.getElementById('questionsContainer');
+    questionsContainer.innerHTML = '';
+
+    quiz.questions.forEach((question, index) => {
+      const questionNumber = index + 1;
+      let optionsHtml = '';
+
+      if (question.type === 'multiple-choice') {
+        question.options.forEach((option, optIndex) => {
+          optionsHtml += `
+            <div class="option-item">
+              <input type="radio" name="correct-${questionNumber}" value="${optIndex}" ${question.correctAnswer === optIndex ? 'checked' : ''}>
+              <input type="text" class="form-input option-text" value="${option}" required>
+            </div>
+          `;
+        });
+      } else if (question.type === 'true-false') {
+        optionsHtml = `
+          <div class="option-item">
+            <input type="radio" name="correct-${questionNumber}" value="0" ${question.correctAnswer === 0 ? 'checked' : ''}>
+            <span>True</span>
+          </div>
+          <div class="option-item">
+            <input type="radio" name="correct-${questionNumber}" value="1" ${question.correctAnswer === 1 ? 'checked' : ''}>
+            <span>False</span>
+          </div>
+        `;
+      } else {
+        optionsHtml = `<input type="text" class="form-input" value="${question.correctAnswer || ''}" placeholder="Correct answer">`;
+      }
+
+      questionsContainer.innerHTML += `
+        <div class="question-item" data-question="${questionNumber}">
+          <div class="question-header">
+            <span>Question ${questionNumber}</span>
+            <select class="question-type" onchange="updateQuestionType(this)">
+              <option value="multiple-choice" ${question.type === 'multiple-choice' ? 'selected' : ''}>Multiple Choice</option>
+              <option value="fill-blank" ${question.type === 'fill-blank' ? 'selected' : ''}>Fill in the Blank</option>
+              <option value="true-false" ${question.type === 'true-false' ? 'selected' : ''}>True/False</option>
+              <option value="short-answer" ${question.type === 'short-answer' ? 'selected' : ''}>Short Answer</option>
+            </select>
+            ${questionNumber > 1 ? '<button type="button" class="action-btn secondary" onclick="removeQuestion(this)" style="padding: 4px 8px; margin-left: 8px;">Remove</button>' : ''}
+          </div>
+          <div class="question-content">
+            <input type="text" class="form-input question-text" value="${question.text}" required>
+            <div class="question-options" id="options-${questionNumber}">
+              ${optionsHtml}
+            </div>
+          </div>
+        </div>
+      `;
+    });
+
+    currentQuizQuestionCount = quiz.questions.length;
+
+    openModal('createQuizModal');
+    updateQuizFormForEditing();
+
+  } catch (error) {
+    console.error('Failed to load quiz:', error);
+  }
 }
+
 
 function updateQuizFormForEditing() {
   const form = document.getElementById('createQuizForm');
