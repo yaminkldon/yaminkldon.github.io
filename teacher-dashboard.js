@@ -5000,12 +5000,12 @@ function loadUnitsForQuiz() {
   const select = document.getElementById('quizUnit');
   if (!select) {
     console.error('Quiz unit select element not found');
-    return;
+    return Promise.resolve();
   }
   
   select.innerHTML = '<option value="">Choose a unit...</option>';
   
-  db.ref('units').once('value').then(snapshot => {
+  return db.ref('units').once('value').then(snapshot => {
     if (snapshot.exists()) {
       snapshot.forEach(child => {
         const unit = child.val();
@@ -6881,6 +6881,25 @@ function previousQuestion() {
 }
 
 function submitQuiz() {
+  // Check for unanswered questions
+  const unansweredQuestions = [];
+  
+  currentQuizData.questions.forEach((question, index) => {
+    if (userAnswers[index] === undefined || userAnswers[index] === null || userAnswers[index] === '') {
+      unansweredQuestions.push(index + 1);
+    }
+  });
+  
+  // If there are unanswered questions, show confirmation
+  if (unansweredQuestions.length > 0) {
+    const questionNumbers = unansweredQuestions.join(', ');
+    const confirmMessage = `You have ${unansweredQuestions.length} unanswered question(s):\n\nQuestion number(s): ${questionNumbers}\n\nAre you sure you want to submit the quiz with unanswered questions?`;
+    
+    if (!confirm(confirmMessage)) {
+      return; // Don't submit if user cancels
+    }
+  }
+  
   if (currentQuizTimer) {
     clearInterval(currentQuizTimer);
   }
@@ -7300,81 +7319,93 @@ function editAssessment(assessmentId, type) {
 }
 
 function editQuiz(quizId) {
+  // Close existing modals first to prevent layering issues
+  const existingModals = ['assessmentsListModal', 'quizDetailsModal'];
+  existingModals.forEach(modalId => {
+    const modal = document.getElementById(modalId);
+    if (modal) {
+      modal.remove();
+    }
+  });
+  
   db.ref(`quizzes/${quizId}`).once('value').then(snapshot => {
     if (snapshot.exists()) {
       const quiz = snapshot.val();
       
-      // Populate the create quiz modal with existing data
-      document.getElementById('quizTitle').value = quiz.title;
-      document.getElementById('quizDescription').value = quiz.description || '';
-      document.getElementById('quizUnit').value = quiz.unit;
-      document.getElementById('quizTimeLimit').value = quiz.timeLimit;
-      document.getElementById('quizAttempts').value = quiz.maxAttempts;
-      
-      // Store quiz ID for updating
-      window.editingQuizId = quizId;
-      
-      // Populate questions
-      const questionsContainer = document.getElementById('questionsContainer');
-      questionsContainer.innerHTML = '';
-      
-      quiz.questions.forEach((question, index) => {
-        const questionNumber = index + 1;
-        let optionsHtml = '';
+      // Load units first, then populate form
+      loadUnitsForQuiz().then(() => {
+        // Populate the create quiz modal with existing data
+        document.getElementById('quizTitle').value = quiz.title;
+        document.getElementById('quizDescription').value = quiz.description || '';
+        document.getElementById('quizUnit').value = quiz.unit;
+        document.getElementById('quizTimeLimit').value = quiz.timeLimit;
+        document.getElementById('quizAttempts').value = quiz.maxAttempts;
         
-        if (question.type === 'multiple-choice') {
-          question.options.forEach((option, optIndex) => {
-            optionsHtml += `
+        // Store quiz ID for updating
+        window.editingQuizId = quizId;
+        
+        // Populate questions
+        const questionsContainer = document.getElementById('questionsContainer');
+        questionsContainer.innerHTML = '';
+        
+        quiz.questions.forEach((question, index) => {
+          const questionNumber = index + 1;
+          let optionsHtml = '';
+          
+          if (question.type === 'multiple-choice') {
+            question.options.forEach((option, optIndex) => {
+              optionsHtml += `
+                <div class="option-item">
+                  <input type="radio" name="correct-${questionNumber}" value="${optIndex}" ${question.correctAnswer === optIndex ? 'checked' : ''}>
+                  <input type="text" class="form-input option-text" value="${option}" required>
+                </div>
+              `;
+            });
+          } else if (question.type === 'true-false') {
+            optionsHtml = `
               <div class="option-item">
-                <input type="radio" name="correct-${questionNumber}" value="${optIndex}" ${question.correctAnswer === optIndex ? 'checked' : ''}>
-                <input type="text" class="form-input option-text" value="${option}" required>
+                <input type="radio" name="correct-${questionNumber}" value="0" ${question.correctAnswer === 0 ? 'checked' : ''}>
+                <span>True</span>
+              </div>
+              <div class="option-item">
+                <input type="radio" name="correct-${questionNumber}" value="1" ${question.correctAnswer === 1 ? 'checked' : ''}>
+                <span>False</span>
               </div>
             `;
-          });
-        } else if (question.type === 'true-false') {
-          optionsHtml = `
-            <div class="option-item">
-              <input type="radio" name="correct-${questionNumber}" value="0" ${question.correctAnswer === 0 ? 'checked' : ''}>
-              <span>True</span>
-            </div>
-            <div class="option-item">
-              <input type="radio" name="correct-${questionNumber}" value="1" ${question.correctAnswer === 1 ? 'checked' : ''}>
-              <span>False</span>
-            </div>
-          `;
-        } else {
-          optionsHtml = `<input type="text" class="form-input" value="${question.correctAnswer || ''}" placeholder="Correct answer">`;
-        }
-        
-        questionsContainer.innerHTML += `
-          <div class="question-item" data-question="${questionNumber}">
-            <div class="question-header">
-              <span>Question ${questionNumber}</span>
-              <select class="question-type" onchange="updateQuestionType(this)">
-                <option value="multiple-choice" ${question.type === 'multiple-choice' ? 'selected' : ''}>Multiple Choice</option>
-                <option value="fill-blank" ${question.type === 'fill-blank' ? 'selected' : ''}>Fill in the Blank</option>
-                <option value="true-false" ${question.type === 'true-false' ? 'selected' : ''}>True/False</option>
-                <option value="short-answer" ${question.type === 'short-answer' ? 'selected' : ''}>Short Answer</option>
-              </select>
-              ${questionNumber > 1 ? '<button type="button" class="action-btn secondary" onclick="removeQuestion(this)" style="padding: 4px 8px; margin-left: 8px;">Remove</button>' : ''}
-            </div>
-            <div class="question-content">
-              <input type="text" class="form-input question-text" value="${question.text}" required>
-              <div class="question-options" id="options-${questionNumber}">
-                ${optionsHtml}
+          } else {
+            optionsHtml = `<input type="text" class="form-input" value="${question.correctAnswer || ''}" placeholder="Correct answer">`;
+          }
+          
+          questionsContainer.innerHTML += `
+            <div class="question-item" data-question="${questionNumber}">
+              <div class="question-header">
+                <span>Question ${questionNumber}</span>
+                <select class="question-type" onchange="updateQuestionType(this)">
+                  <option value="multiple-choice" ${question.type === 'multiple-choice' ? 'selected' : ''}>Multiple Choice</option>
+                  <option value="fill-blank" ${question.type === 'fill-blank' ? 'selected' : ''}>Fill in the Blank</option>
+                  <option value="true-false" ${question.type === 'true-false' ? 'selected' : ''}>True/False</option>
+                  <option value="short-answer" ${question.type === 'short-answer' ? 'selected' : ''}>Short Answer</option>
+                </select>
+                ${questionNumber > 1 ? '<button type="button" class="action-btn secondary" onclick="removeQuestion(this)" style="padding: 4px 8px; margin-left: 8px;">Remove</button>' : ''}
+              </div>
+              <div class="question-content">
+                <input type="text" class="form-input question-text" value="${question.text}" required>
+                <div class="question-options" id="options-${questionNumber}">
+                  ${optionsHtml}
+                </div>
               </div>
             </div>
-          </div>
-        `;
+          `;
+        });
+        
+        currentQuizQuestionCount = quiz.questions.length;
+        
+        // Open the modal
+        openModal('createQuizModal');
+        
+        // Update the form submit to handle editing
+        updateQuizFormForEditing();
       });
-      
-      currentQuizQuestionCount = quiz.questions.length;
-      
-      // Open the modal
-      openModal('createQuizModal');
-      
-      // Update the form submit to handle editing
-      updateQuizFormForEditing();
     }
   });
 }
@@ -7592,7 +7623,7 @@ function displayTestQuizQuestion() {
     question.options.forEach((option, index) => {
       questionHtml += `
         <div class="quiz-option" onclick="selectTestQuizOption(${index})" style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px; padding: 12px; border-radius: 4px; cursor: pointer; transition: background-color 0.2s; border: 1px solid #ddd;">
-          <input type="radio" name="test-quiz-answer" value="${index}" id="test-option-${index}" style="margin-right: 8px;">
+          <input type="radio" name="test-quiz-answer" value="${index}" id="test-option-${index}" style="margin-right: 8px; width: 15%;">
           <label for="test-option-${index}" style="cursor: pointer; flex: 1;">${option}</label>
         </div>
       `;
@@ -7683,6 +7714,25 @@ function saveCurrentTestAnswer() {
 }
 
 function submitTestQuiz() {
+  // Check for unanswered questions in test quiz
+  const unansweredQuestions = [];
+  
+  currentTestQuizData.questions.forEach((question, index) => {
+    if (testUserAnswers[index] === undefined || testUserAnswers[index] === null || testUserAnswers[index] === '') {
+      unansweredQuestions.push(index + 1);
+    }
+  });
+  
+  // If there are unanswered questions, show confirmation
+  if (unansweredQuestions.length > 0) {
+    const questionNumbers = unansweredQuestions.join(', ');
+    const confirmMessage = `You have ${unansweredQuestions.length} unanswered question(s):\n\nQuestion number(s): ${questionNumbers}\n\nAre you sure you want to submit the test with unanswered questions?`;
+    
+    if (!confirm(confirmMessage)) {
+      return; // Don't submit if user cancels
+    }
+  }
+  
   if (testQuizTimer) {
     clearInterval(testQuizTimer);
   }
