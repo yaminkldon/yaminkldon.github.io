@@ -5032,6 +5032,8 @@ function loadUnitsForQuiz() {
         unitSelect.appendChild(option);
       });
     }
+    console.log('Quiz unit-1:', quiz.unit);
+    document.getElementById('quizUnit').value = quiz.unit || '';
   }).catch(error => {
     console.error('Error loading units for quiz:', error);
   });
@@ -7358,17 +7360,9 @@ async function editQuiz(quizId) {
     document.getElementById('quizTitle').value = quiz.title || '';
     document.getElementById('quizDescription').value = quiz.description || '';
     console.log('Quiz unit:', quiz.unit);
+    document.getElementById('quizUnit').value = quiz.unit || '';
     document.getElementById('quizTimeLimit').value = quiz.timeLimit || '';
     document.getElementById('quizAttempts').value = quiz.maxAttempts || '';
-    
-const unitSelect = document.getElementById('quizUnit');
-if (!Array.from(unitSelect.options).some(opt => opt.value === quiz.unit)) {
-  const fallbackOption = document.createElement('option');
-  fallbackOption.value = quiz.unit;
-  fallbackOption.text = quiz.unit + ' (Not in unit list)';
-  unitSelect.appendChild(fallbackOption);
-}
-unitSelect.value = quiz.unit;
 
     window.editingQuizId = quizId;
 
