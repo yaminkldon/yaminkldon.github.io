@@ -7440,7 +7440,7 @@ async function editQuiz(quizId) {
 
     currentQuizQuestionCount = quiz.questions.length;
 
-    openModal('createQuizModal');
+    openCreateQuizModal();
     updateQuizFormForEditing();
 
   } catch (error) {
