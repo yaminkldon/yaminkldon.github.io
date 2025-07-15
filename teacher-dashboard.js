@@ -7509,7 +7509,7 @@ function displayTestQuizQuestion() {
     question.options.forEach((option, index) => {
       questionHtml += `
         <div class="quiz-option" onclick="selectTestQuizOption(${index})" style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px; padding: 12px; border-radius: 4px; cursor: pointer; transition: background-color 0.2s; outline-style: auto;">
-          <input type="radio" name="test-quiz-answer" value="${index}" id="test-option-${index}">
+          <input type="radio" name="test-quiz-answer" value="${index}" id="test-option-${index} style="width: 15%;"">
           <label for="test-option-${index}" style="cursor: pointer; flex: 1;">${option}</label>
         </div>
       `;
