@@ -5580,9 +5580,6 @@ function onAssessmentTypeChange() {
   const assessmentTypeFilter = document.getElementById('assessmentTypeFilter').value;
   const specificAssessmentFilter = document.getElementById('specificAssessmentFilter');
   
-  // Reset specific assessment filter - clear immediately
-  specificAssessmentFilter.innerHTML = '<option value="all">All Items</option>';
-  
   if (assessmentTypeFilter === 'assignment') {
     // Load only assignments
     db.ref('assignments').once('value').then(snapshot => {
@@ -5608,8 +5605,6 @@ function onAssessmentTypeChange() {
   } else if (assessmentTypeFilter === 'quiz') {
     // Load only quizzes
     db.ref('quizzes').once('value').then(snapshot => {
-      // Clear again to prevent any race conditions
-      specificAssessmentFilter.innerHTML = '<option value="all">All Items</option>';
       
       if (snapshot.exists()) {
         snapshot.forEach(child => {
