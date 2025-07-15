@@ -1262,20 +1262,48 @@
       </div>
       
       <div class="grading-filters" style="margin-bottom: 20px;">
-        <select class="form-input" id="gradingFilter" onchange="filterSubmissions()" style="width: 200px; display: inline-block;">
-          <option value="all" selected>All Submissions</option>
-          <option value="pending">Pending Grading</option>
-          <option value="graded">Graded</option>
-        </select>
-        <select class="form-input" id="assignmentFilter" onchange="filterSubmissions()" style="width: 200px; display: inline-block; margin-left: 10px;">
-          <option value="all">All Assignments</option>
-        </select>
-        <select class="form-input" id="sortFilter" onchange="filterSubmissions()" style="width: 200px; display: inline-block; margin-left: 10px;">
-          <option value="newest">Newest First</option>
-          <option value="oldest">Oldest First</option>
-          <option value="student">Student Name</option>
-          <option value="score">Score</option>
-        </select>
+        <div style="display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 15px;">
+          <!-- Level 1: Assessment Type -->
+          <select class="form-input" id="assessmentTypeFilter" onchange="onAssessmentTypeChange()" style="width: 150px;">
+            <option value="all">All Types</option>
+            <option value="quiz">Quizzes</option>
+            <option value="assignment">Assignments</option>
+          </select>
+          
+          <!-- Level 2: Specific Assessment -->
+          <select class="form-input" id="specificAssessmentFilter" onchange="filterSubmissions()" style="width: 200px;">
+            <option value="all">All Items</option>
+          </select>
+          
+          <!-- Level 3: Grading Status -->
+          <select class="form-input" id="gradingStatusFilter" onchange="filterSubmissions()" style="width: 150px;">
+            <option value="all">All Status</option>
+            <option value="pending">Pending</option>
+            <option value="graded">Graded</option>
+          </select>
+          
+          <!-- Level 4: Sort Order -->
+          <select class="form-input" id="sortOrderFilter" onchange="filterSubmissions()" style="width: 150px;">
+            <option value="newest">Newest First</option>
+            <option value="oldest">Oldest First</option>
+            <option value="score">Score</option>
+            <option value="student">Student Name</option>
+          </select>
+        </div>
+        
+        <!-- Search Bar -->
+        <div style="display: flex; align-items: center; gap: 10px; justify-content: space-between;">
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <input type="text" class="form-input" id="studentSearchFilter" onkeyup="filterSubmissions()" placeholder="Search by student name..." style="width: 250px;">
+            <button class="action-btn secondary" onclick="clearSearchFilter()" style="padding: 8px 12px;">Clear</button>
+          </div>
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <button class="action-btn" onclick="bulkResetQuizAttempts()" style="padding: 8px 16px; background: #ffc107; color: #212529;" title="Reset attempts for all visible quiz submissions">
+              <span class="material-icons" style="font-size: 16px; margin-right: 4px;">refresh</span>
+              Bulk Reset Attempts
+            </button>
+          </div>
+        </div>
       </div>
       
       <div id="submissionsContainer" style="max-height: 400px; overflow-y: auto;">

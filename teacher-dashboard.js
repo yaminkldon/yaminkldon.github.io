@@ -5568,6 +5568,58 @@ function loadSubmissions() {
   loadAssignmentFilterOptions();
 }
 
+function clearSearchFilter() {
+  const searchInput = document.getElementById('studentSearchFilter');
+  if (searchInput) {
+    searchInput.value = '';
+    filterSubmissions();
+  }
+}
+
+function onAssessmentTypeChange() {
+  const assessmentTypeFilter = document.getElementById('assessmentTypeFilter').value;
+  const specificAssessmentFilter = document.getElementById('specificAssessmentFilter');
+  
+  // Reset specific assessment filter
+  specificAssessmentFilter.innerHTML = '<option value="all">All Items</option>';
+  
+  if (assessmentTypeFilter === 'assignment') {
+    // Load only assignments
+    db.ref('assignments').once('value').then(snapshot => {
+      if (snapshot.exists()) {
+        snapshot.forEach(child => {
+          const assignment = child.val();
+          const option = document.createElement('option');
+          option.value = child.key;
+          option.textContent = `Assignment: ${assignment.title}`;
+          specificAssessmentFilter.appendChild(option);
+        });
+      }
+    });
+  } else if (assessmentTypeFilter === 'quiz') {
+    // Load only quizzes
+    db.ref('quizzes').once('value').then(snapshot => {
+      if (snapshot.exists()) {
+        snapshot.forEach(child => {
+          const quiz = child.val();
+          const option = document.createElement('option');
+          option.value = child.key;
+          option.textContent = `Quiz: ${quiz.title}`;
+          specificAssessmentFilter.appendChild(option);
+        });
+      }
+    });
+  } else {
+    // Load both assignments and quizzes
+    loadAssignmentFilterOptions();
+  }
+  
+  // Apply filters after updating options
+  setTimeout(() => {
+    filterSubmissions();
+  }, 100);
+}
+
 function displayAllSubmissions(submissions, container) {
   container.innerHTML = '';
   
@@ -5577,33 +5629,47 @@ function displayAllSubmissions(submissions, container) {
   }
   
   // Apply filters
-  const statusFilter = document.getElementById('gradingFilter').value;
-  const assignmentFilter = document.getElementById('assignmentFilter').value;
-  const sortFilter = document.getElementById('sortFilter').value;
+  const assessmentTypeFilter = document.getElementById('assessmentTypeFilter').value;
+  const specificAssessmentFilter = document.getElementById('specificAssessmentFilter').value;
+  const gradingStatusFilter = document.getElementById('gradingStatusFilter').value;
+  const sortOrderFilter = document.getElementById('sortOrderFilter').value;
+  const studentSearchFilter = document.getElementById('studentSearchFilter').value.toLowerCase().trim();
   
   let filteredSubmissions = submissions.filter(submission => {
-    // Status filter
-    if (statusFilter !== 'all') {
-      if (statusFilter === 'pending' && submission.graded) return false;
-      if (statusFilter === 'graded' && !submission.graded) return false;
+    // Level 1: Assessment Type filter
+    if (assessmentTypeFilter !== 'all') {
+      if (submission.type !== assessmentTypeFilter) return false;
     }
     
-    // Assignment/Quiz filter
-    if (assignmentFilter !== 'all') {
+    // Level 2: Specific Assessment filter
+    if (specificAssessmentFilter !== 'all') {
       if (submission.type === 'assignment') {
-        // For assignments, check the assignmentId in the submission data
-        if (submission.data.assignmentId !== assignmentFilter) return false;
+        if (submission.data.assignmentId !== specificAssessmentFilter) return false;
       } else if (submission.type === 'quiz') {
-        // For quizzes, check the quizId in the grouped submission data
-        if (submission.data.quizId !== assignmentFilter) return false;
+        if (submission.data.quizId !== specificAssessmentFilter) return false;
+      }
+    }
+    
+    // Level 3: Grading Status filter
+    if (gradingStatusFilter !== 'all') {
+      if (gradingStatusFilter === 'pending' && submission.graded) return false;
+      if (gradingStatusFilter === 'graded' && !submission.graded) return false;
+    }
+    
+    // Search filter: Student name
+    if (studentSearchFilter) {
+      const studentName = (submission.studentName || '').toLowerCase();
+      const studentEmail = (submission.data.studentEmail || '').toLowerCase();
+      if (!studentName.includes(studentSearchFilter) && !studentEmail.includes(studentSearchFilter)) {
+        return false;
       }
     }
     
     return true;
   });
   
-  // Apply sorting
-  switch (sortFilter) {
+  // Apply sorting (Level 4)
+  switch (sortOrderFilter) {
     case 'newest':
       filteredSubmissions.sort((a, b) => b.submittedAt - a.submittedAt);
       break;
@@ -5612,20 +5678,26 @@ function displayAllSubmissions(submissions, container) {
       break;
     case 'student':
       filteredSubmissions.sort((a, b) => {
-        const emailA = a.data.studentEmail || '';
-        const emailB = b.data.studentEmail || '';
-        return emailA.localeCompare(emailB);
+        const nameA = (a.studentName || '').toLowerCase();
+        const nameB = (b.studentName || '').toLowerCase();
+        return nameA.localeCompare(nameB);
       });
       break;
     case 'score':
       filteredSubmissions.sort((a, b) => {
-        const scoreA = a.data.score || 0;
-        const scoreB = b.data.score || 0;
+        const scoreA = parseFloat(a.grade) || 0;
+        const scoreB = parseFloat(b.grade) || 0;
         return scoreB - scoreA; // Highest score first
       });
       break;
     default:
       filteredSubmissions.sort((a, b) => b.submittedAt - a.submittedAt);
+  }
+  
+  // Display filtered and sorted submissions
+  if (filteredSubmissions.length === 0) {
+    container.innerHTML = '<div style="text-align: center; padding: 20px;">No submissions match the current filters.</div>';
+    return;
   }
   
   filteredSubmissions.forEach(submission => {
@@ -5635,34 +5707,54 @@ function displayAllSubmissions(submissions, container) {
 }
 
 function loadAssignmentFilterOptions() {
-  const select = document.getElementById('assignmentFilter');
-  select.innerHTML = '<option value="all">All Submissions</option>';
+  const specificAssessmentSelect = document.getElementById('specificAssessmentFilter');
+  const assessmentTypeSelect = document.getElementById('assessmentTypeFilter');
   
-  // Add assignments
-  db.ref('assignments').once('value').then(snapshot => {
-    if (snapshot.exists()) {
-      snapshot.forEach(child => {
-        const assignment = child.val();
-        const option = document.createElement('option');
-        option.value = child.key;
-        option.textContent = `Assignment: ${assignment.title}`;
-        select.appendChild(option);
-      });
-    }
-  });
+  // Clear specific assessment options
+  specificAssessmentSelect.innerHTML = '<option value="all">All Items</option>';
   
-  // Add quizzes
-  db.ref('quizzes').once('value').then(snapshot => {
-    if (snapshot.exists()) {
-      snapshot.forEach(child => {
-        const quiz = child.val();
-        const option = document.createElement('option');
-        option.value = child.key;
-        option.textContent = `Quiz: ${quiz.title}`;
-        select.appendChild(option);
-      });
-    }
-  });
+  // Load options based on current assessment type filter
+  const assessmentType = assessmentTypeSelect.value;
+  
+  if (assessmentType === 'all' || assessmentType === 'assignment') {
+    // Load assignments
+    db.ref('assignments').once('value').then(snapshot => {
+      if (snapshot.exists()) {
+        snapshot.forEach(child => {
+          const assignment = child.val();
+          const option = document.createElement('option');
+          option.value = child.key;
+          option.textContent = `Assignment: ${assignment.title}`;
+          option.dataset.type = 'assignment';
+          
+          // Only add if we're showing all types or only assignments
+          if (assessmentType === 'all' || assessmentType === 'assignment') {
+            specificAssessmentSelect.appendChild(option);
+          }
+        });
+      }
+    });
+  }
+  
+  if (assessmentType === 'all' || assessmentType === 'quiz') {
+    // Load quizzes
+    db.ref('quizzes').once('value').then(snapshot => {
+      if (snapshot.exists()) {
+        snapshot.forEach(child => {
+          const quiz = child.val();
+          const option = document.createElement('option');
+          option.value = child.key;
+          option.textContent = `Quiz: ${quiz.title}`;
+          option.dataset.type = 'quiz';
+          
+          // Only add if we're showing all types or only quizzes
+          if (assessmentType === 'all' || assessmentType === 'quiz') {
+            specificAssessmentSelect.appendChild(option);
+          }
+        });
+      }
+    });
+  }
 }
 
 function createSubmissionItem(submissionId, submission) {
@@ -5685,6 +5777,21 @@ function createSubmissionItem(submissionId, submission) {
     attemptInfo = `<p><strong>Attempts:</strong> ${submission.attemptCount}</p>`;
   }
   
+  // Add reset button for quiz submissions
+  let resetButton = '';
+  if (submission.type === 'quiz') {
+    const quizId = submission.data.quizId;
+    const studentId = submission.data.studentId;
+    const studentEmail = submission.data.studentEmail;
+    resetButton = `
+      <button class="action-btn secondary" onclick="event.stopPropagation(); resetQuizAttempts('${quizId}', '${studentId}', '${studentEmail}')" 
+              style="margin-left: 8px; padding: 4px 8px; font-size: 12px; background: #ffc107; color: #212529;" 
+              title="Reset all quiz attempts for this student">
+        <span class="material-icons" style="font-size: 14px;">refresh</span> Reset
+      </button>
+    `;
+  }
+  
   return `
     <div class="submission-item" onclick="openGradeSubmissionModal('${submissionId}', '${submission.type}')">
       <div class="submission-header">
@@ -5692,7 +5799,10 @@ function createSubmissionItem(submissionId, submission) {
           <span class="material-icons" style="color: #6c4fc1;">${typeIcon}</span>
           <h4>${submission.studentName}</h4>
         </div>
-        <span class="submission-status ${status}">${statusText}</span>
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span class="submission-status ${status}">${statusText}</span>
+          ${resetButton}
+        </div>
       </div>
       <p><strong>${typeLabel}:</strong> ${submission.title}</p>
       <p><strong>Submitted:</strong> ${new Date(submission.submittedAt).toLocaleDateString()}</p>
@@ -5703,11 +5813,194 @@ function createSubmissionItem(submissionId, submission) {
 }
 
 function filterSubmissions() {
-  const statusFilter = document.getElementById('gradingFilter').value;
-  const assignmentFilter = document.getElementById('assignmentFilter').value;
-  
-  // Reload submissions with filters
+  // Reload submissions with current filters
   loadSubmissions();
+}
+
+function bulkResetQuizAttempts() {
+  // Get all visible quiz submissions
+  const submissionItems = document.querySelectorAll('.submission-item');
+  const quizSubmissions = [];
+  
+  submissionItems.forEach(item => {
+    const resetButton = item.querySelector('button[onclick*="resetQuizAttempts"]');
+    if (resetButton) {
+      // Extract quiz and student info from the onclick attribute
+      const onclickAttr = resetButton.getAttribute('onclick');
+      const match = onclickAttr.match(/resetQuizAttempts\('([^']+)', '([^']+)', '([^']+)'\)/);
+      if (match) {
+        quizSubmissions.push({
+          quizId: match[1],
+          studentId: match[2],
+          studentEmail: match[3]
+        });
+      }
+    }
+  });
+  
+  if (quizSubmissions.length === 0) {
+    alert('No quiz submissions found to reset. Please make sure you have quiz submissions visible in the current view.');
+    return;
+  }
+  
+  const confirmMessage = `Are you sure you want to reset quiz attempts for ${quizSubmissions.length} quiz submission(s)?\n\nThis action will:\n- Delete all existing attempts for the selected quiz submissions\n- Allow students to retake their quizzes from the beginning\n- Cannot be undone\n\nContinue?`;
+  
+  if (confirm(confirmMessage)) {
+    // Create progress modal
+    const modal = document.createElement('div');
+    modal.className = 'modal';
+    modal.id = 'bulkResetModal';
+    modal.style.display = 'flex';
+    
+    modal.innerHTML = `
+      <div class="modal-content" style="max-width: 600px;">
+        <div class="modal-header">
+          <h3 class="modal-title">Bulk Reset Quiz Attempts</h3>
+        </div>
+        <div style="padding: 40px;">
+          <div style="margin-bottom: 20px; text-align: center;">
+            <span class="material-icons" style="font-size: 48px; color: #6c4fc1; animation: spin 1s linear infinite;">refresh</span>
+          </div>
+          <h4 style="text-align: center; margin-bottom: 20px;">Resetting Quiz Attempts</h4>
+          <div style="background: #f8f9fa; padding: 16px; border-radius: 8px; margin-bottom: 20px;">
+            <p style="margin: 0; font-size: 14px; color: #666;">Processing <span id="currentItem">0</span> of ${quizSubmissions.length} submissions...</p>
+          </div>
+          <div style="background: #e9ecef; border-radius: 8px; height: 8px; margin-bottom: 20px; overflow: hidden;">
+            <div id="progressBar" style="background: #6c4fc1; height: 100%; width: 0%; transition: width 0.3s ease;"></div>
+          </div>
+          <div id="resetResults" style="max-height: 200px; overflow-y: auto;">
+            <!-- Results will be shown here -->
+          </div>
+        </div>
+      </div>
+    `;
+    
+    document.body.appendChild(modal);
+    
+    // Add spinning animation
+    const style = document.createElement('style');
+    style.textContent = `
+      @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+      }
+    `;
+    document.head.appendChild(style);
+    
+    // Process each submission
+    let completed = 0;
+    let successful = 0;
+    let failed = 0;
+    const results = [];
+    
+    const processSubmission = (submission, index) => {
+      return new Promise((resolve) => {
+        // Update progress
+        document.getElementById('currentItem').textContent = index + 1;
+        const progressBar = document.getElementById('progressBar');
+        progressBar.style.width = `${((index + 1) / quizSubmissions.length) * 100}%`;
+        
+        // Delete quiz attempts for this student and quiz
+        db.ref('quizSubmissions').orderByChild('quizId').equalTo(submission.quizId).once('value').then(snapshot => {
+          if (snapshot.exists()) {
+            const deletePromises = [];
+            
+            snapshot.forEach(child => {
+              const submissionData = child.val();
+              if (submissionData.studentId === submission.studentId) {
+                deletePromises.push(db.ref(`quizSubmissions/${child.key}`).remove());
+              }
+            });
+            
+            Promise.all(deletePromises).then(() => {
+              successful++;
+              results.push(`✓ ${submission.studentEmail} - Reset successful`);
+              updateResults();
+              resolve();
+            }).catch(error => {
+              failed++;
+              results.push(`✗ ${submission.studentEmail} - Reset failed: ${error.message}`);
+              updateResults();
+              resolve();
+            });
+          } else {
+            // No attempts found, but count as successful
+            successful++;
+            results.push(`✓ ${submission.studentEmail} - No attempts found`);
+            updateResults();
+            resolve();
+          }
+        }).catch(error => {
+          failed++;
+          results.push(`✗ ${submission.studentEmail} - Error: ${error.message}`);
+          updateResults();
+          resolve();
+        });
+      });
+    };
+    
+    const updateResults = () => {
+      const resultsDiv = document.getElementById('resetResults');
+      resultsDiv.innerHTML = results.map(result => 
+        `<div style="padding: 4px 0; font-size: 13px; color: ${result.startsWith('✓') ? '#28a745' : '#dc3545'};">${result}</div>`
+      ).join('');
+      resultsDiv.scrollTop = resultsDiv.scrollHeight;
+    };
+    
+    // Process all submissions sequentially
+    const processAll = async () => {
+      for (let i = 0; i < quizSubmissions.length; i++) {
+        await processSubmission(quizSubmissions[i], i);
+      }
+      
+      // Show completion message
+      modal.innerHTML = `
+        <div class="modal-content" style="max-width: 600px;">
+          <div class="modal-header">
+            <h3 class="modal-title">Bulk Reset Complete</h3>
+          </div>
+          <div style="padding: 40px; text-align: center;">
+            <div style="margin-bottom: 20px;">
+              <span class="material-icons" style="font-size: 48px; color: ${failed === 0 ? '#28a745' : '#ffc107'};">
+                ${failed === 0 ? 'check_circle' : 'warning'}
+              </span>
+            </div>
+            <h4 style="color: ${failed === 0 ? '#28a745' : '#ffc107'}; margin-bottom: 16px;">
+              ${failed === 0 ? 'All Resets Completed Successfully!' : 'Bulk Reset Completed with Issues'}
+            </h4>
+            <div style="background: #f8f9fa; padding: 16px; border-radius: 8px; margin-bottom: 20px;">
+              <p style="margin: 0;"><strong>Successful:</strong> ${successful}</p>
+              <p style="margin: 0;"><strong>Failed:</strong> ${failed}</p>
+              <p style="margin: 0;"><strong>Total:</strong> ${quizSubmissions.length}</p>
+            </div>
+            <div style="margin-top: 30px;">
+              <button class="action-btn" onclick="closeModal('bulkResetModal'); this.parentElement.parentElement.parentElement.remove(); loadSubmissions();">Close and Refresh</button>
+            </div>
+          </div>
+        </div>
+      `;
+      
+      // Clean up the style element
+      document.head.removeChild(style);
+      
+      // Show notification
+      if (failed === 0) {
+        showNotification(
+          `All ${successful} quiz attempts reset successfully!`,
+          'success',
+          'Bulk Reset Complete'
+        );
+      } else {
+        showNotification(
+          `Bulk reset completed: ${successful} successful, ${failed} failed`,
+          'warning',
+          'Bulk Reset Complete'
+        );
+      }
+    };
+    
+    processAll();
+  }
 }
 
 function openGradeSubmissionModal(submissionId, type = 'assignment') {
@@ -5811,6 +6104,7 @@ function displayQuizSubmissionModal(attempts, quiz) {
         </div>
         
         <div class="feature-actions">
+          <button class="action-btn" onclick="resetQuizAttempts('${quiz.id}', '${attempts[0].studentId}', '${attempts[0].studentEmail}')">Reset Attempts</button>
           <button class="action-btn secondary" onclick="closeModal('quizSubmissionModal'); this.parentElement.parentElement.parentElement.remove();">Close</button>
         </div>
       </div>
@@ -5924,6 +6218,166 @@ document.addEventListener('click', function(event) {
     }
   }
 });
+
+function resetQuizAttempts(quizId, studentId, studentEmail) {
+  const confirmMessage = `Are you sure you want to reset all quiz attempts for student ${studentEmail}?\n\nThis action will:\n- Delete all existing attempts for this quiz\n- Allow the student to retake the quiz from the beginning\n- Cannot be undone\n\nContinue?`;
+  
+  if (confirm(confirmMessage)) {
+    // Show loading message
+    const modal = document.getElementById('quizSubmissionModal');
+    const originalContent = modal.innerHTML;
+    
+    modal.innerHTML = `
+      <div class="modal-content" style="max-width: 500px;">
+        <div class="modal-header">
+          <h3 class="modal-title">Resetting Quiz Attempts</h3>
+        </div>
+        <div style="padding: 40px; text-align: center;">
+          <div style="margin-bottom: 20px;">
+            <span class="material-icons" style="font-size: 48px; color: #6c4fc1; animation: spin 1s linear infinite;">refresh</span>
+          </div>
+          <p>Resetting quiz attempts for ${studentEmail}...</p>
+          <p style="color: #666; font-size: 14px;">Please wait while we process your request.</p>
+        </div>
+      </div>
+    `;
+    
+    // Add spinning animation
+    const style = document.createElement('style');
+    style.textContent = `
+      @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+      }
+    `;
+    document.head.appendChild(style);
+    
+    // Delete all quiz attempts for this student and quiz
+    db.ref('quizSubmissions').orderByChild('quizId').equalTo(quizId).once('value').then(snapshot => {
+      if (snapshot.exists()) {
+        const deletePromises = [];
+        
+        snapshot.forEach(child => {
+          const submission = child.val();
+          if (submission.studentId === studentId) {
+            deletePromises.push(db.ref(`quizSubmissions/${child.key}`).remove());
+          }
+        });
+        
+        Promise.all(deletePromises).then(() => {
+          // Show success message
+          modal.innerHTML = `
+            <div class="modal-content" style="max-width: 500px;">
+              <div class="modal-header">
+                <h3 class="modal-title">Reset Complete</h3>
+              </div>
+              <div style="padding: 40px; text-align: center;">
+                <div style="margin-bottom: 20px;">
+                  <span class="material-icons" style="font-size: 48px; color: #28a745;">check_circle</span>
+                </div>
+                <h4 style="color: #28a745; margin-bottom: 16px;">Quiz Attempts Reset Successfully!</h4>
+                <p>All quiz attempts for <strong>${studentEmail}</strong> have been deleted.</p>
+                <p style="color: #666; font-size: 14px;">The student can now retake the quiz from the beginning.</p>
+                <div style="margin-top: 30px;">
+                  <button class="action-btn" onclick="closeModal('quizSubmissionModal'); this.parentElement.parentElement.parentElement.remove(); loadSubmissions();">Close and Refresh</button>
+                </div>
+              </div>
+            </div>
+          `;
+          
+          // Clean up the style element
+          document.head.removeChild(style);
+          
+          // Show notification
+          showNotification(
+            `Quiz attempts reset successfully for ${studentEmail}`,
+            'success',
+            'Reset Complete'
+          );
+        }).catch(error => {
+          console.error('Error resetting quiz attempts:', error);
+          
+          // Show error message
+          modal.innerHTML = `
+            <div class="modal-content" style="max-width: 500px;">
+              <div class="modal-header">
+                <h3 class="modal-title">Reset Failed</h3>
+              </div>
+              <div style="padding: 40px; text-align: center;">
+                <div style="margin-bottom: 20px;">
+                  <span class="material-icons" style="font-size: 48px; color: #dc3545;">error</span>
+                </div>
+                <h4 style="color: #dc3545; margin-bottom: 16px;">Reset Failed</h4>
+                <p>There was an error resetting the quiz attempts.</p>
+                <p style="color: #666; font-size: 14px;">Please try again or contact support if the problem persists.</p>
+                <div style="margin-top: 30px;">
+                  <button class="action-btn secondary" onclick="closeModal('quizSubmissionModal'); this.parentElement.parentElement.parentElement.remove();">Close</button>
+                </div>
+              </div>
+            </div>
+          `;
+          
+          // Clean up the style element
+          document.head.removeChild(style);
+          
+          // Show error notification
+          showNotification(
+            'Failed to reset quiz attempts. Please try again.',
+            'error',
+            'Reset Failed'
+          );
+        });
+      } else {
+        // No attempts found
+        modal.innerHTML = `
+          <div class="modal-content" style="max-width: 500px;">
+            <div class="modal-header">
+              <h3 class="modal-title">No Attempts Found</h3>
+            </div>
+            <div style="padding: 40px; text-align: center;">
+              <div style="margin-bottom: 20px;">
+                <span class="material-icons" style="font-size: 48px; color: #ffc107;">info</span>
+              </div>
+              <h4 style="color: #ffc107; margin-bottom: 16px;">No Attempts to Reset</h4>
+              <p>No quiz attempts were found for this student.</p>
+              <div style="margin-top: 30px;">
+                <button class="action-btn secondary" onclick="closeModal('quizSubmissionModal'); this.parentElement.parentElement.parentElement.remove();">Close</button>
+              </div>
+            </div>
+          </div>
+        `;
+        
+        // Clean up the style element
+        document.head.removeChild(style);
+      }
+    }).catch(error => {
+      console.error('Error loading quiz attempts:', error);
+      
+      // Show error message
+      modal.innerHTML = `
+        <div class="modal-content" style="max-width: 500px;">
+          <div class="modal-header">
+            <h3 class="modal-title">Error</h3>
+          </div>
+          <div style="padding: 40px; text-align: center;">
+            <div style="margin-bottom: 20px;">
+              <span class="material-icons" style="font-size: 48px; color: #dc3545;">error</span>
+            </div>
+            <h4 style="color: #dc3545; margin-bottom: 16px;">Error Loading Data</h4>
+            <p>There was an error loading the quiz attempts.</p>
+            <p style="color: #666; font-size: 14px;">Please try again or contact support if the problem persists.</p>
+            <div style="margin-top: 30px;">
+              <button class="action-btn secondary" onclick="closeModal('quizSubmissionModal'); this.parentElement.parentElement.parentElement.remove();">Close</button>
+            </div>
+          </div>
+        </div>
+      `;
+      
+      // Clean up the style element
+      document.head.removeChild(style);
+    });
+  }
+}
 
 function checkQuizAnswer(question, userAnswer) {
   if (question.type === 'multiple-choice' || question.type === 'true-false') {
