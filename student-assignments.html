@@ -1210,9 +1210,9 @@
         const isCorrect = checkAnswer(question, userAnswer);
         
         reviewHtml += `
-          <div style="margin-bottom: 24px; padding: 16px; border: 1px solid #ddd; border-radius: 8px; background: #fff;">
+          <div style="margin-bottom: 24px; padding: 16px; border: 1px solid #ddd; border-radius: 8px;">
             <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
-              <span style="font-weight: bold; color: #222c5c;">Question ${index + 1}</span>
+              <span style="font-weight: bold; color: #fff;">Question ${index + 1}</span>
               <span class="material-icons" style="color: ${isCorrect ? '#28a745' : '#dc3545'}; font-size: 18px;">
                 ${isCorrect ? 'check_circle' : 'cancel'}
               </span>
