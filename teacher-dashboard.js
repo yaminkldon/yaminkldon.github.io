@@ -7358,8 +7358,7 @@ async function editQuiz(quizId) {
     // Now populate the form
     document.getElementById('quizTitle').value = quiz.title || '';
     document.getElementById('quizDescription').value = quiz.description || '';
-    console.log('Expected unit:', quiz.unit);
-    [...unitSelect.options].forEach(o => console.log('Option:', o.value));
+    console.log('Quiz unit:', quiz.unit);
     document.getElementById('quizUnit').value = quiz.unit || '';
     document.getElementById('quizTimeLimit').value = quiz.timeLimit || '';
     document.getElementById('quizAttempts').value = quiz.maxAttempts || '';
