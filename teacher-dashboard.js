@@ -5002,40 +5002,41 @@ function loadUnitsForQuiz() {
     console.error('Quiz unit select element not found');
     return Promise.resolve();
   }
-  
-  unitSelect.innerHTML = ''; // clear first
-  
-  // Add default option
+
+  unitSelect.innerHTML = '';
+
   const defaultOption = document.createElement('option');
   defaultOption.value = '';
   defaultOption.textContent = 'Choose a unit...';
   unitSelect.appendChild(defaultOption);
-  
-  return db.ref('units').once('value').then(snapshot => {
-    if (snapshot.exists()) {
-      const availableUnits = [];
-      
-      // Collect available units
-      snapshot.forEach(child => {
-        const unit = child.val();
-        availableUnits.push({
-          id: child.key, // Make sure this matches the unit ID format
-          name: unit.name || unit.title || child.key
+
+  return db.ref('units').once('value')
+    .then(snapshot => {
+      if (snapshot.exists()) {
+        const availableUnits = [];
+
+        snapshot.forEach(child => {
+          const unit = child.val();
+          availableUnits.push({
+            id: child.key,
+            name: unit.name || unit.title || child.key
+          });
         });
-      });
-      
-      // Populate the dropdown
-      availableUnits.forEach(unit => {
-        const option = document.createElement('option');
-        option.value = unit.id; // Make sure this matches "Unit-6"
-        option.textContent = unit.name;
-        unitSelect.appendChild(option);
-      });
-    }
-  }).catch(error => {
-    console.error('Error loading units for quiz:', error);
-  });
+
+        // Populate the dropdown
+        availableUnits.forEach(unit => {
+          const option = document.createElement('option');
+          option.value = unit.id;
+          option.textContent = unit.name;
+          unitSelect.appendChild(option);
+        });
+      }
+    })
+    .catch(error => {
+      console.error('Error loading units for quiz:', error);
+    });
 }
+
 
 function addQuestion() {
   const container = document.getElementById('questionsContainer');
@@ -7357,7 +7358,8 @@ async function editQuiz(quizId) {
     // Now populate the form
     document.getElementById('quizTitle').value = quiz.title || '';
     document.getElementById('quizDescription').value = quiz.description || '';
-    console.log('Quiz unit:', quiz.unit);
+    console.log('Expected unit:', quiz.unit);
+    [...unitSelect.options].forEach(o => console.log('Option:', o.value));
     document.getElementById('quizUnit').value = quiz.unit || '';
     document.getElementById('quizTimeLimit').value = quiz.timeLimit || '';
     document.getElementById('quizAttempts').value = quiz.maxAttempts || '';
