@@ -5857,8 +5857,19 @@ function toggleAttemptDropdown() {
 }
 
 function selectAttemptFromDropdown(index) {
+  // Prevent the dropdown click event from bubbling up
+  event.stopPropagation();
+  
   selectAttempt(index);
-  toggleAttemptDropdown();
+  
+  // Close the dropdown after selection
+  const dropdownOptions = document.getElementById('attemptDropdownOptions');
+  const dropdown = document.getElementById('attemptDropdown');
+  
+  if (dropdownOptions && dropdown) {
+    dropdownOptions.style.display = 'none';
+    dropdown.classList.remove('active');
+  }
 }
 
 // Close dropdown when clicking outside
