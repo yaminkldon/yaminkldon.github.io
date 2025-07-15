@@ -973,13 +973,62 @@
       document.getElementById('quizModal').style.display = 'flex';
       document.getElementById('quizModalTitle').textContent = quiz.title;
       
+      // Check current attempt number and timer state
+      checkCurrentAttemptAndTimer(quiz.id);
+      
       startQuizTimer();
       displayQuizQuestion();
     }
 
+    function checkCurrentAttemptAndTimer(quizId) {
+      const currentUser = firebase.auth().currentUser;
+      if (!currentUser) return;
+      
+      // Get current attempt number
+      db.ref('quizSubmissions').orderByChild('quizId').equalTo(quizId).once('value').then(snapshot => {
+        let attemptNumber = 0;
+        
+        if (snapshot.exists()) {
+          snapshot.forEach(child => {
+            const submission = child.val();
+            if (submission.studentId === currentUser.uid) {
+              attemptNumber++;
+            }
+          });
+        }
+        
+        // Current attempt is the next one
+        attemptNumber++;
+        
+        // Check if we have a saved timer state for this attempt
+        const timerKey = `quizTimer_${quizId}_${currentUser.uid}_attempt_${attemptNumber}`;
+        const savedTimerState = localStorage.getItem(timerKey);
+        
+        if (savedTimerState) {
+          const timerData = JSON.parse(savedTimerState);
+          // Restore timer state
+          window.currentQuizTimerState = {
+            timeLeft: timerData.timeLeft,
+            startTime: timerData.startTime,
+            attemptNumber: attemptNumber,
+            quizId: quizId
+          };
+        } else {
+          // New attempt - initialize timer state
+          window.currentQuizTimerState = {
+            timeLeft: currentQuizData.timeLimit * 60,
+            startTime: Date.now(),
+            attemptNumber: attemptNumber,
+            quizId: quizId
+          };
+        }
+      });
+    }
+
     function startQuizTimer() {
       if (currentQuizData.timeLimit) {
-        let timeLeft = currentQuizData.timeLimit * 60;
+        // Use saved timer state or default
+        let timeLeft = window.currentQuizTimerState ? window.currentQuizTimerState.timeLeft : currentQuizData.timeLimit * 60;
         const timerElement = document.getElementById('quizTimer');
         
         quizTimer = setInterval(() => {
@@ -989,10 +1038,45 @@
           
           if (timeLeft <= 0) {
             clearInterval(quizTimer);
+            clearQuizTimerState();
             submitQuiz();
           }
+          
+          // Save timer state every second
+          if (window.currentQuizTimerState) {
+            window.currentQuizTimerState.timeLeft = timeLeft;
+            saveQuizTimerState();
+          }
+          
           timeLeft--;
         }, 1000);
+      }
+    }
+
+    function saveQuizTimerState() {
+      if (window.currentQuizTimerState) {
+        const currentUser = firebase.auth().currentUser;
+        if (!currentUser) return;
+        
+        const timerKey = `quizTimer_${window.currentQuizTimerState.quizId}_${currentUser.uid}_attempt_${window.currentQuizTimerState.attemptNumber}`;
+        const timerData = {
+          timeLeft: window.currentQuizTimerState.timeLeft,
+          startTime: window.currentQuizTimerState.startTime,
+          savedAt: Date.now()
+        };
+        
+        localStorage.setItem(timerKey, JSON.stringify(timerData));
+      }
+    }
+
+    function clearQuizTimerState() {
+      if (window.currentQuizTimerState) {
+        const currentUser = firebase.auth().currentUser;
+        if (!currentUser) return;
+        
+        const timerKey = `quizTimer_${window.currentQuizTimerState.quizId}_${currentUser.uid}_attempt_${window.currentQuizTimerState.attemptNumber}`;
+        localStorage.removeItem(timerKey);
+        window.currentQuizTimerState = null;
       }
     }
 
@@ -1103,6 +1187,9 @@
       if (quizTimer) {
         clearInterval(quizTimer);
       }
+      
+      // Clear timer state since quiz is being submitted
+      clearQuizTimerState();
       
       saveCurrentAnswer();
       
@@ -1381,6 +1468,10 @@
       
       // Clean up quiz timer if closing quiz modal
       if (modalId === 'quizModal' && quizTimer) {
+        // Save timer state before clearing interval
+        if (window.currentQuizTimerState && window.currentQuizTimerState.timeRemaining > 0) {
+          saveQuizTimerState();
+        }
         clearInterval(quizTimer);
         quizTimer = null;
       }

@@ -5554,8 +5554,13 @@ function displayAllSubmissions(submissions, container) {
     
     // Assignment/Quiz filter
     if (assignmentFilter !== 'all') {
-      if (submission.type === 'assignment' && submission.data.assignmentId !== assignmentFilter) return false;
-      if (submission.type === 'quiz' && submission.data.quizId !== assignmentFilter) return false;
+      if (submission.type === 'assignment') {
+        // For assignments, check the assignmentId in the submission data
+        if (submission.data.assignmentId !== assignmentFilter) return false;
+      } else if (submission.type === 'quiz') {
+        // For quizzes, check the quizId in the grouped submission data
+        if (submission.data.quizId !== assignmentFilter) return false;
+      }
     }
     
     return true;
@@ -6181,7 +6186,7 @@ function displayQuizQuestion() {
     question.options.forEach((option, index) => {
       questionHtml += `
         <div class="quiz-option" onclick="selectQuizOption(${index})">
-          <input type="radio" name="quiz-answer" value="${index}" id="option-${index}">
+          <input type="radio" name="quiz-answer" value="${index}" id="option-${index}" style="width: 15%;">
           <label for="option-${index}">${option}</label>
         </div>
       `;
@@ -6478,7 +6483,7 @@ function viewQuizDetails(quizId) {
           
           <div style="padding: 20px;">
             <div style="margin-bottom: 20px;">
-              <h4>Quiz Information</h4>
+              <h4 style="color: 6c4fc1; text-decoration: underline;>Quiz Information</h4>
               <p><strong>Description:</strong> ${quiz.description || 'No description'}</p>
               <p><strong>Unit:</strong> ${quiz.unit}</p>
               <p><strong>Time Limit:</strong> ${quiz.timeLimit} minutes</p>
@@ -6489,11 +6494,11 @@ function viewQuizDetails(quizId) {
             </div>
             
             <div style="margin-bottom: 20px;">
-              <h4>Questions Preview</h4>
+              <h4 style="color: 6c4fc1; text-decoration: underline;>Questions Preview</h4>
               <div style="max-height: 300px; overflow-y: auto; border: 1px solid #ddd; border-radius: 4px; padding: 12px;">
                 ${quiz.questions.map((q, i) => `
                   <div style="margin-bottom: 16px; padding: 12px; border-left: 3px solid #6c4fc1; background: #f9f9f9;">
-                    <strong style="color: black;">Question ${i + 1}:</strong> ${q.text}<br>
+                    <strong style="color: black;">Question ${i + 1}:</strong> <span style="color: #6c4fc1;">${q.text}</span><br>
                     <small style="color: #666;">Type: ${q.type}</small>
                     ${q.options ? `<br><small style="color: #666;">Options: ${q.options.length}</small>` : ''}
                   </div>
@@ -6916,7 +6921,7 @@ function displayTestQuizQuestion() {
     question.options.forEach((option, index) => {
       questionHtml += `
         <div class="quiz-option" onclick="selectTestQuizOption(${index})" style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px; padding: 12px; border-radius: 4px; cursor: pointer; transition: background-color 0.2s; outline-style: auto;">
-          <input type="radio" name="test-quiz-answer" value="${index}" id="test-option-${index}">
+          <input type="radio" name="test-quiz-answer" value="${index}" id="test-option-${index}" style="width: 15%;">
           <label for="test-option-${index}" style="cursor: pointer; flex: 1;">${option}</label>
         </div>
       `;
