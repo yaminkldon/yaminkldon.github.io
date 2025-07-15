@@ -923,7 +923,7 @@
           questionHtml += `
             <div class="quiz-option" onclick="selectQuizOption(${index})" style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px; padding: 12px; border-radius: 4px; cursor: pointer; transition: background-color 0.2s;">
               <input type="radio" name="quiz-answer" value="${index}" id="option-${index}">
-              <label for="option-${index}" style="cursor: pointer; flex: 1;">${option}</label>
+              <label for="option-${index}" style="cursor: pointer; flex: 1; outline-style: auto;">${option}</label>
             </div>
           `;
         });
@@ -955,11 +955,13 @@
       options.forEach(option => {
         option.classList.remove('selected');
         option.style.background = '';
+        option.style.outlineStyle = 'auto';
       });
       
       const selectedOption = document.querySelector(`.quiz-option:nth-child(${optionIndex + 1})`);
       selectedOption.classList.add('selected');
-      selectedOption.style.background = '#e3f2fd';
+      selectedOption.style.background = '#6c4fc1';
+      selectedOption.style.outlineStyle = 'dashed';
       
       userAnswers[currentQuizIndex] = optionIndex;
     }
