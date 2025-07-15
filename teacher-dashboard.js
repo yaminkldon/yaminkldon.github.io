@@ -5727,7 +5727,7 @@ function viewAssessments() {
   assessmentsModal.style.display = 'flex';
   
   assessmentsModal.innerHTML = `
-    <div class="modal-content" style="max-width: 800px;">
+    <div class="modal-content" style="max-width: 900px;">
       <div class="modal-header">
         <h3 class="modal-title">All Assessments</h3>
         <button class="modal-close" onclick="closeModal('assessmentsListModal'); this.parentElement.parentElement.parentElement.remove();">&times;</button>
@@ -5742,7 +5742,7 @@ function viewAssessments() {
         <input type="text" class="form-input" id="assessmentSearchFilter" onkeyup="filterAssessments()" placeholder="Search assessments..." style="width: 300px; display: inline-block; margin-left: 10px;">
       </div>
       
-      <div id="assessmentsList" style="max-height: 400px; overflow-y: auto;">
+      <div id="assessmentsList" style="max-height: 500px; overflow-y: auto;">
         <div style="text-align: center; padding: 40px; color: #666;">
           <span class="material-icons" style="font-size: 48px; margin-bottom: 16px;">assignment</span>
           <p>Loading assessments...</p>
@@ -5782,7 +5782,11 @@ function loadAllAssessments() {
           title: quizzes[key].title,
           unit: quizzes[key].unit,
           created: quizzes[key].createdAt || Date.now(),
-          questions: quizzes[key].questions ? quizzes[key].questions.length : 0
+          questions: quizzes[key].questions ? quizzes[key].questions.length : 0,
+          timeLimit: quizzes[key].timeLimit,
+          maxAttempts: quizzes[key].maxAttempts,
+          allowViewAnswers: quizzes[key].allowViewAnswers || false,
+          active: quizzes[key].active
         });
       });
       
@@ -5843,7 +5847,7 @@ function displayAssessmentsList(assessments) {
     const createdDate = new Date(assessment.created).toLocaleDateString();
     
     html += `
-      <div class="assessment-item" style="border: 1px solid #ddd; border-radius: 8px; padding: 16px; margin-bottom: 12px; background: #fff; cursor: pointer;">
+      <div class="assessment-item" style="border: 1px solid #ddd; border-radius: 8px; padding: 16px; margin-bottom: 12px; background: #fff;">
         <div style="display: flex; justify-content: space-between; align-items: center;">
           <div style="display: flex; align-items: center; gap: 12px;">
             <span class="material-icons" style="color: #6c4fc1;">${typeIcon}</span>
@@ -5854,11 +5858,19 @@ function displayAssessmentsList(assessments) {
             </div>
           </div>
           <div style="text-align: right;">
-            ${assessment.type === 'quiz' ? 
-              `<span style="color: #6c4fc1; font-weight: bold;">${assessment.questions} questions</span>` : 
-              `<span style="color: #6c4fc1; font-weight: bold;">${assessment.maxPoints} points</span>`
-            }
-            ${assessment.dueDate ? `<br><span style="color: #666; font-size: 12px;">Due: ${new Date(assessment.dueDate).toLocaleDateString()}</span>` : ''}
+            <div style="margin-bottom: 8px;">
+              ${assessment.type === 'quiz' ? 
+                `<span style="color: #6c4fc1; font-weight: bold;">${assessment.questions} questions</span><br>
+                 <span style="color: #666; font-size: 12px;">Time: ${assessment.timeLimit}min • Attempts: ${assessment.maxAttempts}</span>` : 
+                `<span style="color: #6c4fc1; font-weight: bold;">${assessment.maxPoints} points</span>`
+              }
+              ${assessment.dueDate ? `<br><span style="color: #666; font-size: 12px;">Due: ${new Date(assessment.dueDate).toLocaleDateString()}</span>` : ''}
+            </div>
+            <div style="display: flex; gap: 4px;">
+              <button class="action-btn secondary" onclick="viewAssessment('${assessment.id}', '${assessment.type}')" style="padding: 4px 8px; font-size: 12px;">View</button>
+              <button class="action-btn" onclick="editAssessment('${assessment.id}', '${assessment.type}')" style="padding: 4px 8px; font-size: 12px;">Edit</button>
+              <button class="action-btn" onclick="deleteAssessment('${assessment.id}', '${assessment.type}')" style="padding: 4px 8px; font-size: 12px; background: #dc3545;">Delete</button>
+            </div>
           </div>
         </div>
       </div>
@@ -5866,6 +5878,404 @@ function displayAssessmentsList(assessments) {
   });
   
   assessmentsList.innerHTML = html;
+}
+
+function viewAssessment(assessmentId, type) {
+  if (type === 'quiz') {
+    viewQuizDetails(assessmentId);
+  } else {
+    viewAssignmentDetails(assessmentId);
+  }
+}
+
+function viewQuizDetails(quizId) {
+  db.ref(`quizzes/${quizId}`).once('value').then(snapshot => {
+    if (snapshot.exists()) {
+      const quiz = snapshot.val();
+      
+      // Create quiz details modal
+      const modal = document.createElement('div');
+      modal.className = 'modal';
+      modal.id = 'quizDetailsModal';
+      modal.style.display = 'flex';
+      
+      modal.innerHTML = `
+        <div class="modal-content" style="max-width: 700px;">
+          <div class="modal-header">
+            <h3 class="modal-title">Quiz Details: ${quiz.title}</h3>
+            <button class="modal-close" onclick="closeModal('quizDetailsModal'); this.parentElement.parentElement.parentElement.remove();">&times;</button>
+          </div>
+          
+          <div style="padding: 20px;">
+            <div style="margin-bottom: 20px;">
+              <h4>Quiz Information</h4>
+              <p><strong>Description:</strong> ${quiz.description || 'No description'}</p>
+              <p><strong>Unit:</strong> ${quiz.unit}</p>
+              <p><strong>Time Limit:</strong> ${quiz.timeLimit} minutes</p>
+              <p><strong>Max Attempts:</strong> ${quiz.maxAttempts}</p>
+              <p><strong>Questions:</strong> ${quiz.questions.length}</p>
+              <p><strong>Allow View Answers:</strong> ${quiz.allowViewAnswers ? 'Yes' : 'No'}</p>
+              <p><strong>Status:</strong> ${quiz.active ? 'Active' : 'Inactive'}</p>
+            </div>
+            
+            <div style="margin-bottom: 20px;">
+              <h4>Questions Preview</h4>
+              <div style="max-height: 300px; overflow-y: auto; border: 1px solid #ddd; border-radius: 4px; padding: 12px;">
+                ${quiz.questions.map((q, i) => `
+                  <div style="margin-bottom: 16px; padding: 12px; border-left: 3px solid #6c4fc1; background: #f9f9f9;">
+                    <strong>Question ${i + 1}:</strong> ${q.text}<br>
+                    <small style="color: #666;">Type: ${q.type}</small>
+                    ${q.options ? `<br><small style="color: #666;">Options: ${q.options.length}</small>` : ''}
+                  </div>
+                `).join('')}
+              </div>
+            </div>
+            
+            <div class="feature-actions">
+              <button class="action-btn" onclick="editAssessment('${quizId}', 'quiz')">Edit Quiz</button>
+              <button class="action-btn secondary" onclick="toggleQuizAnswerView('${quizId}', ${quiz.allowViewAnswers})">
+                ${quiz.allowViewAnswers ? 'Disable' : 'Enable'} Answer View
+              </button>
+              <button class="action-btn secondary" onclick="closeModal('quizDetailsModal'); this.parentElement.parentElement.parentElement.remove();">Close</button>
+            </div>
+          </div>
+        </div>
+      `;
+      
+      document.body.appendChild(modal);
+    }
+  });
+}
+
+function toggleQuizAnswerView(quizId, currentState) {
+  const newState = !currentState;
+  db.ref(`quizzes/${quizId}/allowViewAnswers`).set(newState).then(() => {
+    showNotification(
+      `Students can now ${newState ? 'view' : 'not view'} their quiz answers`,
+      'success',
+      'Answer View Updated'
+    );
+    closeModal('quizDetailsModal');
+    document.getElementById('quizDetailsModal').remove();
+    // Refresh the assessments list
+    loadAllAssessments();
+  }).catch(error => {
+    console.error('Error updating quiz:', error);
+    showNotification(
+      'Please try again or contact support if the problem persists.',
+      'error',
+      'Update Failed'
+    );
+  });
+}
+
+// Modern notification system for teacher dashboard
+function showNotification(message, type = 'info', title = null, duration = 3000) {
+  const notification = document.createElement('div');
+  notification.className = `notification ${type}`;
+  
+  const iconMap = {
+    success: 'check_circle',
+    error: 'error',
+    info: 'info',
+    warning: 'warning'
+  };
+  
+  const titleMap = {
+    success: 'Success!',
+    error: 'Error!',
+    info: 'Information',
+    warning: 'Warning!'
+  };
+  
+  notification.innerHTML = `
+    <span class="material-icons">${iconMap[type]}</span>
+    <div class="notification-content">
+      <div class="notification-title">${title || titleMap[type]}</div>
+      <div class="notification-message">${message}</div>
+    </div>
+  `;
+  
+  // Add notification styles if not already present
+  if (!document.getElementById('notificationStyles')) {
+    const style = document.createElement('style');
+    style.id = 'notificationStyles';
+    style.textContent = `
+      .notification {
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        padding: 16px 20px;
+        border-radius: 8px;
+        color: white;
+        font-weight: 500;
+        z-index: 10000;
+        min-width: 300px;
+        max-width: 500px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        transform: translateX(100%);
+        transition: transform 0.3s ease, opacity 0.3s ease;
+        opacity: 0;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+      .notification.show {
+        transform: translateX(0);
+        opacity: 1;
+      }
+      .notification.success {
+        background: linear-gradient(135deg, #28a745, #20c997);
+      }
+      .notification.error {
+        background: linear-gradient(135deg, #dc3545, #e91e63);
+      }
+      .notification.info {
+        background: linear-gradient(135deg, #17a2b8, #6610f2);
+      }
+      .notification.warning {
+        background: linear-gradient(135deg, #ffc107, #fd7e14);
+        color: #212529;
+      }
+      .notification .material-icons {
+        font-size: 20px;
+      }
+      .notification-content {
+        flex: 1;
+      }
+      .notification-title {
+        font-weight: bold;
+        margin-bottom: 2px;
+      }
+      .notification-message {
+        font-size: 14px;
+        opacity: 0.9;
+      }
+    `;
+    document.head.appendChild(style);
+  }
+  
+  document.body.appendChild(notification);
+  
+  // Show notification
+  setTimeout(() => {
+    notification.classList.add('show');
+  }, 100);
+  
+  // Auto-hide after duration
+  setTimeout(() => {
+    notification.classList.remove('show');
+    setTimeout(() => {
+      if (notification.parentNode) {
+        notification.parentNode.removeChild(notification);
+      }
+    }, 300);
+  }, duration);
+  
+  // Allow manual close by clicking
+  notification.addEventListener('click', () => {
+    notification.classList.remove('show');
+    setTimeout(() => {
+      if (notification.parentNode) {
+        notification.parentNode.removeChild(notification);
+      }
+    }, 300);
+  });
+}
+
+function editAssessment(assessmentId, type) {
+  if (type === 'quiz') {
+    editQuiz(assessmentId);
+  } else {
+    editAssignment(assessmentId);
+  }
+}
+
+function editQuiz(quizId) {
+  db.ref(`quizzes/${quizId}`).once('value').then(snapshot => {
+    if (snapshot.exists()) {
+      const quiz = snapshot.val();
+      
+      // Populate the create quiz modal with existing data
+      document.getElementById('quizTitle').value = quiz.title;
+      document.getElementById('quizDescription').value = quiz.description || '';
+      document.getElementById('quizUnit').value = quiz.unit;
+      document.getElementById('quizTimeLimit').value = quiz.timeLimit;
+      document.getElementById('quizAttempts').value = quiz.maxAttempts;
+      
+      // Store quiz ID for updating
+      window.editingQuizId = quizId;
+      
+      // Populate questions
+      const questionsContainer = document.getElementById('questionsContainer');
+      questionsContainer.innerHTML = '';
+      
+      quiz.questions.forEach((question, index) => {
+        const questionNumber = index + 1;
+        let optionsHtml = '';
+        
+        if (question.type === 'multiple-choice') {
+          question.options.forEach((option, optIndex) => {
+            optionsHtml += `
+              <div class="option-item">
+                <input type="radio" name="correct-${questionNumber}" value="${optIndex}" ${question.correctAnswer === optIndex ? 'checked' : ''}>
+                <input type="text" class="form-input option-text" value="${option}" required>
+              </div>
+            `;
+          });
+        } else if (question.type === 'true-false') {
+          optionsHtml = `
+            <div class="option-item">
+              <input type="radio" name="correct-${questionNumber}" value="0" ${question.correctAnswer === 0 ? 'checked' : ''}>
+              <span>True</span>
+            </div>
+            <div class="option-item">
+              <input type="radio" name="correct-${questionNumber}" value="1" ${question.correctAnswer === 1 ? 'checked' : ''}>
+              <span>False</span>
+            </div>
+          `;
+        } else {
+          optionsHtml = `<input type="text" class="form-input" value="${question.correctAnswer || ''}" placeholder="Correct answer">`;
+        }
+        
+        questionsContainer.innerHTML += `
+          <div class="question-item" data-question="${questionNumber}">
+            <div class="question-header">
+              <span>Question ${questionNumber}</span>
+              <select class="question-type" onchange="updateQuestionType(this)">
+                <option value="multiple-choice" ${question.type === 'multiple-choice' ? 'selected' : ''}>Multiple Choice</option>
+                <option value="fill-blank" ${question.type === 'fill-blank' ? 'selected' : ''}>Fill in the Blank</option>
+                <option value="true-false" ${question.type === 'true-false' ? 'selected' : ''}>True/False</option>
+                <option value="short-answer" ${question.type === 'short-answer' ? 'selected' : ''}>Short Answer</option>
+              </select>
+              ${questionNumber > 1 ? '<button type="button" class="action-btn secondary" onclick="removeQuestion(this)" style="padding: 4px 8px; margin-left: 8px;">Remove</button>' : ''}
+            </div>
+            <div class="question-content">
+              <input type="text" class="form-input question-text" value="${question.text}" required>
+              <div class="question-options" id="options-${questionNumber}">
+                ${optionsHtml}
+              </div>
+            </div>
+          </div>
+        `;
+      });
+      
+      currentQuizQuestionCount = quiz.questions.length;
+      
+      // Open the modal
+      openModal('createQuizModal');
+      
+      // Update the form submit to handle editing
+      updateQuizFormForEditing();
+    }
+  });
+}
+
+function updateQuizFormForEditing() {
+  const form = document.getElementById('createQuizForm');
+  const existingHandler = form.cloneNode(true);
+  form.parentNode.replaceChild(existingHandler, form);
+  
+  existingHandler.addEventListener('submit', function(e) {
+    e.preventDefault();
+    updateQuiz();
+  });
+}
+
+function updateQuiz() {
+  const quizId = window.editingQuizId;
+  
+  const quizData = {
+    title: document.getElementById('quizTitle').value,
+    description: document.getElementById('quizDescription').value,
+    unit: document.getElementById('quizUnit').value,
+    timeLimit: parseInt(document.getElementById('quizTimeLimit').value),
+    maxAttempts: parseInt(document.getElementById('quizAttempts').value),
+    questions: [],
+    updatedAt: Date.now()
+  };
+  
+  // Collect questions
+  const questionItems = document.querySelectorAll('.question-item');
+  questionItems.forEach(item => {
+    const questionText = item.querySelector('.question-text').value;
+    const questionType = item.querySelector('.question-type').value;
+    const questionNumber = item.dataset.question;
+    
+    const question = {
+      text: questionText,
+      type: questionType,
+      options: [],
+      correctAnswer: null
+    };
+    
+    if (questionType === 'multiple-choice') {
+      const optionTexts = item.querySelectorAll('.option-text');
+      const correctRadio = item.querySelector('input[name="correct-' + questionNumber + '"]:checked');
+      
+      optionTexts.forEach(input => {
+        question.options.push(input.value);
+      });
+      
+      if (correctRadio) {
+        question.correctAnswer = parseInt(correctRadio.value);
+      }
+    } else if (questionType === 'true-false') {
+      question.options = ['True', 'False'];
+      const correctRadio = item.querySelector('input[name="correct-' + questionNumber + '"]:checked');
+      if (correctRadio) {
+        question.correctAnswer = parseInt(correctRadio.value);
+      }
+    } else {
+      const correctAnswer = item.querySelector('.form-input[placeholder="Correct answer"]').value;
+      question.correctAnswer = correctAnswer;
+    }
+    
+    quizData.questions.push(question);
+  });
+  
+  // Update quiz in database
+  db.ref(`quizzes/${quizId}`).update(quizData).then(() => {
+    showNotification(
+      'Your quiz has been updated successfully!',
+      'success',
+      'Quiz Updated'
+    );
+    closeModal('createQuizModal');
+    delete window.editingQuizId;
+    // Refresh the assessments list
+    loadAllAssessments();
+  }).catch(error => {
+    console.error('Error updating quiz:', error);
+    showNotification(
+      'Please try again or contact support if the problem persists.',
+      'error',
+      'Update Failed'
+    );
+  });
+}
+
+function deleteAssessment(assessmentId, type) {
+  if (confirm(`Are you sure you want to delete this ${type}? This action cannot be undone.`)) {
+    const ref = type === 'quiz' ? `quizzes/${assessmentId}` : `assignments/${assessmentId}`;
+    
+    db.ref(ref).remove().then(() => {
+      showNotification(
+        `${type.charAt(0).toUpperCase() + type.slice(1)} has been deleted successfully!`,
+        'success',
+        'Deleted'
+      );
+      // Refresh the assessments list
+      loadAllAssessments();
+    }).catch(error => {
+      console.error(`Error deleting ${type}:`, error);
+      showNotification(
+        'Please try again or contact support if the problem persists.',
+        'error',
+        'Deletion Failed'
+      );
+    });
+  }
 }
 
 function filterAssessments() {

@@ -532,6 +532,67 @@
       background: #6c4fc1;
       transition: width 0.3s ease;
     }
+
+    /* Modern Notification Styles */
+    .notification {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      padding: 16px 20px;
+      border-radius: 8px;
+      color: white;
+      font-weight: 500;
+      z-index: 10000;
+      min-width: 300px;
+      max-width: 500px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+      transform: translateX(100%);
+      transition: transform 0.3s ease, opacity 0.3s ease;
+      opacity: 0;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .notification.show {
+      transform: translateX(0);
+      opacity: 1;
+    }
+
+    .notification.success {
+      background: linear-gradient(135deg, #28a745, #20c997);
+    }
+
+    .notification.error {
+      background: linear-gradient(135deg, #dc3545, #e91e63);
+    }
+
+    .notification.info {
+      background: linear-gradient(135deg, #17a2b8, #6610f2);
+    }
+
+    .notification.warning {
+      background: linear-gradient(135deg, #ffc107, #fd7e14);
+      color: #212529;
+    }
+
+    .notification .material-icons {
+      font-size: 20px;
+    }
+
+    .notification-content {
+      flex: 1;
+    }
+
+    .notification-title {
+      font-weight: bold;
+      margin-bottom: 2px;
+    }
+
+    .notification-message {
+      font-size: 14px;
+      opacity: 0.9;
+    }
   </style>
 </head>
 <body>
@@ -597,6 +658,26 @@
         <button class="action-btn secondary" onclick="previousQuestion()" id="prevBtn" style="display: none;">Previous</button>
         <button class="action-btn" onclick="nextQuestion()" id="nextBtn">Next</button>
         <button class="action-btn" onclick="submitQuiz()" id="submitBtn" style="display: none;">Submit Quiz</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Quiz Review Modal -->
+  <div id="quizReviewModal" class="modal">
+    <div class="modal-content" style="max-width: 800px;">
+      <div class="modal-header">
+        <h3 class="modal-title" id="quizReviewTitle">Quiz Review</h3>
+        <button class="modal-close" onclick="closeModal('quizReviewModal')">&times;</button>
+      </div>
+      
+      <div class="modal-body">
+        <div id="quizReviewContent" style="max-height: 500px; overflow-y: auto;">
+          <!-- Quiz review content will be loaded here -->
+        </div>
+      </div>
+      
+      <div class="modal-footer">
+        <button class="action-btn secondary" onclick="closeModal('quizReviewModal')">Close</button>
       </div>
     </div>
   </div>
@@ -826,6 +907,7 @@
     // Create quiz card HTML
     function createQuizCard(quiz, attempts) {
       const canTakeQuiz = attempts.attempts < quiz.maxAttempts;
+      const hasSubmissions = attempts.attempts > 0;
       
       return `
         <div class="quiz-card">
@@ -848,6 +930,13 @@
                     ${canTakeQuiz ? '' : 'disabled'}>
               ${canTakeQuiz ? 'Take Quiz' : 'No Attempts Left'}
             </button>
+            ${hasSubmissions ? `
+              <button class="action-btn secondary" 
+                      onclick="reviewQuizAnswers('${quiz.id}')" 
+                      style="margin-left: 8px;">
+                Review Answers
+              </button>
+            ` : ''}
           </div>
         </div>
       `;
@@ -1034,18 +1123,257 @@
         
         return db.ref('quizSubmissions').push(submissionData);
       }).then(() => {
-        alert(`Quiz submitted! Your score: ${submissionData.score.toFixed(1)}%`);
+        // Show modern notification instead of alert
+        showNotification(
+          `Your score: ${submissionData.score.toFixed(1)}% (${submissionData.correctAnswers}/${submissionData.totalQuestions} correct)`,
+          'success',
+          'Quiz Submitted!',
+          4000
+        );
+        
         closeModal('quizModal');
         loadQuizzes(); // Refresh the quiz list
       }).catch(error => {
         console.error('Error submitting quiz:', error);
-        alert('Error submitting quiz. Please try again.');
+        showNotification(
+          'Please try again or contact support if the problem persists.',
+          'error',
+          'Submission Failed'
+        );
       });
     }
 
     function showFeedback(assignmentId) {
       // Implementation for showing feedback
       console.log('Showing feedback for assignment:', assignmentId);
+    }
+
+    // Review quiz answers function
+    function reviewQuizAnswers(quizId) {
+      // First check if the quiz allows answer viewing
+      db.ref(`quizzes/${quizId}`).once('value').then(quizSnapshot => {
+        if (!quizSnapshot.exists()) {
+          showNotification('Quiz not found', 'error');
+          return;
+        }
+        
+        const quiz = quizSnapshot.val();
+        if (!quiz.allowViewAnswers) {
+          showNotification('Answer review is not enabled for this quiz', 'info');
+          return;
+        }
+        
+        // Get the student's best submission
+        const userId = firebase.auth().currentUser.uid;
+        db.ref('quizSubmissions').orderByChild('studentId').equalTo(userId).once('value').then(submissionsSnapshot => {
+          const submissions = submissionsSnapshot.val() || {};
+          
+          // Filter submissions for this quiz
+          const quizSubmissions = Object.values(submissions).filter(sub => sub.quizId === quizId);
+          
+          if (quizSubmissions.length === 0) {
+            showNotification('No submissions found for this quiz', 'info');
+            return;
+          }
+          
+          // Get the best submission (highest score)
+          const bestSubmission = quizSubmissions.reduce((best, current) => 
+            current.score > best.score ? current : best
+          );
+          
+          displayQuizReview(quiz, bestSubmission);
+        });
+      });
+    }
+
+    function displayQuizReview(quiz, submission) {
+      const reviewContent = document.getElementById('quizReviewContent');
+      const reviewTitle = document.getElementById('quizReviewTitle');
+      
+      reviewTitle.textContent = `Review: ${quiz.title}`;
+      
+      let reviewHtml = `
+        <div style="margin-bottom: 20px; padding: 16px; background: #f8f9fa; border-radius: 8px;">
+          <h4 style="margin: 0 0 8px 0; color: #222c5c;">Quiz Results</h4>
+          <p style="margin: 4px 0;"><strong>Score:</strong> ${submission.score.toFixed(1)}%</p>
+          <p style="margin: 4px 0;"><strong>Correct Answers:</strong> ${submission.correctAnswers}/${submission.totalQuestions}</p>
+          <p style="margin: 4px 0;"><strong>Submitted:</strong> ${new Date(submission.submittedAt).toLocaleString()}</p>
+        </div>
+        
+        <div style="margin-bottom: 20px;">
+          <h4 style="color: #222c5c;">Question Review</h4>
+        </div>
+      `;
+      
+      quiz.questions.forEach((question, index) => {
+        const userAnswer = submission.answers[index];
+        const isCorrect = checkAnswer(question, userAnswer);
+        
+        reviewHtml += `
+          <div style="margin-bottom: 24px; padding: 16px; border: 1px solid #ddd; border-radius: 8px; background: #fff;">
+            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
+              <span style="font-weight: bold; color: #222c5c;">Question ${index + 1}</span>
+              <span class="material-icons" style="color: ${isCorrect ? '#28a745' : '#dc3545'}; font-size: 18px;">
+                ${isCorrect ? 'check_circle' : 'cancel'}
+              </span>
+              <span style="color: ${isCorrect ? '#28a745' : '#dc3545'}; font-weight: bold;">
+                ${isCorrect ? 'Correct' : 'Incorrect'}
+              </span>
+            </div>
+            
+            <p style="margin-bottom: 12px; font-weight: 500;">${question.text}</p>
+            
+            ${generateAnswerReview(question, userAnswer, isCorrect)}
+          </div>
+        `;
+      });
+      
+      reviewContent.innerHTML = reviewHtml;
+      document.getElementById('quizReviewModal').style.display = 'flex';
+    }
+
+    function generateAnswerReview(question, userAnswer, isCorrect) {
+      let reviewHtml = '';
+      
+      if (question.type === 'multiple-choice') {
+        reviewHtml += '<div style="margin-bottom: 12px;">';
+        question.options.forEach((option, index) => {
+          const isUserAnswer = userAnswer === index;
+          const isCorrectAnswer = question.correctAnswer === index;
+          
+          let optionStyle = 'padding: 8px 12px; margin: 4px 0; border-radius: 4px; border: 1px solid #ddd;';
+          
+          if (isCorrectAnswer) {
+            optionStyle += ' background: #d4edda; border-color: #28a745; color: #155724;';
+          } else if (isUserAnswer && !isCorrect) {
+            optionStyle += ' background: #f8d7da; border-color: #dc3545; color: #721c24;';
+          }
+          
+          reviewHtml += `
+            <div style="${optionStyle}">
+              <span style="margin-right: 8px;">
+                ${isUserAnswer ? '●' : '○'}
+              </span>
+              ${option}
+              ${isCorrectAnswer ? ' <span style="font-weight: bold;">(Correct Answer)</span>' : ''}
+              ${isUserAnswer && !isCorrect ? ' <span style="font-weight: bold;">(Your Answer)</span>' : ''}
+            </div>
+          `;
+        });
+        reviewHtml += '</div>';
+      } else if (question.type === 'true-false') {
+        const options = ['True', 'False'];
+        reviewHtml += '<div style="margin-bottom: 12px;">';
+        options.forEach((option, index) => {
+          const isUserAnswer = userAnswer === index;
+          const isCorrectAnswer = question.correctAnswer === index;
+          
+          let optionStyle = 'padding: 8px 12px; margin: 4px 0; border-radius: 4px; border: 1px solid #ddd;';
+          
+          if (isCorrectAnswer) {
+            optionStyle += ' background: #d4edda; border-color: #28a745; color: #155724;';
+          } else if (isUserAnswer && !isCorrect) {
+            optionStyle += ' background: #f8d7da; border-color: #dc3545; color: #721c24;';
+          }
+          
+          reviewHtml += `
+            <div style="${optionStyle}">
+              <span style="margin-right: 8px;">
+                ${isUserAnswer ? '●' : '○'}
+              </span>
+              ${option}
+              ${isCorrectAnswer ? ' <span style="font-weight: bold;">(Correct Answer)</span>' : ''}
+              ${isUserAnswer && !isCorrect ? ' <span style="font-weight: bold;">(Your Answer)</span>' : ''}
+            </div>
+          `;
+        });
+        reviewHtml += '</div>';
+      } else {
+        // For fill-in-the-blank and short answer questions
+        reviewHtml += `
+          <div style="margin-bottom: 12px;">
+            <div style="margin-bottom: 8px;">
+              <strong>Your Answer:</strong>
+              <span style="padding: 4px 8px; background: ${isCorrect ? '#d4edda' : '#f8d7da'}; 
+                           border-radius: 4px; color: ${isCorrect ? '#155724' : '#721c24'};">
+                ${userAnswer || 'No answer provided'}
+              </span>
+            </div>
+            <div>
+              <strong>Correct Answer:</strong>
+              <span style="padding: 4px 8px; background: #d4edda; border-radius: 4px; color: #155724;">
+                ${question.correctAnswer}
+              </span>
+            </div>
+          </div>
+        `;
+      }
+      
+      return reviewHtml;
+    }
+
+    function checkAnswer(question, userAnswer) {
+      if (question.type === 'multiple-choice' || question.type === 'true-false') {
+        return userAnswer === question.correctAnswer;
+      } else {
+        // For text-based questions, do a simple comparison (could be enhanced with fuzzy matching)
+        return userAnswer && userAnswer.toLowerCase().trim() === question.correctAnswer.toLowerCase().trim();
+      }
+    }
+
+    // Modern notification system
+    function showNotification(message, type = 'info', title = null, duration = 3000) {
+      const notification = document.createElement('div');
+      notification.className = `notification ${type}`;
+      
+      const iconMap = {
+        success: 'check_circle',
+        error: 'error',
+        info: 'info',
+        warning: 'warning'
+      };
+      
+      const titleMap = {
+        success: 'Success!',
+        error: 'Error!',
+        info: 'Information',
+        warning: 'Warning!'
+      };
+      
+      notification.innerHTML = `
+        <span class="material-icons">${iconMap[type]}</span>
+        <div class="notification-content">
+          <div class="notification-title">${title || titleMap[type]}</div>
+          <div class="notification-message">${message}</div>
+        </div>
+      `;
+      
+      document.body.appendChild(notification);
+      
+      // Show notification
+      setTimeout(() => {
+        notification.classList.add('show');
+      }, 100);
+      
+      // Auto-hide after duration
+      setTimeout(() => {
+        notification.classList.remove('show');
+        setTimeout(() => {
+          if (notification.parentNode) {
+            notification.parentNode.removeChild(notification);
+          }
+        }, 300);
+      }, duration);
+      
+      // Allow manual close by clicking
+      notification.addEventListener('click', () => {
+        notification.classList.remove('show');
+        setTimeout(() => {
+          if (notification.parentNode) {
+            notification.parentNode.removeChild(notification);
+          }
+        }, 300);
+      });
     }
 
     function closeModal(modalId) {
