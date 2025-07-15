@@ -5021,13 +5021,14 @@ function loadUnitsForQuiz() {
 }
 
 function addQuestion() {
-  currentQuizQuestionCount++;
   const container = document.getElementById('questionsContainer');
+  const existingQuestions = container.querySelectorAll('.question-item');
+  const nextQuestionNumber = existingQuestions.length + 1;
   
   const questionHtml = `
-    <div class="question-item" data-question="${currentQuizQuestionCount}">
+    <div class="question-item" data-question="${nextQuestionNumber}">
       <div class="question-header">
-        <span>Question ${currentQuizQuestionCount}</span>
+        <span>Question ${nextQuestionNumber}</span>
         <select class="question-type" onchange="updateQuestionType(this)">
           <option value="multiple-choice">Multiple Choice</option>
           <option value="fill-blank">Fill in the Blank</option>
@@ -5038,21 +5039,21 @@ function addQuestion() {
       </div>
       <div class="question-content">
         <input type="text" class="form-input question-text" placeholder="Enter question text..." required>
-        <div class="question-options" id="options-${currentQuizQuestionCount}">
+        <div class="question-options" id="options-${nextQuestionNumber}">
           <div class="option-item">
-            <input type="radio" name="correct-${currentQuizQuestionCount}" value="0">
+            <input type="radio" name="correct-${nextQuestionNumber}" value="0">
             <input type="text" class="form-input option-text" placeholder="Option A" required>
           </div>
           <div class="option-item">
-            <input type="radio" name="correct-${currentQuizQuestionCount}" value="1">
+            <input type="radio" name="correct-${nextQuestionNumber}" value="1">
             <input type="text" class="form-input option-text" placeholder="Option B" required>
           </div>
           <div class="option-item">
-            <input type="radio" name="correct-${currentQuizQuestionCount}" value="2">
+            <input type="radio" name="correct-${nextQuestionNumber}" value="2">
             <input type="text" class="form-input option-text" placeholder="Option C" required>
           </div>
           <div class="option-item">
-            <input type="radio" name="correct-${currentQuizQuestionCount}" value="3">
+            <input type="radio" name="correct-${nextQuestionNumber}" value="3">
             <input type="text" class="form-input option-text" placeholder="Option D" required>
           </div>
         </div>
@@ -5061,15 +5062,50 @@ function addQuestion() {
   `;
   
   container.insertAdjacentHTML('beforeend', questionHtml);
+  
+  // Update the question count
+  currentQuizQuestionCount = nextQuestionNumber;
 }
 
 function removeQuestion(button) {
   const questionItem = button.closest('.question-item');
   if (document.querySelectorAll('.question-item').length > 1) {
     questionItem.remove();
+    
+    // Renumber all remaining questions
+    renumberQuestions();
   } else {
     alert('At least one question is required.');
   }
+}
+
+function renumberQuestions() {
+  const container = document.getElementById('questionsContainer');
+  const questionItems = container.querySelectorAll('.question-item');
+  
+  questionItems.forEach((item, index) => {
+    const questionNumber = index + 1;
+    
+    // Update data attribute
+    item.dataset.question = questionNumber;
+    
+    // Update question label
+    const questionLabel = item.querySelector('.question-header span');
+    questionLabel.textContent = `Question ${questionNumber}`;
+    
+    // Update options container ID
+    const optionsContainer = item.querySelector('.question-options');
+    optionsContainer.id = `options-${questionNumber}`;
+    
+    // Update radio button names for correct answer selection
+    const radioButtons = item.querySelectorAll('input[type="radio"]');
+    radioButtons.forEach(radio => {
+      radio.name = `correct-${questionNumber}`;
+    });
+  });
+  
+  // Update current question count
+  currentQuizQuestionCount = questionItems.length;
 }
 
 function updateQuestionType(select) {
