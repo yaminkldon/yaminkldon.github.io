@@ -5052,7 +5052,7 @@ function addQuestion() {
           <option value="true-false">True/False</option>
           <option value="short-answer">Short Answer</option>
         </select>
-        <button type="button" class="action-btn secondary" onclick="removeQuestion(this)" style="padding: 4px 8px; margin-left: 8px;width: 15%;">Remove</button>
+        <button type="button" class="action-btn secondary" onclick="removeQuestion(this)" style="padding: 4px 8px; margin-left: 8px; width: 15%;">Remove</button>
       </div>
       <div class="question-content">
         <input type="text" class="form-input question-text" placeholder="Enter question text..." required>
@@ -7358,9 +7358,17 @@ async function editQuiz(quizId) {
     document.getElementById('quizTitle').value = quiz.title || '';
     document.getElementById('quizDescription').value = quiz.description || '';
     console.log('Quiz unit:', quiz.unit);
-    document.getElementById('quizUnit').value = quiz.unit || '';
     document.getElementById('quizTimeLimit').value = quiz.timeLimit || '';
     document.getElementById('quizAttempts').value = quiz.maxAttempts || '';
+    
+const unitSelect = document.getElementById('quizUnit');
+if (!Array.from(unitSelect.options).some(opt => opt.value === quiz.unit)) {
+  const fallbackOption = document.createElement('option');
+  fallbackOption.value = quiz.unit;
+  fallbackOption.text = quiz.unit + ' (Not in unit list)';
+  unitSelect.appendChild(fallbackOption);
+}
+unitSelect.value = quiz.unit;
 
     window.editingQuizId = quizId;
 
@@ -7405,7 +7413,7 @@ async function editQuiz(quizId) {
               <option value="true-false" ${question.type === 'true-false' ? 'selected' : ''}>True/False</option>
               <option value="short-answer" ${question.type === 'short-answer' ? 'selected' : ''}>Short Answer</option>
             </select>
-            ${questionNumber > 1 ? '<button type="button" class="action-btn secondary" onclick="removeQuestion(this)" style="padding: 4px 8px; margin-left: 8px;" width: 15%;>Remove</button>' : ''}
+            <button type="button" class="action-btn secondary" onclick="removeQuestion(this)" style="padding: 4px 8px; margin-left: 8px; width: 15%;">Remove</button>
           </div>
           <div class="question-content">
             <input type="text" class="form-input question-text" value="${question.text}" required>
