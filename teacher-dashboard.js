@@ -4930,7 +4930,7 @@ function addQuestion() {
           <option value="true-false">True/False</option>
           <option value="short-answer">Short Answer</option>
         </select>
-        <button type="button" class="action-btn secondary" onclick="removeQuestion(this)" style="padding: 4px 8px; margin-left: 8px;">Remove</button>
+        <button type="button" class="action-btn secondary" onclick="removeQuestion(this)" style="padding: 4px 8px; margin-left: 8px;width: 15%;">Remove</button>
       </div>
       <div class="question-content">
         <input type="text" class="form-input question-text" placeholder="Enter question text..." required>
