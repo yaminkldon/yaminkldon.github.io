@@ -5811,7 +5811,7 @@ function selectAttempt(index) {
   
   attemptContent.innerHTML = `
     <div style="margin-bottom: 20px; padding: 16px; border-radius: 8px;">
-      <h4 style="margin: 0 0 8px 0; color: #fff;">Attempt ${index + 1} Details</h4>
+      <h4 style="margin: 0 0 8px 0; color: #6c4fc1; text-decoration: underline;">Attempt ${index + 1} Details</h4>
       <p style="margin: 4px 0;"><strong>Score:</strong> ${selectedAttempt.score ? selectedAttempt.score.toFixed(1) : 'N/A'}%</p>
       <p style="margin: 4px 0;"><strong>Correct Answers:</strong> ${selectedAttempt.correctAnswers}/${selectedAttempt.totalQuestions}</p>
       <p style="margin: 4px 0;"><strong>Submitted:</strong> ${new Date(selectedAttempt.submittedAt).toLocaleString()}</p>
