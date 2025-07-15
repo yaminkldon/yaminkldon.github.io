@@ -124,8 +124,20 @@ function openModal(modalId) {
 }
 
 function closeModal(modalId) {
-  document.getElementById(modalId).style.display = 'none';
-  document.body.style.overflow = 'auto';
+  const modal = document.getElementById(modalId);
+  if (modal) {
+    modal.style.display = 'none';
+    document.body.style.overflow = 'auto';
+    
+    // Reset form content for assessment modals to prevent issues on reopen
+    if (modalId === 'createQuizModal') {
+      resetQuizForm();
+    } else if (modalId === 'createAssignmentModal') {
+      resetAssignmentForm();
+    } else if (modalId === 'createRubricModal') {
+      resetRubricForm();
+    }
+  }
 }
 
 // Feature Card Click Handlers
@@ -4829,29 +4841,53 @@ function openAssessmentManagement() {
 }
 
 function openCreateQuizModal() {
-  document.getElementById('createQuizModal').style.display = 'flex';
-  loadUnitsForQuiz();
+  const modal = document.getElementById('createQuizModal');
+  if (modal) {
+    modal.style.display = 'flex';
+    loadUnitsForQuiz();
+    // Reset form to initial state
+    resetQuizForm();
+  }
 }
 
 function openCreateAssignmentModal() {
-  document.getElementById('createAssignmentModal').style.display = 'flex';
-  loadUnitsForAssignment();
-  loadRubricsForAssignment();
+  const modal = document.getElementById('createAssignmentModal');
+  if (modal) {
+    modal.style.display = 'flex';
+    loadUnitsForAssignment();
+    loadRubricsForAssignment();
+    // Reset form to initial state
+    resetAssignmentForm();
+  }
 }
 
 function openCreateRubricModal() {
-  document.getElementById('createRubricModal').style.display = 'flex';
+  const modal = document.getElementById('createRubricModal');
+  if (modal) {
+    modal.style.display = 'flex';
+    // Reset form to initial state
+    resetRubricForm();
+  }
 }
 
 function openGradingCenter() {
-  document.getElementById('gradingCenterModal').style.display = 'flex';
-  loadSubmissions();
+  const modal = document.getElementById('gradingCenterModal');
+  if (modal) {
+    modal.style.display = 'flex';
+    loadSubmissions();
+  }
 }
 
 function openPendingGrades() {
-  document.getElementById('gradingCenterModal').style.display = 'flex';
-  document.getElementById('gradingFilter').value = 'pending';
-  loadSubmissions();
+  const modal = document.getElementById('gradingCenterModal');
+  if (modal) {
+    modal.style.display = 'flex';
+    const filter = document.getElementById('gradingFilter');
+    if (filter) {
+      filter.value = 'pending';
+    }
+    loadSubmissions();
+  }
 }
 
 function viewAssessments() {
@@ -5666,9 +5702,351 @@ function showAssessmentList() {
   console.log('Showing assessment list...');
 }
 
+function viewAssessments() {
+  // Create and show assessments list modal
+  const assessmentsModal = document.createElement('div');
+  assessmentsModal.id = 'assessmentsListModal';
+  assessmentsModal.className = 'modal';
+  assessmentsModal.style.display = 'flex';
+  
+  assessmentsModal.innerHTML = `
+    <div class="modal-content" style="max-width: 800px;">
+      <div class="modal-header">
+        <h3 class="modal-title">All Assessments</h3>
+        <button class="modal-close" onclick="closeModal('assessmentsListModal'); this.parentElement.parentElement.parentElement.remove();">&times;</button>
+      </div>
+      
+      <div class="assessment-filters" style="margin-bottom: 20px;">
+        <select class="form-input" id="assessmentTypeFilter" onchange="filterAssessments()" style="width: 200px; display: inline-block;">
+          <option value="all">All Types</option>
+          <option value="quiz">Quizzes</option>
+          <option value="assignment">Assignments</option>
+        </select>
+        <input type="text" class="form-input" id="assessmentSearchFilter" onkeyup="filterAssessments()" placeholder="Search assessments..." style="width: 300px; display: inline-block; margin-left: 10px;">
+      </div>
+      
+      <div id="assessmentsList" style="max-height: 400px; overflow-y: auto;">
+        <div style="text-align: center; padding: 40px; color: #666;">
+          <span class="material-icons" style="font-size: 48px; margin-bottom: 16px;">assignment</span>
+          <p>Loading assessments...</p>
+        </div>
+      </div>
+      
+      <div class="feature-actions" style="margin-top: 20px;">
+        <button class="action-btn" onclick="openCreateQuizModal()">Create Quiz</button>
+        <button class="action-btn" onclick="openCreateAssignmentModal()">Create Assignment</button>
+        <button class="action-btn secondary" onclick="closeModal('assessmentsListModal'); this.parentElement.parentElement.parentElement.remove();">Close</button>
+      </div>
+    </div>
+  `;
+  
+  document.body.appendChild(assessmentsModal);
+  
+  // Load assessments data
+  loadAllAssessments();
+}
+
+function loadAllAssessments() {
+  if (typeof firebase !== 'undefined' && firebase.apps && firebase.apps.length > 0) {
+    const db = firebase.database();
+    const assessmentsList = document.getElementById('assessmentsList');
+    
+    if (!assessmentsList) return;
+    
+    const assessments = [];
+    
+    // Load quizzes
+    db.ref('quizzes').once('value', (snapshot) => {
+      const quizzes = snapshot.val() || {};
+      Object.keys(quizzes).forEach(key => {
+        assessments.push({
+          id: key,
+          type: 'quiz',
+          title: quizzes[key].title,
+          unit: quizzes[key].unit,
+          created: quizzes[key].createdAt || Date.now(),
+          questions: quizzes[key].questions ? quizzes[key].questions.length : 0
+        });
+      });
+      
+      // Load assignments
+      db.ref('assignments').once('value', (snapshot) => {
+        const assignments = snapshot.val() || {};
+        Object.keys(assignments).forEach(key => {
+          assessments.push({
+            id: key,
+            type: 'assignment',
+            title: assignments[key].title,
+            unit: assignments[key].unit,
+            created: assignments[key].createdAt || Date.now(),
+            dueDate: assignments[key].dueDate,
+            maxPoints: assignments[key].maxPoints
+          });
+        });
+        
+        // Display assessments
+        displayAssessmentsList(assessments);
+      });
+    });
+  } else {
+    const assessmentsList = document.getElementById('assessmentsList');
+    if (assessmentsList) {
+      assessmentsList.innerHTML = `
+        <div style="text-align: center; padding: 40px; color: #666;">
+          <span class="material-icons" style="font-size: 48px; margin-bottom: 16px;">cloud_off</span>
+          <p>Cannot load assessments - Firebase not initialized</p>
+        </div>
+      `;
+    }
+  }
+}
+
+function displayAssessmentsList(assessments) {
+  const assessmentsList = document.getElementById('assessmentsList');
+  if (!assessmentsList) return;
+  
+  if (assessments.length === 0) {
+    assessmentsList.innerHTML = `
+      <div style="text-align: center; padding: 40px; color: #666;">
+        <span class="material-icons" style="font-size: 48px; margin-bottom: 16px;">assignment</span>
+        <p>No assessments found</p>
+        <p>Create your first quiz or assignment to get started!</p>
+      </div>
+    `;
+    return;
+  }
+  
+  // Sort by creation date (newest first)
+  assessments.sort((a, b) => b.created - a.created);
+  
+  let html = '';
+  assessments.forEach(assessment => {
+    const typeIcon = assessment.type === 'quiz' ? 'quiz' : 'assignment';
+    const typeLabel = assessment.type === 'quiz' ? 'Quiz' : 'Assignment';
+    const createdDate = new Date(assessment.created).toLocaleDateString();
+    
+    html += `
+      <div class="assessment-item" style="border: 1px solid #ddd; border-radius: 8px; padding: 16px; margin-bottom: 12px; background: #fff; cursor: pointer;">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <div style="display: flex; align-items: center; gap: 12px;">
+            <span class="material-icons" style="color: #6c4fc1;">${typeIcon}</span>
+            <div>
+              <h4 style="margin: 0; color: #222c5c;">${assessment.title}</h4>
+              <p style="margin: 4px 0; color: #666; font-size: 14px;">${typeLabel} • Unit: ${assessment.unit}</p>
+              <p style="margin: 0; color: #888; font-size: 12px;">Created: ${createdDate}</p>
+            </div>
+          </div>
+          <div style="text-align: right;">
+            ${assessment.type === 'quiz' ? 
+              `<span style="color: #6c4fc1; font-weight: bold;">${assessment.questions} questions</span>` : 
+              `<span style="color: #6c4fc1; font-weight: bold;">${assessment.maxPoints} points</span>`
+            }
+            ${assessment.dueDate ? `<br><span style="color: #666; font-size: 12px;">Due: ${new Date(assessment.dueDate).toLocaleDateString()}</span>` : ''}
+          </div>
+        </div>
+      </div>
+    `;
+  });
+  
+  assessmentsList.innerHTML = html;
+}
+
+function filterAssessments() {
+  // Filter functionality would go here
+  console.log('Filtering assessments...');
+}
+
 function loadAssessmentOverview() {
-  // This would load and display an overview of all assessments
-  console.log('Loading assessment overview...');
+  // Create and show assessment overview modal
+  const overviewModal = document.createElement('div');
+  overviewModal.id = 'assessmentOverviewModal';
+  overviewModal.className = 'modal';
+  overviewModal.style.display = 'flex';
+  
+  overviewModal.innerHTML = `
+    <div class="modal-content" style="max-width: 900px;">
+      <div class="modal-header">
+        <h3 class="modal-title" data-translate="assessmentOverview">Assessment Overview</h3>
+        <button class="modal-close" onclick="closeModal('assessmentOverviewModal'); this.parentElement.parentElement.parentElement.remove();">&times;</button>
+      </div>
+      
+      <div class="assessment-stats">
+        <div class="stat-card">
+          <div class="stat-number" id="totalQuizzes">0</div>
+          <div class="stat-label">Total Quizzes</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-number" id="totalAssignments">0</div>
+          <div class="stat-label">Total Assignments</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-number" id="pendingGrades">0</div>
+          <div class="stat-label">Pending Grades</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-number" id="avgQuizScore">0%</div>
+          <div class="stat-label">Avg Quiz Score</div>
+        </div>
+      </div>
+      
+      <div style="margin-top: 20px;">
+        <h4>Recent Assessments</h4>
+        <div id="recentAssessments" style="max-height: 300px; overflow-y: auto;">
+          <div style="text-align: center; padding: 20px; color: #666;">
+            <span class="material-icons" style="font-size: 48px; margin-bottom: 16px;">quiz</span>
+            <p>No assessments created yet</p>
+            <p>Create your first quiz or assignment to get started!</p>
+          </div>
+        </div>
+      </div>
+      
+      <div class="feature-actions" style="margin-top: 20px;">
+        <button class="action-btn" onclick="openCreateQuizModal()">Create Quiz</button>
+        <button class="action-btn" onclick="openCreateAssignmentModal()">Create Assignment</button>
+        <button class="action-btn secondary" onclick="openGradingCenter()">Open Grading Center</button>
+      </div>
+    </div>
+  `;
+  
+  document.body.appendChild(overviewModal);
+  
+  // Load actual assessment data
+  loadAssessmentData();
+}
+
+// Add form reset functions
+function resetQuizForm() {
+  const form = document.getElementById('createQuizForm');
+  if (form) {
+    form.reset();
+  }
+  
+  // Reset questions to initial state
+  const questionsContainer = document.getElementById('questionsContainer');
+  if (questionsContainer) {
+    questionsContainer.innerHTML = `
+      <div class="question-item" data-question="1">
+        <div class="question-header">
+          <span>Question 1</span>
+          <select class="question-type" onchange="updateQuestionType(this)">
+            <option value="multiple-choice">Multiple Choice</option>
+            <option value="fill-blank">Fill in the Blank</option>
+            <option value="true-false">True/False</option>
+            <option value="short-answer">Short Answer</option>
+          </select>
+        </div>
+        <div class="question-content">
+          <input type="text" class="form-input question-text" placeholder="Enter question text..." required>
+          <div class="question-options" id="options-1">
+            <div class="option-item">
+              <input type="radio" name="correct-1" value="0">
+              <input type="text" class="form-input option-text" placeholder="Option A" required>
+            </div>
+            <div class="option-item">
+              <input type="radio" name="correct-1" value="1">
+              <input type="text" class="form-input option-text" placeholder="Option B" required>
+            </div>
+            <div class="option-item">
+              <input type="radio" name="correct-1" value="2">
+              <input type="text" class="form-input option-text" placeholder="Option C" required>
+            </div>
+            <div class="option-item">
+              <input type="radio" name="correct-1" value="3">
+              <input type="text" class="form-input option-text" placeholder="Option D" required>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+  
+  // Reset counters
+  currentQuizQuestionCount = 1;
+}
+
+function resetAssignmentForm() {
+  const form = document.getElementById('createAssignmentForm');
+  if (form) {
+    form.reset();
+  }
+}
+
+function resetRubricForm() {
+  const form = document.getElementById('createRubricForm');
+  if (form) {
+    form.reset();
+  }
+  
+  // Reset criteria to initial state
+  const criteriaContainer = document.getElementById('criteriaContainer');
+  if (criteriaContainer) {
+    criteriaContainer.innerHTML = `
+      <div class="criteria-item" data-criteria="1">
+        <div class="criteria-header">
+          <input type="text" class="form-input criteria-name" placeholder="Criteria name (e.g., Content Quality)" required>
+          <input type="number" class="form-input criteria-weight" placeholder="Weight %" min="1" max="100" value="25" required>
+        </div>
+        <div class="criteria-levels">
+          <div class="level-item">
+            <label>Excellent (4)</label>
+            <textarea class="form-textarea level-description" placeholder="Describe excellent performance..." required></textarea>
+          </div>
+          <div class="level-item">
+            <label>Good (3)</label>
+            <textarea class="form-textarea level-description" placeholder="Describe good performance..." required></textarea>
+          </div>
+          <div class="level-item">
+            <label>Fair (2)</label>
+            <textarea class="form-textarea level-description" placeholder="Describe fair performance..." required></textarea>
+          </div>
+          <div class="level-item">
+            <label>Poor (1)</label>
+            <textarea class="form-textarea level-description" placeholder="Describe poor performance..." required></textarea>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+  
+  // Reset counters
+  currentCriteriaCount = 1;
+}
+
+function loadAssessmentData() {
+  // Load assessment statistics from Firebase
+  if (typeof firebase !== 'undefined' && firebase.apps && firebase.apps.length > 0) {
+    const db = firebase.database();
+    
+    // Load quizzes
+    db.ref('quizzes').once('value', (snapshot) => {
+      const quizzes = snapshot.val() || {};
+      const quizCount = Object.keys(quizzes).length;
+      const totalQuizzesEl = document.getElementById('totalQuizzes');
+      if (totalQuizzesEl) {
+        totalQuizzesEl.textContent = quizCount;
+      }
+    });
+    
+    // Load assignments
+    db.ref('assignments').once('value', (snapshot) => {
+      const assignments = snapshot.val() || {};
+      const assignmentCount = Object.keys(assignments).length;
+      const totalAssignmentsEl = document.getElementById('totalAssignments');
+      if (totalAssignmentsEl) {
+        totalAssignmentsEl.textContent = assignmentCount;
+      }
+    });
+    
+    // Load submissions for grading stats
+    db.ref('submissions').once('value', (snapshot) => {
+      const submissions = snapshot.val() || {};
+      const pendingCount = Object.values(submissions).filter(s => !s.graded).length;
+      const pendingGradesEl = document.getElementById('pendingGrades');
+      if (pendingGradesEl) {
+        pendingGradesEl.textContent = pendingCount;
+      }
+    });
+  }
 }
 
 // Wait for Firebase to be initialized
