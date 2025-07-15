@@ -4822,6 +4822,104 @@ const additionalStyles = `
     font-family: inherit;
     resize: vertical;
   }
+  
+  /* Custom Dropdown Styles */
+  .custom-dropdown {
+    position: relative;
+    cursor: pointer;
+    user-select: none;
+  }
+  
+  .dropdown-selected {
+    background: linear-gradient(135deg, #6c4fc1, #4834d4);
+    color: white;
+    padding: 12px 16px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    box-shadow: 0 2px 8px rgba(108, 79, 193, 0.3);
+    transition: all 0.3s ease;
+  }
+  
+  .dropdown-selected:hover {
+    box-shadow: 0 4px 12px rgba(108, 79, 193, 0.4);
+    transform: translateY(-1px);
+  }
+  
+  .custom-dropdown.active .dropdown-selected {
+    border-radius: 8px 8px 0 0;
+    box-shadow: 0 2px 8px rgba(108, 79, 193, 0.4);
+  }
+  
+  .dropdown-arrow {
+    font-size: 20px;
+    transition: transform 0.3s ease;
+  }
+  
+  .custom-dropdown.active .dropdown-arrow {
+    transform: rotate(180deg);
+  }
+  
+  .dropdown-options {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: white;
+    border: 1px solid #ddd;
+    border-radius: 0 0 8px 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    z-index: 1000;
+    display: none;
+    max-height: 250px;
+    overflow-y: auto;
+  }
+  
+  .dropdown-option {
+    padding: 12px 16px;
+    border-bottom: 1px solid #f0f0f0;
+    cursor: pointer;
+    transition: background 0.2s ease;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  
+  .dropdown-option:hover {
+    background: #f8f9fa;
+  }
+  
+  .dropdown-option.selected {
+    background: linear-gradient(135deg, #e8f2ff, #f0f8ff);
+    border-left: 4px solid #6c4fc1;
+  }
+  
+  .dropdown-option:last-child {
+    border-bottom: none;
+    border-radius: 0 0 8px 8px;
+  }
+  
+  .attempt-label {
+    font-weight: 600;
+    color: #333;
+    font-size: 14px;
+  }
+  
+  .attempt-score {
+    color: #6c4fc1;
+    font-weight: 500;
+    font-size: 13px;
+  }
+  
+  .attempt-date {
+    color: #666;
+    font-size: 12px;
+  }
+  
+  .dropdown-option.selected .attempt-label {
+    color: #6c4fc1;
+  }
 `;
 
 // Add styles to the page
@@ -5646,16 +5744,24 @@ function displayQuizSubmissionModal(attempts, quiz) {
         
         <div style="margin-bottom: 20px;">
           <h4 style="color: #fff;">Select Attempt to View:</h4>
-          <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-            ${attempts.map((attempt, index) => `
-              <button class="action-btn ${index === 0 ? '' : 'secondary'}" 
-                      onclick="selectAttempt(${index})"
-                      id="attempt-btn-${index}"
-                      style="padding: 8px 16px;">
-                Attempt ${index + 1}
-                <br><small style="font-size: 11px;">${attempt.score ? attempt.score.toFixed(1) : 'N/A'}%</small>
-              </button>
-            `).join('')}
+          <div style="position: relative; display: inline-block; min-width: 250px;">
+            <div class="custom-dropdown" id="attemptDropdown" onclick="toggleAttemptDropdown()">
+              <div class="dropdown-selected">
+                <span id="selectedAttemptText">Attempt 1 (${attempts[0].score ? attempts[0].score.toFixed(1) : 'N/A'}%)</span>
+                <span class="material-icons dropdown-arrow">arrow_drop_down</span>
+              </div>
+              <div class="dropdown-options" id="attemptDropdownOptions">
+                ${attempts.map((attempt, index) => `
+                  <div class="dropdown-option ${index === 0 ? 'selected' : ''}" 
+                       onclick="selectAttemptFromDropdown(${index})"
+                       data-index="${index}">
+                    <span class="attempt-label">Attempt ${index + 1}</span>
+                    <span class="attempt-score">${attempt.score ? attempt.score.toFixed(1) : 'N/A'}%</span>
+                    <span class="attempt-date">${new Date(attempt.submittedAt).toLocaleDateString()}</span>
+                  </div>
+                `).join('')}
+              </div>
+            </div>
           </div>
         </div>
         
@@ -5685,13 +5791,20 @@ function selectAttempt(index) {
   const quiz = window.quizModalQuiz;
   const selectedAttempt = attempts[index];
   
-  // Update button styles
-  attempts.forEach((_, i) => {
-    const btn = document.getElementById(`attempt-btn-${i}`);
-    if (btn) {
-      btn.className = i === index ? 'action-btn' : 'action-btn secondary';
-    }
-  });
+  // Update dropdown selection
+  const dropdownOptions = document.querySelectorAll('.dropdown-option');
+  dropdownOptions.forEach(option => option.classList.remove('selected'));
+  
+  const selectedOption = document.querySelector(`.dropdown-option[data-index="${index}"]`);
+  if (selectedOption) {
+    selectedOption.classList.add('selected');
+  }
+  
+  // Update selected text
+  const selectedText = document.getElementById('selectedAttemptText');
+  if (selectedText) {
+    selectedText.textContent = `Attempt ${index + 1} (${selectedAttempt.score ? selectedAttempt.score.toFixed(1) : 'N/A'}%)`;
+  }
   
   // Display attempt content
   const attemptContent = document.getElementById('attemptContent');
@@ -5729,6 +5842,36 @@ function selectAttempt(index) {
     </div>
   `;
 }
+
+function toggleAttemptDropdown() {
+  const dropdownOptions = document.getElementById('attemptDropdownOptions');
+  const dropdown = document.getElementById('attemptDropdown');
+  
+  if (dropdownOptions.style.display === 'block') {
+    dropdownOptions.style.display = 'none';
+    dropdown.classList.remove('active');
+  } else {
+    dropdownOptions.style.display = 'block';
+    dropdown.classList.add('active');
+  }
+}
+
+function selectAttemptFromDropdown(index) {
+  selectAttempt(index);
+  toggleAttemptDropdown();
+}
+
+// Close dropdown when clicking outside
+document.addEventListener('click', function(event) {
+  const dropdown = document.getElementById('attemptDropdown');
+  if (dropdown && !dropdown.contains(event.target)) {
+    const dropdownOptions = document.getElementById('attemptDropdownOptions');
+    if (dropdownOptions) {
+      dropdownOptions.style.display = 'none';
+      dropdown.classList.remove('active');
+    }
+  }
+});
 
 function checkQuizAnswer(question, userAnswer) {
   if (question.type === 'multiple-choice' || question.type === 'true-false') {
