@@ -128,15 +128,6 @@ function closeModal(modalId) {
   if (modal) {
     modal.style.display = 'none';
     document.body.style.overflow = 'auto';
-    
-    // Reset form content for assessment modals to prevent issues on reopen
-    if (modalId === 'createQuizModal') {
-      resetQuizForm();
-    } else if (modalId === 'createAssignmentModal') {
-      resetAssignmentForm();
-    } else if (modalId === 'createRubricModal') {
-      resetRubricForm();
-    }
   }
 }
 
@@ -4841,53 +4832,44 @@ function openAssessmentManagement() {
 }
 
 function openCreateQuizModal() {
-  const modal = document.getElementById('createQuizModal');
-  if (modal) {
-    modal.style.display = 'flex';
-    loadUnitsForQuiz();
-    // Reset form to initial state
+  openModal('createQuizModal');
+  loadUnitsForQuiz();
+  // Reset form to ensure clean state
+  setTimeout(() => {
     resetQuizForm();
-  }
+  }, 100);
 }
 
 function openCreateAssignmentModal() {
-  const modal = document.getElementById('createAssignmentModal');
-  if (modal) {
-    modal.style.display = 'flex';
-    loadUnitsForAssignment();
-    loadRubricsForAssignment();
-    // Reset form to initial state
+  openModal('createAssignmentModal');
+  loadUnitsForAssignment();
+  loadRubricsForAssignment();
+  // Reset form to ensure clean state
+  setTimeout(() => {
     resetAssignmentForm();
-  }
+  }, 100);
 }
 
 function openCreateRubricModal() {
-  const modal = document.getElementById('createRubricModal');
-  if (modal) {
-    modal.style.display = 'flex';
-    // Reset form to initial state
+  openModal('createRubricModal');
+  // Reset form to ensure clean state
+  setTimeout(() => {
     resetRubricForm();
-  }
+  }, 100);
 }
 
 function openGradingCenter() {
-  const modal = document.getElementById('gradingCenterModal');
-  if (modal) {
-    modal.style.display = 'flex';
-    loadSubmissions();
-  }
+  openModal('gradingCenterModal');
+  loadSubmissions();
 }
 
 function openPendingGrades() {
-  const modal = document.getElementById('gradingCenterModal');
-  if (modal) {
-    modal.style.display = 'flex';
-    const filter = document.getElementById('gradingFilter');
-    if (filter) {
-      filter.value = 'pending';
-    }
-    loadSubmissions();
+  openModal('gradingCenterModal');
+  const filter = document.getElementById('gradingFilter');
+  if (filter) {
+    filter.value = 'pending';
   }
+  loadSubmissions();
 }
 
 function viewAssessments() {
@@ -4898,6 +4880,11 @@ function viewAssessments() {
 // Quiz Creation Functions
 function loadUnitsForQuiz() {
   const select = document.getElementById('quizUnit');
+  if (!select) {
+    console.error('Quiz unit select element not found');
+    return;
+  }
+  
   select.innerHTML = '<option value="">Choose a unit...</option>';
   
   db.ref('units').once('value').then(snapshot => {
@@ -4906,10 +4893,12 @@ function loadUnitsForQuiz() {
         const unit = child.val();
         const option = document.createElement('option');
         option.value = child.key;
-        option.textContent = unit.name || unit.title;
+        option.textContent = unit.name || unit.title || child.key;
         select.appendChild(option);
       });
     }
+  }).catch(error => {
+    console.error('Error loading units for quiz:', error);
   });
 }
 
@@ -5128,6 +5117,11 @@ document.getElementById('createQuizForm').addEventListener('submit', function(e)
 // Assignment Creation Functions
 function loadUnitsForAssignment() {
   const select = document.getElementById('assignmentUnit');
+  if (!select) {
+    console.error('Assignment unit select element not found');
+    return;
+  }
+  
   select.innerHTML = '<option value="">Choose a unit...</option>';
   
   db.ref('units').once('value').then(snapshot => {
@@ -5136,15 +5130,22 @@ function loadUnitsForAssignment() {
         const unit = child.val();
         const option = document.createElement('option');
         option.value = child.key;
-        option.textContent = unit.name || unit.title;
+        option.textContent = unit.name || unit.title || child.key;
         select.appendChild(option);
       });
     }
+  }).catch(error => {
+    console.error('Error loading units for assignment:', error);
   });
 }
 
 function loadRubricsForAssignment() {
   const select = document.getElementById('assignmentRubric');
+  if (!select) {
+    console.error('Assignment rubric select element not found');
+    return;
+  }
+  
   select.innerHTML = '<option value="">Select existing rubric (optional)</option>';
   
   db.ref('rubrics').once('value').then(snapshot => {
@@ -5153,10 +5154,12 @@ function loadRubricsForAssignment() {
         const rubric = child.val();
         const option = document.createElement('option');
         option.value = child.key;
-        option.textContent = rubric.name;
+        option.textContent = rubric.name || rubric.title || child.key;
         select.appendChild(option);
       });
     }
+  }).catch(error => {
+    console.error('Error loading rubrics for assignment:', error);
   });
 }
 
