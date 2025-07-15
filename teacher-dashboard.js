@@ -7360,7 +7360,11 @@ async function editQuiz(quizId) {
     // Now populate the form
     document.getElementById('quizTitle').value = quiz.title || '';
     document.getElementById('quizDescription').value = quiz.description || '';
-    console.log('Quiz unit:', quiz.unit);
+    navigator.clipboard.writeText(quiz.unit).then(() => {
+  alert('Quiz Unit: ' + quiz.unit);
+}).catch(err => {
+  console.error('Failed to copy unit to clipboard:', err);
+});
     document.getElementById('quizUnit').value = quiz.unit || '';
     document.getElementById('quizTimeLimit').value = quiz.timeLimit || '';
     document.getElementById('quizAttempts').value = quiz.maxAttempts || '';
