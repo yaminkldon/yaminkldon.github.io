@@ -6339,7 +6339,7 @@ function viewQuizDetails(quizId) {
               <div style="max-height: 300px; overflow-y: auto; border: 1px solid #ddd; border-radius: 4px; padding: 12px;">
                 ${quiz.questions.map((q, i) => `
                   <div style="margin-bottom: 16px; padding: 12px; border-left: 3px solid #6c4fc1; background: #f9f9f9;">
-                    <strong>Question ${i + 1}:</strong> ${q.text}<br>
+                    <strong style="color: black;">Question ${i + 1}:</strong> ${q.text}<br>
                     <small style="color: #666;">Type: ${q.type}</small>
                     ${q.options ? `<br><small style="color: #666;">Options: ${q.options.length}</small>` : ''}
                   </div>
