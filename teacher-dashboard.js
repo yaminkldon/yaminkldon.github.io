@@ -5580,18 +5580,22 @@ function onAssessmentTypeChange() {
   const assessmentTypeFilter = document.getElementById('assessmentTypeFilter').value;
   const specificAssessmentFilter = document.getElementById('specificAssessmentFilter');
   
-  // Reset specific assessment filter
+  // Reset specific assessment filter - clear immediately
   specificAssessmentFilter.innerHTML = '<option value="all">All Items</option>';
   
   if (assessmentTypeFilter === 'assignment') {
     // Load only assignments
     db.ref('assignments').once('value').then(snapshot => {
+      // Clear again to prevent any race conditions
+      specificAssessmentFilter.innerHTML = '<option value="all">All Items</option>';
+      
       if (snapshot.exists()) {
         snapshot.forEach(child => {
           const assignment = child.val();
           const option = document.createElement('option');
           option.value = child.key;
           option.textContent = `Assignment: ${assignment.title}`;
+          option.dataset.type = 'assignment';
           specificAssessmentFilter.appendChild(option);
         });
       }
@@ -5599,25 +5603,29 @@ function onAssessmentTypeChange() {
   } else if (assessmentTypeFilter === 'quiz') {
     // Load only quizzes
     db.ref('quizzes').once('value').then(snapshot => {
+      // Clear again to prevent any race conditions
+      specificAssessmentFilter.innerHTML = '<option value="all">All Items</option>';
+      
       if (snapshot.exists()) {
         snapshot.forEach(child => {
           const quiz = child.val();
           const option = document.createElement('option');
           option.value = child.key;
           option.textContent = `Quiz: ${quiz.title}`;
+          option.dataset.type = 'quiz';
           specificAssessmentFilter.appendChild(option);
         });
       }
     });
   } else {
-    // Load both assignments and quizzes
+    // Load both assignments and quizzes using the improved function
     loadAssignmentFilterOptions();
   }
   
   // Apply filters after updating options
   setTimeout(() => {
     filterSubmissions();
-  }, 100);
+  }, 200); // Increased timeout slightly to ensure DOM updates complete
 }
 
 function displayAllSubmissions(submissions, container) {
@@ -5716,45 +5724,66 @@ function loadAssignmentFilterOptions() {
   // Load options based on current assessment type filter
   const assessmentType = assessmentTypeSelect.value;
   
+  // Use Promise.all to ensure proper sequential loading and prevent duplicates
+  const promises = [];
+  
   if (assessmentType === 'all' || assessmentType === 'assignment') {
     // Load assignments
-    db.ref('assignments').once('value').then(snapshot => {
-      if (snapshot.exists()) {
-        snapshot.forEach(child => {
-          const assignment = child.val();
-          const option = document.createElement('option');
-          option.value = child.key;
-          option.textContent = `Assignment: ${assignment.title}`;
-          option.dataset.type = 'assignment';
-          
-          // Only add if we're showing all types or only assignments
-          if (assessmentType === 'all' || assessmentType === 'assignment') {
-            specificAssessmentSelect.appendChild(option);
-          }
-        });
-      }
-    });
+    promises.push(
+      db.ref('assignments').once('value').then(snapshot => {
+        const assignmentOptions = [];
+        if (snapshot.exists()) {
+          snapshot.forEach(child => {
+            const assignment = child.val();
+            assignmentOptions.push({
+              value: child.key,
+              text: `Assignment: ${assignment.title}`,
+              type: 'assignment'
+            });
+          });
+        }
+        return assignmentOptions;
+      })
+    );
   }
   
   if (assessmentType === 'all' || assessmentType === 'quiz') {
     // Load quizzes
-    db.ref('quizzes').once('value').then(snapshot => {
-      if (snapshot.exists()) {
-        snapshot.forEach(child => {
-          const quiz = child.val();
-          const option = document.createElement('option');
-          option.value = child.key;
-          option.textContent = `Quiz: ${quiz.title}`;
-          option.dataset.type = 'quiz';
-          
-          // Only add if we're showing all types or only quizzes
-          if (assessmentType === 'all' || assessmentType === 'quiz') {
-            specificAssessmentSelect.appendChild(option);
-          }
-        });
-      }
-    });
+    promises.push(
+      db.ref('quizzes').once('value').then(snapshot => {
+        const quizOptions = [];
+        if (snapshot.exists()) {
+          snapshot.forEach(child => {
+            const quiz = child.val();
+            quizOptions.push({
+              value: child.key,
+              text: `Quiz: ${quiz.title}`,
+              type: 'quiz'
+            });
+          });
+        }
+        return quizOptions;
+      })
+    );
   }
+  
+  // Wait for all promises to resolve, then add options
+  Promise.all(promises).then(results => {
+    // Clear again to make sure no duplicates
+    specificAssessmentSelect.innerHTML = '<option value="all">All Items</option>';
+    
+    // Flatten and add all options
+    const allOptions = results.flat();
+    allOptions.forEach(optionData => {
+      const option = document.createElement('option');
+      option.value = optionData.value;
+      option.textContent = optionData.text;
+      option.dataset.type = optionData.type;
+      specificAssessmentSelect.appendChild(option);
+    });
+  }).catch(error => {
+    console.error('Error loading filter options:', error);
+  });
 }
 
 function createSubmissionItem(submissionId, submission) {
@@ -5968,7 +5997,7 @@ function bulkResetQuizAttempts() {
             <h4 style="color: ${failed === 0 ? '#28a745' : '#ffc107'}; margin-bottom: 16px;">
               ${failed === 0 ? 'All Resets Completed Successfully!' : 'Bulk Reset Completed with Issues'}
             </h4>
-            <div style="background: #f8f9fa; padding: 16px; border-radius: 8px; margin-bottom: 20px;">
+            <div style="background: #f8f9fa; padding: 16px; border-radius: 8px; margin-bottom: 20px; color: black;">
               <p style="margin: 0;"><strong>Successful:</strong> ${successful}</p>
               <p style="margin: 0;"><strong>Failed:</strong> ${failed}</p>
               <p style="margin: 0;"><strong>Total:</strong> ${quizSubmissions.length}</p>
@@ -6223,11 +6252,29 @@ function resetQuizAttempts(quizId, studentId, studentEmail) {
   const confirmMessage = `Are you sure you want to reset all quiz attempts for student ${studentEmail}?\n\nThis action will:\n- Delete all existing attempts for this quiz\n- Allow the student to retake the quiz from the beginning\n- Cannot be undone\n\nContinue?`;
   
   if (confirm(confirmMessage)) {
-    // Show loading message
-    const modal = document.getElementById('quizSubmissionModal');
-    const originalContent = modal.innerHTML;
+    // Check if we're in the quiz submission modal context
+    const quizSubmissionModal = document.getElementById('quizSubmissionModal');
+    const isInQuizModal = quizSubmissionModal && quizSubmissionModal.style.display === 'flex';
     
-    modal.innerHTML = `
+    // Create or update loading modal
+    let loadingModal;
+    let originalContent;
+    
+    if (isInQuizModal) {
+      // We're in the quiz submission modal, update it
+      loadingModal = quizSubmissionModal;
+      originalContent = loadingModal.innerHTML;
+    } else {
+      // We're in the grading center, create a new loading modal
+      loadingModal = document.createElement('div');
+      loadingModal.className = 'modal';
+      loadingModal.id = 'resetLoadingModal';
+      loadingModal.style.display = 'flex';
+      document.body.appendChild(loadingModal);
+    }
+    
+    // Show loading message
+    loadingModal.innerHTML = `
       <div class="modal-content" style="max-width: 500px;">
         <div class="modal-header">
           <h3 class="modal-title">Resetting Quiz Attempts</h3>
@@ -6266,7 +6313,7 @@ function resetQuizAttempts(quizId, studentId, studentEmail) {
         
         Promise.all(deletePromises).then(() => {
           // Show success message
-          modal.innerHTML = `
+          loadingModal.innerHTML = `
             <div class="modal-content" style="max-width: 500px;">
               <div class="modal-header">
                 <h3 class="modal-title">Reset Complete</h3>
@@ -6279,7 +6326,7 @@ function resetQuizAttempts(quizId, studentId, studentEmail) {
                 <p>All quiz attempts for <strong>${studentEmail}</strong> have been deleted.</p>
                 <p style="color: #666; font-size: 14px;">The student can now retake the quiz from the beginning.</p>
                 <div style="margin-top: 30px;">
-                  <button class="action-btn" onclick="closeModal('quizSubmissionModal'); this.parentElement.parentElement.parentElement.remove(); loadSubmissions();">Close and Refresh</button>
+                  <button class="action-btn" onclick="closeResetModal('${isInQuizModal}'); loadSubmissions();">Close and Refresh</button>
                 </div>
               </div>
             </div>
@@ -6289,16 +6336,20 @@ function resetQuizAttempts(quizId, studentId, studentEmail) {
           document.head.removeChild(style);
           
           // Show notification
-          showNotification(
-            `Quiz attempts reset successfully for ${studentEmail}`,
-            'success',
-            'Reset Complete'
-          );
+          if (typeof showNotification === 'function') {
+            showNotification(
+              `Quiz attempts reset successfully for ${studentEmail}`,
+              'success',
+              'Reset Complete'
+            );
+          } else {
+            NotificationManager.showToast(`Quiz attempts reset successfully for ${studentEmail}`);
+          }
         }).catch(error => {
           console.error('Error resetting quiz attempts:', error);
           
           // Show error message
-          modal.innerHTML = `
+          loadingModal.innerHTML = `
             <div class="modal-content" style="max-width: 500px;">
               <div class="modal-header">
                 <h3 class="modal-title">Reset Failed</h3>
@@ -6309,9 +6360,9 @@ function resetQuizAttempts(quizId, studentId, studentEmail) {
                 </div>
                 <h4 style="color: #dc3545; margin-bottom: 16px;">Reset Failed</h4>
                 <p>There was an error resetting the quiz attempts.</p>
-                <p style="color: #666; font-size: 14px;">Please try again or contact support if the problem persists.</p>
+                <p style="color: #666; font-size: 14px;">Error: ${error.message}</p>
                 <div style="margin-top: 30px;">
-                  <button class="action-btn secondary" onclick="closeModal('quizSubmissionModal'); this.parentElement.parentElement.parentElement.remove();">Close</button>
+                  <button class="action-btn secondary" onclick="closeResetModal('${isInQuizModal}');">Close</button>
                 </div>
               </div>
             </div>
@@ -6320,28 +6371,33 @@ function resetQuizAttempts(quizId, studentId, studentEmail) {
           // Clean up the style element
           document.head.removeChild(style);
           
-          // Show error notification
-          showNotification(
-            'Failed to reset quiz attempts. Please try again.',
-            'error',
-            'Reset Failed'
-          );
+          // Show notification
+          if (typeof showNotification === 'function') {
+            showNotification(
+              `Failed to reset quiz attempts: ${error.message}`,
+              'error',
+              'Reset Failed'
+            );
+          } else {
+            NotificationManager.showToast(`Failed to reset quiz attempts: ${error.message}`);
+          }
         });
       } else {
-        // No attempts found
-        modal.innerHTML = `
+        // No attempts found, but still show success
+        loadingModal.innerHTML = `
           <div class="modal-content" style="max-width: 500px;">
             <div class="modal-header">
-              <h3 class="modal-title">No Attempts Found</h3>
+              <h3 class="modal-title">Reset Complete</h3>
             </div>
             <div style="padding: 40px; text-align: center;">
               <div style="margin-bottom: 20px;">
-                <span class="material-icons" style="font-size: 48px; color: #ffc107;">info</span>
+                <span class="material-icons" style="font-size: 48px; color: #28a745;">check_circle</span>
               </div>
-              <h4 style="color: #ffc107; margin-bottom: 16px;">No Attempts to Reset</h4>
-              <p>No quiz attempts were found for this student.</p>
+              <h4 style="color: #28a745; margin-bottom: 16px;">No Attempts Found</h4>
+              <p>No quiz attempts found for <strong>${studentEmail}</strong>.</p>
+              <p style="color: #666; font-size: 14px;">The student can take the quiz from the beginning.</p>
               <div style="margin-top: 30px;">
-                <button class="action-btn secondary" onclick="closeModal('quizSubmissionModal'); this.parentElement.parentElement.parentElement.remove();">Close</button>
+                <button class="action-btn" onclick="closeResetModal('${isInQuizModal}'); loadSubmissions();">Close and Refresh</button>
               </div>
             </div>
           </div>
@@ -6349,25 +6405,36 @@ function resetQuizAttempts(quizId, studentId, studentEmail) {
         
         // Clean up the style element
         document.head.removeChild(style);
+        
+        // Show notification
+        if (typeof showNotification === 'function') {
+          showNotification(
+            `No quiz attempts found for ${studentEmail}`,
+            'info',
+            'Reset Complete'
+          );
+        } else {
+          NotificationManager.showToast(`No quiz attempts found for ${studentEmail}`);
+        }
       }
     }).catch(error => {
-      console.error('Error loading quiz attempts:', error);
+      console.error('Error checking quiz attempts:', error);
       
       // Show error message
-      modal.innerHTML = `
+      loadingModal.innerHTML = `
         <div class="modal-content" style="max-width: 500px;">
           <div class="modal-header">
-            <h3 class="modal-title">Error</h3>
+            <h3 class="modal-title">Reset Failed</h3>
           </div>
           <div style="padding: 40px; text-align: center;">
             <div style="margin-bottom: 20px;">
               <span class="material-icons" style="font-size: 48px; color: #dc3545;">error</span>
             </div>
-            <h4 style="color: #dc3545; margin-bottom: 16px;">Error Loading Data</h4>
-            <p>There was an error loading the quiz attempts.</p>
-            <p style="color: #666; font-size: 14px;">Please try again or contact support if the problem persists.</p>
+            <h4 style="color: #dc3545; margin-bottom: 16px;">Database Error</h4>
+            <p>There was an error accessing the quiz attempts.</p>
+            <p style="color: #666; font-size: 14px;">Error: ${error.message}</p>
             <div style="margin-top: 30px;">
-              <button class="action-btn secondary" onclick="closeModal('quizSubmissionModal'); this.parentElement.parentElement.parentElement.remove();">Close</button>
+              <button class="action-btn secondary" onclick="closeResetModal('${isInQuizModal}');">Close</button>
             </div>
           </div>
         </div>
@@ -6375,8 +6442,39 @@ function resetQuizAttempts(quizId, studentId, studentEmail) {
       
       // Clean up the style element
       document.head.removeChild(style);
+      
+      // Show notification
+      if (typeof showNotification === 'function') {
+        showNotification(
+          `Database error: ${error.message}`,
+          'error',
+          'Reset Failed'
+        );
+      } else {
+        NotificationManager.showToast(`Database error: ${error.message}`);
+      }
     });
   }
+}
+
+// Helper function to close the reset modal properly
+function closeResetModal(isInQuizModal) {
+  if (isInQuizModal === 'true') {
+    // We're in the quiz submission modal, close it
+    const quizModal = document.getElementById('quizSubmissionModal');
+    if (quizModal) {
+      quizModal.remove();
+    }
+  } else {
+    // We're in the grading center, remove the loading modal
+    const loadingModal = document.getElementById('resetLoadingModal');
+    if (loadingModal) {
+      loadingModal.remove();
+    }
+  }
+  
+  // Reset body overflow
+  document.body.style.overflow = 'auto';
 }
 
 function checkQuizAnswer(question, userAnswer) {
