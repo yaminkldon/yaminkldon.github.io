@@ -7354,13 +7354,27 @@ async function editQuiz(quizId) {
 
     const quiz = snapshot.val();
 
-    // Wait for units to be loaded
-    await loadUnitsForQuiz();
-const unitSelect = document.getElementById('quizUnit');
-if (unitSelect && quiz.unit) {
-  console.log('Quiz unit found:', quiz.unit);
-  unitSelect.value = quiz.unit;
-}
+    // Wait for units to be loaded and get the available units
+    const availableUnits = await loadUnitsForQuiz();
+    const unitSelect = document.getElementById('quizUnit');
+    
+    if (unitSelect && quiz.unit) {
+      console.log('Quiz unit found:', quiz.unit);
+      console.log('Available units:', availableUnits);
+      
+      // Find the matching unit in the available units
+      const matchingUnit = availableUnits.find(unit => unit.id === quiz.unit);
+      
+      if (matchingUnit) {
+        unitSelect.value = matchingUnit.id;
+        console.log('Unit successfully set to:', matchingUnit.name);
+      } else {
+        console.warn('Quiz unit not found in available units:', quiz.unit);
+        // Show all available option values for debugging
+        const options = Array.from(unitSelect.options).map(opt => opt.value);
+        console.log('Available option values:', options);
+      }
+    }
 
     // Now populate the form
     document.getElementById('quizTitle').value = quiz.title || '';
