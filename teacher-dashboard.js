@@ -5826,7 +5826,7 @@ function selectAttempt(index) {
           const isCorrect = checkQuizAnswer(question, userAnswer);
           
           return `
-            <div style="margin-bottom: 16px; padding: 12px; border: 1px solid #ddd; border-radius: 8px; background: #fff;">
+            <div style="margin-bottom: 16px; padding: 12px; border: 1px solid #ddd; border-radius: 8px;">
               <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
                 <span style="font-weight: bold; color: #fff;">Question ${qIndex + 1}</span>
                 <span class="material-icons" style="color: ${isCorrect ? '#28a745' : '#dc3545'}; font-size: 18px;">
@@ -7058,7 +7058,7 @@ function displayTestResults(score, correctAnswers, totalQuestions, detailedResul
           <h4 style="color: #fff;">Question Review</h4>
           <div style="max-height: 400px; overflow-y: auto;">
             ${detailedResults.map((result, index) => `
-              <div style="margin-bottom: 16px; padding: 12px; border: 1px solid #ddd; border-radius: 8px; background: #fff;">
+              <div style="margin-bottom: 16px; padding: 12px; border: 1px solid #ddd; border-radius: 8px;">
                 <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
                   <span style="font-weight: bold; color: #fff;">Question ${index + 1}</span>
                   <span class="material-icons" style="color: ${result.isCorrect ? '#28a745' : '#dc3545'}; font-size: 18px;">
