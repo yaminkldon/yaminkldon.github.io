@@ -5599,6 +5599,11 @@ function onAssessmentTypeChange() {
           specificAssessmentFilter.appendChild(option);
         });
       }
+      
+      // Apply filters after updating options
+      setTimeout(() => {
+        filterSubmissions();
+      }, 100);
     });
   } else if (assessmentTypeFilter === 'quiz') {
     // Load only quizzes
@@ -5616,16 +5621,21 @@ function onAssessmentTypeChange() {
           specificAssessmentFilter.appendChild(option);
         });
       }
+      
+      // Apply filters after updating options
+      setTimeout(() => {
+        filterSubmissions();
+      }, 100);
     });
   } else {
     // Load both assignments and quizzes using the improved function
     loadAssignmentFilterOptions();
+    
+    // Apply filters after updating options
+    setTimeout(() => {
+      filterSubmissions();
+    }, 100);
   }
-  
-  // Apply filters after updating options
-  setTimeout(() => {
-    filterSubmissions();
-  }, 200); // Increased timeout slightly to ensure DOM updates complete
 }
 
 function displayAllSubmissions(submissions, container) {
@@ -6247,6 +6257,40 @@ document.addEventListener('click', function(event) {
     }
   }
 });
+
+// Enhanced modal close function to handle test quiz modal
+function closeModal(modalId) {
+  const modal = document.getElementById(modalId);
+  if (modal) {
+    modal.style.display = 'none';
+    document.body.style.overflow = 'auto';
+    
+    // Clean up test quiz timer if closing test modal
+    if (modalId === 'quizTestModal' && testQuizTimer) {
+      clearInterval(testQuizTimer);
+      testQuizTimer = null;
+    }
+    
+    // List of modals that are defined in HTML and should NOT be removed
+    const htmlModals = [
+      'addUserModal',
+      'addUnitModal', 
+      'uploadVideoModal',
+      'generateTokenModal',
+      'createQuizModal',
+      'createAssignmentModal',
+      'createRubricModal',
+      'gradingCenterModal',
+      'gradeSubmissionModal',
+      'quizTakingModal'
+    ];
+    
+    // Remove dynamically created modals (but not HTML-defined ones)
+    if (modal.parentNode === document.body && !htmlModals.includes(modalId)) {
+      modal.remove();
+    }
+  }
+}
 
 function resetQuizAttempts(quizId, studentId, studentEmail) {
   const confirmMessage = `Are you sure you want to reset all quiz attempts for student ${studentEmail}?\n\nThis action will:\n- Delete all existing attempts for this quiz\n- Allow the student to retake the quiz from the beginning\n- Cannot be undone\n\nContinue?`;
@@ -7454,6 +7498,15 @@ let testUserAnswers = [];
 let testQuizTimer = null;
 
 function testQuiz(quizId) {
+  // Close existing modals first
+  const existingModals = ['assessmentsListModal', 'quizDetailsModal'];
+  existingModals.forEach(modalId => {
+    const modal = document.getElementById(modalId);
+    if (modal) {
+      modal.remove();
+    }
+  });
+  
   db.ref(`quizzes/${quizId}`).once('value').then(snapshot => {
     if (snapshot.exists()) {
       const quiz = snapshot.val();
@@ -7468,7 +7521,35 @@ function startTestQuiz(quiz) {
   currentTestQuizIndex = 0;
   testUserAnswers = [];
   
-  document.getElementById('quizTestModal').style.display = 'flex';
+  // Create test modal if it doesn't exist
+  let testModal = document.getElementById('quizTestModal');
+  if (!testModal) {
+    testModal = document.createElement('div');
+    testModal.id = 'quizTestModal';
+    testModal.className = 'modal';
+    testModal.innerHTML = `
+      <div class="modal-content" style="max-width: 800px;">
+        <div class="modal-header">
+          <h3 class="modal-title" id="quizTestTitle">Test Quiz</h3>
+          <div id="quizTestTimer" style="color: #6c4fc1; font-weight: bold;"></div>
+          <button class="modal-close" onclick="closeModal('quizTestModal')">&times;</button>
+        </div>
+        
+        <div id="quizTestContent" style="padding: 20px; min-height: 300px;">
+          <!-- Quiz content will be loaded here -->
+        </div>
+        
+        <div class="feature-actions" style="margin-top: 20px;">
+          <button class="action-btn secondary" id="prevTestBtn" onclick="previousTestQuestion()" style="display: none;">Previous</button>
+          <button class="action-btn" id="nextTestBtn" onclick="nextTestQuestion()">Next</button>
+          <button class="action-btn" id="submitTestBtn" onclick="submitTestQuiz()" style="display: none;">Submit Quiz</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(testModal);
+  }
+  
+  testModal.style.display = 'flex';
   document.getElementById('quizTestTitle').textContent = `Test: ${quiz.title}`;
   
   startTestQuizTimer();
@@ -7480,17 +7561,19 @@ function startTestQuizTimer() {
     let timeLeft = currentTestQuizData.timeLimit * 60;
     const timerElement = document.getElementById('quizTestTimer');
     
-    testQuizTimer = setInterval(() => {
-      const minutes = Math.floor(timeLeft / 60);
-      const seconds = timeLeft % 60;
-      timerElement.textContent = `Time Left: ${minutes}:${seconds.toString().padStart(2, '0')}`;
-      
-      if (timeLeft <= 0) {
-        clearInterval(testQuizTimer);
-        submitTestQuiz();
-      }
-      timeLeft--;
-    }, 1000);
+    if (timerElement) {
+      testQuizTimer = setInterval(() => {
+        const minutes = Math.floor(timeLeft / 60);
+        const seconds = timeLeft % 60;
+        timerElement.textContent = `Time Left: ${minutes}:${seconds.toString().padStart(2, '0')}`;
+        
+        if (timeLeft <= 0) {
+          clearInterval(testQuizTimer);
+          submitTestQuiz();
+        }
+        timeLeft--;
+      }, 1000);
+    }
   }
 }
 
@@ -7508,8 +7591,8 @@ function displayTestQuizQuestion() {
   if (question.type === 'multiple-choice' || question.type === 'true-false') {
     question.options.forEach((option, index) => {
       questionHtml += `
-        <div class="quiz-option" onclick="selectTestQuizOption(${index})" style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px; padding: 12px; border-radius: 4px; cursor: pointer; transition: background-color 0.2s; outline-style: auto;">
-          <input type="radio" name="test-quiz-answer" value="${index}" id="test-option-${index} style="width: 15%;"">
+        <div class="quiz-option" onclick="selectTestQuizOption(${index})" style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px; padding: 12px; border-radius: 4px; cursor: pointer; transition: background-color 0.2s; border: 1px solid #ddd;">
+          <input type="radio" name="test-quiz-answer" value="${index}" id="test-option-${index}" style="margin-right: 8px;">
           <label for="test-option-${index}" style="cursor: pointer; flex: 1;">${option}</label>
         </div>
       `;
