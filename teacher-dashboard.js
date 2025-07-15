@@ -4761,8 +4761,22 @@ window.closeModal = function(modalId) {
     modal.style.display = 'none';
     document.body.style.overflow = 'auto';
     
-    // Remove dynamically created modals
-    if (modal.parentNode === document.body && modalId !== 'addUserModal' && modalId !== 'addUnitModal' && modalId !== 'uploadVideoModal') {
+    // List of modals that are defined in HTML and should NOT be removed
+    const htmlModals = [
+      'addUserModal',
+      'addUnitModal', 
+      'uploadVideoModal',
+      'generateTokenModal',
+      'createQuizModal',
+      'createAssignmentModal',
+      'createRubricModal',
+      'gradingCenterModal',
+      'gradeSubmissionModal',
+      'quizTakingModal'
+    ];
+    
+    // Remove dynamically created modals (but not HTML-defined ones)
+    if (modal.parentNode === document.body && !htmlModals.includes(modalId)) {
       modal.remove();
     }
   }
