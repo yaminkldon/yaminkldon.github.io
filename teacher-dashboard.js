@@ -7375,7 +7375,7 @@ async function editQuiz(quizId) {
 
     // Load units first without setting selection
     console.log('Loading units...');
-    await loadUnitsForQuiz();
+    await loadUnitsForQuiz(quiz.unit);
     console.log('Units loaded');
 
     // Now set the unit selection after form is reset and units are loaded
