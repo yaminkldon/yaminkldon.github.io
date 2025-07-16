@@ -20,7 +20,6 @@ const storage = firebase.storage();
 
 // PDF.js Scale Settings
 const DEFAULT_SCALE_VALUE = "page-fit";
-exports.DEFAULT_SCALE_VALUE = DEFAULT_SCALE_VALUE;
 
 // Security functions
 function detectDevToolsInViewer() {
@@ -158,13 +157,26 @@ const PDFViewerApplication = {
   pdfDocument: null,
   currentPageNumber: 1,
   numPages: 0,
-  scale: 'page-fit', // Use page-fit for fullscreen viewing
+  scale: 1.0, // Default zoom
+  eventBus: null,
+  pdfViewer: null,
   
   async initialize() {
     this.container = document.getElementById('viewer');
     this.pageNumber = document.getElementById('pageNumber');
     this.customProgress = document.getElementById('customProgress');
     this.errorWrapper = document.getElementById('errorWrapper');
+    
+    // Initialize event bus
+    this.eventBus = new pdfjsViewer.EventBus();
+    
+    // Set up pagesinit event listener
+    this.eventBus.on("pagesinit", function () {
+      // We can use pdfViewer now, e.g. let's change default scale.
+      if (PDFViewerApplication.pdfViewer) {
+        PDFViewerApplication.pdfViewer.currentScaleValue = DEFAULT_SCALE_VALUE;
+      }
+    });
     
     // Start developer tools detection
     detectDevToolsInViewer();
@@ -251,27 +263,8 @@ const PDFViewerApplication = {
     try {
       const page = await this.pdfDocument.getPage(pageNum);
       
-      // Calculate scale based on page-fit for fullscreen viewing
-      let actualScale = this.scale;
-      
-      if (this.scale === 'page-fit') {
-        // Calculate scale to fit page width to container width
-        const containerWidth = this.container.clientWidth;
-        const containerHeight = this.container.clientHeight;
-        
-        // Get page dimensions at scale 1.0
-        const viewport = page.getViewport({ scale: 1.0 });
-        
-        // Calculate scale to fit width and height
-        const scaleX = containerWidth / viewport.width;
-        const scaleY = containerHeight / viewport.height;
-        
-        // Use the smaller scale to ensure the page fits entirely
-        actualScale = Math.min(scaleX, scaleY) * 0.95; // 95% to leave some margin
-      }
-      
       // Use higher scale for better quality when zoomed out
-      const baseScale = actualScale;
+      const baseScale = this.scale;
       const renderScale = Math.max(baseScale, 1.5); // Minimum render scale for quality
       
       const viewport = page.getViewport({ scale: renderScale });
@@ -300,10 +293,6 @@ const PDFViewerApplication = {
       // Clear container and add canvas
       this.container.innerHTML = '';
       this.container.appendChild(canvas);
-      
-      // Center the canvas in the container for fullscreen viewing
-      canvas.style.display = 'block';
-      canvas.style.margin = 'auto';
       
       // Render page with high quality
       const renderContext = {
@@ -373,24 +362,12 @@ const PDFViewerApplication = {
     
     // Zoom buttons
     document.getElementById('zoomIn').addEventListener('click', () => {
-      if (this.scale === 'page-fit') {
-        this.scale = 1.0; // Start with normal scale
-      }
       this.scale *= 1.2;
       this.renderPage(this.currentPageNumber);
     });
     
     document.getElementById('zoomOut').addEventListener('click', () => {
-      if (this.scale === 'page-fit') {
-        this.scale = 1.0; // Start with normal scale
-      }
       this.scale /= 1.2;
-      this.renderPage(this.currentPageNumber);
-    });
-    
-    // Fit to page button
-    document.getElementById('fitPage').addEventListener('click', () => {
-      this.scale = 'page-fit';
       this.renderPage(this.currentPageNumber);
     });
     
@@ -425,20 +402,6 @@ const PDFViewerApplication = {
       }
     });
     
-    // Handle window resize for page-fit scaling
-    window.addEventListener('resize', () => {
-      if (this.scale === 'page-fit') {
-        // Re-render with new page-fit scale
-        this.renderPage(this.currentPageNumber);
-      }
-    });
-    
-    // Double-click to reset to page-fit
-    this.container.addEventListener('dblclick', () => {
-      this.scale = 'page-fit';
-      this.renderPage(this.currentPageNumber);
-    });
-    
     // Keyboard navigation
     document.addEventListener('keydown', (e) => {
       switch(e.key) {
@@ -454,22 +417,11 @@ const PDFViewerApplication = {
           break;
         case '+':
         case '=':
-          if (this.scale === 'page-fit') {
-            this.scale = 1.0; // Start with normal scale
-          }
           this.scale *= 1.2;
           this.renderPage(this.currentPageNumber);
           break;
         case '-':
-          if (this.scale === 'page-fit') {
-            this.scale = 1.0; // Start with normal scale
-          }
           this.scale /= 1.2;
-          this.renderPage(this.currentPageNumber);
-          break;
-        case 'f':
-        case 'F':
-          this.scale = 'page-fit';
           this.renderPage(this.currentPageNumber);
           break;
       }

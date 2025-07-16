@@ -20,98 +20,6 @@
     <script src="viewer_mod.js"></script>
     <script src="js/pdf.js_mobile_readonly.js"></script>
     <script src="js/firebase-cors-handler.js"></script>
-    
-    <style>
-        /* Fullscreen PDF viewer styles */
-        html, body {
-            height: 100%;
-            margin: 0;
-            padding: 0;
-            overflow: hidden;
-            background: #333;
-        }
-        
-        #viewerContainer {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100vw;
-            height: 100vh;
-            z-index: 100;
-            background: #333;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-        }
-        
-        #viewer {
-            width: 100%;
-            height: 100%;
-            overflow: auto;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-        }
-        
-        header {
-            display: none; /* Hide header for fullscreen */
-        }
-        
-        footer {
-            position: fixed;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            z-index: 200;
-            background: rgba(0, 0, 0, 0.8);
-            padding: 8px;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            gap: 10px;
-        }
-        
-        .toolbarButton {
-            background: rgba(255, 255, 255, 0.2);
-            border: 1px solid rgba(255, 255, 255, 0.3);
-            color: white;
-            padding: 8px 12px;
-            border-radius: 3px;
-            cursor: pointer;
-            transition: background 0.2s;
-        }
-        
-        .toolbarButton:hover {
-            background: rgba(255, 255, 255, 0.3);
-        }
-        
-        .toolbarField {
-            background: rgba(255, 255, 255, 0.2);
-            border: 1px solid rgba(255, 255, 255, 0.3);
-            color: white;
-            padding: 8px;
-            border-radius: 3px;
-            width: 60px;
-            text-align: center;
-        }
-        
-        #customProgress {
-            position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            background: rgba(0, 0, 0, 0.8);
-            color: white;
-            padding: 20px;
-            border-radius: 8px;
-            z-index: 300;
-        }
-        
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-    </style>
 </head>
 <body>
     <header>
@@ -134,10 +42,10 @@
     </div>
 
     <!-- Loading progress indicator -->
-    <div id="customProgress" style="text-align:center;background:rgba(0,0,0,0.8);color:white;padding:20px;border-radius:8px;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:300;display:none;"> 
-        <div style="padding-top:20px;">
-            <div style="display:inline-block;width:50px;height:50px;border:5px solid #666;border-top:5px solid #fff;border-radius:50%;animation:spin 1s linear infinite;"></div>
-            <p style="margin-top:20px;color:#fff;">Loading PDF...</p>
+    <div id="customProgress" style="text-align:center;background:#FFF;min-height:95vh;display:none;"> 
+        <div style="padding-top:50px;">
+            <div style="display:inline-block;width:50px;height:50px;border:5px solid #ccc;border-top:5px solid #333;border-radius:50%;animation:spin 1s linear infinite;"></div>
+            <p style="margin-top:20px;color:#666;">Loading PDF...</p>
         </div>
     </div>
 
@@ -161,7 +69,13 @@
         <input type="number" id="pageNumber" class="toolbarField pageNumber" value="1" size="4" min="1">
         <button class="toolbarButton zoomOut" title="Zoom Out" id="zoomOut"></button>
         <button class="toolbarButton zoomIn" title="Zoom In" id="zoomIn"></button>
-        <button class="toolbarButton fitPage" title="Fit to Page" id="fitPage" style="color: white; background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.3); border-radius: 3px; padding: 4px 8px; margin-left: 10px;">Fit</button>
     </footer>
+
+    <style>
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
 </body>
 </html>
