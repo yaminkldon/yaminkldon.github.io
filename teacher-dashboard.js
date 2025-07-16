@@ -773,11 +773,22 @@ function loadUnitsManagement() {
       snapshot.forEach(child => {
         const unitData = child.val();
         const unitId = child.key;
+        
+        // Count lessons directly under unit (not under unit.lessons)
+        let lessonsCount = 0;
+        Object.keys(unitData).forEach(key => {
+          const item = unitData[key];
+          // Check if this is a lesson (has videoURL or videoFile)
+          if (item && typeof item === 'object' && (item.videoURL || item.videoFile)) {
+            lessonsCount++;
+          }
+        });
+        
         units.push({
           id: unitId,
           name: unitData.name || unitId,
           createdAt: unitData.createdAt || 0,
-          lessonsCount: unitData.lessons ? Object.keys(unitData.lessons).length : 0
+          lessonsCount: lessonsCount
         });
       });
       
