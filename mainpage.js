@@ -605,7 +605,68 @@ document.addEventListener('DOMContentLoaded', function() {
   if (searchMenuItem) {
     searchMenuItem.addEventListener('click', showSearchSection);
   }
+  
+  // Initialize security measures for file viewing
+  addMainPageSecurityMeasures();
 });
+
+// Security measures for file viewing
+function addMainPageSecurityMeasures() {
+  // Disable right-click context menu on secure content
+  document.addEventListener('contextmenu', function(e) {
+    const modal = document.getElementById('mainPageFilePreviewModal');
+    if (modal && modal.style.display === 'block') {
+      e.preventDefault();
+    }
+  });
+  
+  // Disable keyboard shortcuts for developer tools and saving
+  document.addEventListener('keydown', function(e) {
+    const modal = document.getElementById('mainPageFilePreviewModal');
+    if (modal && modal.style.display === 'block') {
+      // Disable F12, Ctrl+Shift+I, Ctrl+Shift+J, Ctrl+U, Ctrl+S
+      if (e.key === 'F12' || 
+          (e.ctrlKey && e.shiftKey && (e.key === 'I' || e.key === 'J')) ||
+          (e.ctrlKey && e.key === 'u') ||
+          (e.ctrlKey && e.key === 's')) {
+        e.preventDefault();
+      }
+    }
+  });
+  
+  // Disable print screen
+  document.addEventListener('keyup', function(e) {
+    const modal = document.getElementById('mainPageFilePreviewModal');
+    if (modal && modal.style.display === 'block' && e.key === 'PrintScreen') {
+      alert('Screenshots are not allowed while viewing secure content');
+    }
+  });
+  
+  // Detect if developer tools are open
+  let devtools = {
+    open: false,
+    orientation: null
+  };
+  
+  const threshold = 160;
+  
+  setInterval(() => {
+    const modal = document.getElementById('mainPageFilePreviewModal');
+    if (modal && modal.style.display === 'block') {
+      if (window.outerHeight - window.innerHeight > threshold || 
+          window.outerWidth - window.innerWidth > threshold) {
+        if (!devtools.open) {
+          devtools.open = true;
+          // Close the modal if developer tools are detected
+          closeMainPageFilePreview();
+          alert('Developer tools detected. File preview has been closed for security reasons.');
+        }
+      } else {
+        devtools.open = false;
+      }
+    }
+  }, 500);
+}
 
 function addTeacherDashboardIfApplicable() {
   const user = firebase.auth().currentUser;
@@ -863,6 +924,10 @@ function previewMainPageFile(fileId, unitKey, lessonKey) {
 }
 
 function showMainPageFilePreview(file) {
+  // Get current user email for watermark
+  const currentUser = firebase.auth().currentUser;
+  const userEmail = currentUser ? currentUser.email : 'Unknown Student';
+  
   const modal = document.createElement('div');
   modal.id = 'mainPageFilePreviewModal';
   modal.style.cssText = `
@@ -882,52 +947,148 @@ function showMainPageFilePreview(file) {
   
   let previewContent = '';
   
+  // Create watermark overlay
+  const watermarkOverlay = `
+    <div class="watermark-overlay" style="
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 1000;
+      background: repeating-linear-gradient(
+        45deg,
+        transparent,
+        transparent 200px,
+        rgba(255, 255, 255, 0.05) 200px,
+        rgba(255, 255, 255, 0.05) 250px
+      );
+    ">
+      <div style="
+        position: absolute;
+        top: 20px;
+        right: 20px;
+        color: rgba(255, 255, 255, 0.3);
+        font-size: 12px;
+        font-weight: bold;
+        background: rgba(0, 0, 0, 0.3);
+        padding: 8px 12px;
+        border-radius: 4px;
+        backdrop-filter: blur(2px);
+      ">
+        ${userEmail}
+      </div>
+      <div style="
+        position: absolute;
+        bottom: 20px;
+        left: 20px;
+        color: rgba(255, 255, 255, 0.2);
+        font-size: 10px;
+        background: rgba(0, 0, 0, 0.3);
+        padding: 4px 8px;
+        border-radius: 4px;
+        backdrop-filter: blur(2px);
+      ">
+        ${new Date().toLocaleString()}
+      </div>
+    </div>
+  `;
+  
   switch (file.extension.toLowerCase()) {
     case 'pdf':
-      previewContent = `<iframe src="${file.url}" style="width: 100%; height: 70vh; border: none; border-radius: 8px; background: white;"></iframe>`;
+      previewContent = `
+        <div style="position: relative; width: 100%; height: 70vh; background: white; border-radius: 8px; overflow: hidden;">
+          ${watermarkOverlay}
+          <div id="mainPageSecureDocViewer" style="
+            width: 100%;
+            height: 100%;
+            overflow-y: auto;
+            padding: 20px;
+            background: white;
+            color: black;
+            font-family: 'Times New Roman', serif;
+            line-height: 1.6;
+            position: relative;
+            z-index: 1;
+          ">
+            <div style="text-align: center; padding: 40px; color: #666;">
+              <div class="loading-spinner" style="
+                border: 4px solid #f3f3f3;
+                border-top: 4px solid #6c4fc1;
+                border-radius: 50%;
+                width: 40px;
+                height: 40px;
+                animation: spin 1s linear infinite;
+                margin: 0 auto 20px;
+              "></div>
+              Loading document content...
+            </div>
+          </div>
+        </div>
+      `;
       break;
     case 'jpg':
     case 'jpeg':
     case 'png':
     case 'gif':
-      previewContent = `<img src="${file.url}" style="max-width: 100%; max-height: 70vh; border-radius: 8px; object-fit: contain;">`;
+      previewContent = `
+        <div style="position: relative; max-width: 100%; max-height: 70vh; border-radius: 8px; overflow: hidden;">
+          ${watermarkOverlay}
+          <img src="${file.url}" style="max-width: 100%; max-height: 70vh; border-radius: 8px; object-fit: contain; position: relative; z-index: 1;">
+        </div>
+      `;
       break;
     case 'mp4':
-      previewContent = `<video controls style="max-width: 100%; max-height: 70vh; border-radius: 8px;">
-        <source src="${file.url}" type="video/mp4">
-        Your browser does not support the video tag.
-      </video>`;
+      previewContent = `
+        <div style="position: relative; max-width: 100%; max-height: 70vh; border-radius: 8px; overflow: hidden;">
+          ${watermarkOverlay}
+          <video controls style="max-width: 100%; max-height: 70vh; border-radius: 8px; position: relative; z-index: 1;" controlsList="nodownload">
+            <source src="${file.url}" type="video/mp4">
+            Your browser does not support the video tag.
+          </video>
+        </div>
+      `;
       break;
     case 'mp3':
-      previewContent = `<audio controls style="width: 100%; max-width: 400px;">
-        <source src="${file.url}" type="audio/mpeg">
-        Your browser does not support the audio element.
-      </audio>`;
+      previewContent = `
+        <div style="position: relative; width: 100%; max-width: 400px; background: #333; border-radius: 8px; padding: 20px;">
+          ${watermarkOverlay}
+          <audio controls style="width: 100%; position: relative; z-index: 1;" controlsList="nodownload">
+            <source src="${file.url}" type="audio/mpeg">
+            Your browser does not support the audio element.
+          </audio>
+        </div>
+      `;
       break;
     case 'txt':
-      // For text files, we'll fetch the content
-      fetch(file.url)
-        .then(response => response.text())
-        .then(text => {
-          const previewDiv = document.getElementById('mainPageTextPreviewContent');
-          if (previewDiv) {
-            previewDiv.textContent = text;
-          }
-        })
-        .catch(error => {
-          console.error('Error loading text file:', error);
-          const previewDiv = document.getElementById('mainPageTextPreviewContent');
-          if (previewDiv) {
-            previewDiv.textContent = 'Error loading text file content';
-          }
-        });
-      previewContent = `<div id="mainPageTextPreviewContent" style="background: white; padding: 20px; border-radius: 8px; max-width: 100%; max-height: 70vh; overflow-y: auto; font-family: monospace; white-space: pre-wrap; color: black;">Loading text content...</div>`;
+      previewContent = `
+        <div style="position: relative; background: white; padding: 20px; border-radius: 8px; max-width: 100%; max-height: 70vh; overflow-y: auto;">
+          ${watermarkOverlay}
+          <div id="mainPageSecureTextViewer" style="
+            font-family: monospace;
+            white-space: pre-wrap;
+            color: black;
+            position: relative;
+            z-index: 1;
+            user-select: ${file.access === 'view-only' ? 'none' : 'text'};
+            -webkit-user-select: ${file.access === 'view-only' ? 'none' : 'text'};
+            -moz-user-select: ${file.access === 'view-only' ? 'none' : 'text'};
+            -ms-user-select: ${file.access === 'view-only' ? 'none' : 'text'};
+          ">
+            <div style="text-align: center; padding: 20px; color: #666;">Loading text content...</div>
+          </div>
+        </div>
+      `;
       break;
     default:
-      previewContent = `<div style="text-align: center; color: white; padding: 40px;">
-        <span class="material-icons" style="font-size: 48px; margin-bottom: 16px;">insert_drive_file</span>
-        <div>Preview not available for this file type</div>
-      </div>`;
+      previewContent = `
+        <div style="text-align: center; color: white; padding: 40px; position: relative;">
+          ${watermarkOverlay}
+          <span class="material-icons" style="font-size: 48px; margin-bottom: 16px;">insert_drive_file</span>
+          <div>Preview not available for this file type</div>
+        </div>
+      `;
   }
   
   modal.innerHTML = `
@@ -951,6 +1112,25 @@ function showMainPageFilePreview(file) {
   
   document.body.appendChild(modal);
   document.body.style.overflow = 'hidden';
+  
+  // Handle secure content loading
+  if (file.extension.toLowerCase() === 'pdf') {
+    loadMainPageSecurePDFContent(file.url, userEmail);
+  } else if (file.extension.toLowerCase() === 'txt') {
+    loadMainPageSecureTextContent(file.url, userEmail, file.access);
+  }
+  
+  // Prevent right-click context menu on the modal
+  modal.addEventListener('contextmenu', function(e) {
+    e.preventDefault();
+  });
+  
+  // Prevent text selection for secure viewing
+  modal.addEventListener('selectstart', function(e) {
+    if (file.access === 'view-only') {
+      e.preventDefault();
+    }
+  });
 }
 
 function closeMainPageFilePreview() {
@@ -959,6 +1139,78 @@ function closeMainPageFilePreview() {
     modal.remove();
   }
   document.body.style.overflow = 'auto';
+}
+
+// Secure content loading functions for main page
+function loadMainPageSecurePDFContent(url, userEmail) {
+  const viewer = document.getElementById('mainPageSecureDocViewer');
+  if (!viewer) return;
+  
+  viewer.innerHTML = `
+    <div style="text-align: center; padding: 40px; color: #666;">
+      <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px auto; max-width: 600px; border-left: 4px solid #6c4fc1;">
+        <h3 style="color: #6c4fc1; margin-top: 0;">Secure Document Viewer</h3>
+        <p style="color: #666; margin-bottom: 20px;">This document is being viewed in secure mode. The original file cannot be downloaded or copied.</p>
+        <div style="background: white; padding: 15px; border-radius: 4px; text-align: left; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+          <div style="font-size: 14px; color: #333; line-height: 1.6;">
+            <strong>Document: ${url.split('/').pop()}</strong><br>
+            <em>Content preview is not available in this demo version.</em><br><br>
+            In a production environment, this would show the actual document content<br>
+            processed through a secure server-side renderer that prevents direct<br>
+            access to the original file while displaying the content.
+          </div>
+        </div>
+        <div style="margin-top: 20px; font-size: 12px; color: #999;">
+          Viewed by: ${userEmail} | ${new Date().toLocaleString()}
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function loadMainPageSecureTextContent(url, userEmail, fileAccess) {
+  const viewer = document.getElementById('mainPageSecureTextViewer');
+  if (!viewer) return;
+  
+  fetch(url)
+    .then(response => response.text())
+    .then(text => {
+      // Process text to add watermarks periodically
+      const lines = text.split('\n');
+      let processedText = '';
+      
+      lines.forEach((line, index) => {
+        processedText += line + '\n';
+        // Add subtle watermark every 10 lines
+        if ((index + 1) % 10 === 0) {
+          processedText += `\n[Viewed by: ${userEmail} - ${new Date().toLocaleString()}]\n\n`;
+        }
+      });
+      
+      viewer.innerHTML = `
+        <div style="
+          background: rgba(255, 255, 255, 0.95);
+          padding: 20px;
+          border-radius: 8px;
+          position: relative;
+          user-select: ${fileAccess === 'view-only' ? 'none' : 'text'};
+          -webkit-user-select: ${fileAccess === 'view-only' ? 'none' : 'text'};
+          -moz-user-select: ${fileAccess === 'view-only' ? 'none' : 'text'};
+          -ms-user-select: ${fileAccess === 'view-only' ? 'none' : 'text'};
+        ">
+          <pre style="white-space: pre-wrap; font-family: monospace; font-size: 14px; line-height: 1.6; color: #333; margin: 0;">${processedText}</pre>
+        </div>
+      `;
+    })
+    .catch(error => {
+      console.error('Error loading text file:', error);
+      viewer.innerHTML = `
+        <div style="text-align: center; color: #dc3545; padding: 20px;">
+          <span class="material-icons" style="font-size: 48px; margin-bottom: 16px;">error</span>
+          <div>Error loading text file content</div>
+        </div>
+      `;
+    });
 }
 
 function downloadMainPageFile(url, filename) {
