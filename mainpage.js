@@ -90,7 +90,7 @@ function loadUnits() {
                   ${progress.percentage > 0 ? `(${progress.percentage}%)` : ''}
                 </div>
               </div>
-              <button onclick="event.stopPropagation(); openMainPageFileViewer('${unitName}', null)" style="padding: 4px 8px; background: #17a2b8; color: white; border: none; border-radius: 4px; font-size: 10px; cursor: pointer; margin: 0%; align-items: center; gap: 4px;">
+              <button onclick="event.stopPropagation(); openStudentUnitFileViewer('${unitName}')" style="padding: 4px 8px; background: #17a2b8; color: white; border: none; border-radius: 4px; font-size: 10px; cursor: pointer; margin: 0%; align-items: center; gap: 4px;">
                 <span class="material-icons" style="font-size: 12px;">folder</span>
                 Files
               </button>
@@ -137,7 +137,7 @@ function loadUnitsWithoutProgress() {
           <div style="flex: 1; cursor: pointer;"">
             <span>${unitName}</span>
           </div>
-          <button onclick="event.stopPropagation(); openMainPageFileViewer('${unitName}', null)" style="padding: 4px 8px; background: #17a2b8; color: white; border: none; border-radius: 4px; font-size: 10px; cursor: pointer; margin: 0%; align-items: center; gap: 4px;">
+          <button onclick="event.stopPropagation(); openStudentUnitFileViewer('${unitName}')" style="padding: 4px 8px; background: #17a2b8; color: white; border: none; border-radius: 4px; font-size: 10px; cursor: pointer; margin: 0%; align-items: center; gap: 4px;">
             <span class="material-icons" style="font-size: 12px;">folder</span>
             Files
           </button>
