@@ -270,6 +270,143 @@ function closeVideoModal() {
   document.body.style.overflow = '';
 }
 
+// Modal fullscreen functionality
+let isModalFullscreen = false;
+
+function toggleModalFullscreen() {
+  const modal = document.getElementById('video-modal');
+  const appbar = document.querySelector('.appbar');
+  const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+  
+  if (!isModalFullscreen) {
+    // Enter fullscreen
+    if (isMobile) {
+      // For mobile - force horizontal orientation
+      if (screen.orientation && screen.orientation.lock) {
+        screen.orientation.lock('landscape').catch(e => console.log('Orientation lock failed:', e));
+      }
+    }
+    
+    // Request fullscreen on the modal
+    if (modal.requestFullscreen) {
+      modal.requestFullscreen();
+    } else if (modal.webkitRequestFullscreen) {
+      modal.webkitRequestFullscreen();
+    } else if (modal.msRequestFullscreen) {
+      modal.msRequestFullscreen();
+    }
+    
+    // Hide the appbar
+    if (appbar) {
+      appbar.style.display = 'none';
+    }
+    
+    // Update fullscreen styles
+    modal.style.position = 'fixed';
+    modal.style.top = '0';
+    modal.style.left = '0';
+    modal.style.width = '100vw';
+    modal.style.height = '100vh';
+    modal.style.zIndex = '9999';
+    
+    isModalFullscreen = true;
+    
+    // Update button icon
+    const fullscreenBtn = document.querySelector('.video-fullscreen-btn .material-icons');
+    if (fullscreenBtn) {
+      fullscreenBtn.textContent = 'fullscreen_exit';
+    }
+  } else {
+    // Exit fullscreen
+    if (document.exitFullscreen) {
+      document.exitFullscreen();
+    } else if (document.webkitExitFullscreen) {
+      document.webkitExitFullscreen();
+    } else if (document.msExitFullscreen) {
+      document.msExitFullscreen();
+    }
+    
+    // Show the appbar
+    if (appbar) {
+      appbar.style.display = 'flex';
+    }
+    
+    // Reset modal styles
+    modal.style.position = '';
+    modal.style.top = '';
+    modal.style.left = '';
+    modal.style.width = '';
+    modal.style.height = '';
+    modal.style.zIndex = '';
+    
+    isModalFullscreen = false;
+    
+    // Update button icon
+    const fullscreenBtn = document.querySelector('.video-fullscreen-btn .material-icons');
+    if (fullscreenBtn) {
+      fullscreenBtn.textContent = 'fullscreen';
+    }
+  }
+}
+
+// Listen for fullscreen changes
+document.addEventListener('fullscreenchange', function() {
+  if (!document.fullscreenElement) {
+    const appbar = document.querySelector('.appbar');
+    const modal = document.getElementById('video-modal');
+    
+    // Show the appbar
+    if (appbar) {
+      appbar.style.display = 'flex';
+    }
+    
+    // Reset modal styles
+    modal.style.position = '';
+    modal.style.top = '';
+    modal.style.left = '';
+    modal.style.width = '';
+    modal.style.height = '';
+    modal.style.zIndex = '';
+    
+    isModalFullscreen = false;
+    
+    // Update button icon
+    const fullscreenBtn = document.querySelector('.video-fullscreen-btn .material-icons');
+    if (fullscreenBtn) {
+      fullscreenBtn.textContent = 'fullscreen';
+    }
+  }
+});
+
+// Also handle webkit fullscreen change
+document.addEventListener('webkitfullscreenchange', function() {
+  if (!document.webkitFullscreenElement) {
+    const appbar = document.querySelector('.appbar');
+    const modal = document.getElementById('video-modal');
+    
+    // Show the appbar
+    if (appbar) {
+      appbar.style.display = 'flex';
+    }
+    
+    // Reset modal styles
+    modal.style.position = '';
+    modal.style.top = '';
+    modal.style.left = '';
+    modal.style.width = '';
+    modal.style.height = '';
+    modal.style.zIndex = '';
+    
+    isModalFullscreen = false;
+    
+    // Update button icon
+    const fullscreenBtn = document.querySelector('.video-fullscreen-btn .material-icons');
+    if (fullscreenBtn) {
+      fullscreenBtn.textContent = 'fullscreen';
+    }
+  }
+});
+
 function addVideoWatermark(userEmail, lessonKey) {
   // Remove existing watermark if any
   const existingWatermark = document.getElementById('videoWatermarkOverlay');

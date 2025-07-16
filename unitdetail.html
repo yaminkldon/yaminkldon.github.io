@@ -276,6 +276,33 @@
       color: #fff;
     }
     
+    .video-fullscreen-btn {
+      background: none;
+      border: none;
+      font-size: 24px;
+      cursor: pointer;
+      color: #666;
+      padding: 8px;
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    
+    .video-fullscreen-btn:hover {
+      background: #f0f0f0;
+      color: #333;
+    }
+    
+    body.dark-mode .video-fullscreen-btn {
+      color: #ccc;
+    }
+    
+    body.dark-mode .video-fullscreen-btn:hover {
+      background: #444;
+      color: #fff;
+    }
+    
     .video-content {
       padding: 0;
     }
@@ -817,6 +844,9 @@
       <!-- Modal Header with Title and Close Button -->
       <div class="video-modal-header">
         <h3 class="video-modal-title" id="video-title">Lesson Title</h3>
+        <button class="video-fullscreen-btn" onclick="toggleModalFullscreen()" style="width: 15%; margin-right: 10px;" title="Toggle Fullscreen">
+          <span class="material-icons">fullscreen</span>
+        </button>
         <button class="video-close-btn" onclick="closeVideoModal()" style="width: 15%;">
           <span class="material-icons">close</span>
         </button>

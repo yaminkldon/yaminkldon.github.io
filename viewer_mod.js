@@ -18,72 +18,6 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const storage = firebase.storage();
 
-// Fullscreen functionality
-let isFullscreen = false;
-
-function toggleFullscreen() {
-  const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-  
-  if (!isFullscreen) {
-    // Enter fullscreen
-    if (isMobile) {
-      // For mobile - force horizontal orientation and fullscreen
-      if (screen.orientation && screen.orientation.lock) {
-        screen.orientation.lock('landscape').catch(e => console.log('Orientation lock failed:', e));
-      }
-    }
-    
-    // Request fullscreen
-    const elem = document.documentElement;
-    if (elem.requestFullscreen) {
-      elem.requestFullscreen();
-    } else if (elem.webkitRequestFullscreen) {
-      elem.webkitRequestFullscreen();
-    } else if (elem.msRequestFullscreen) {
-      elem.msRequestFullscreen();
-    }
-    
-    // Hide header
-    const header = document.querySelector('header');
-    if (header) {
-      header.style.display = 'none';
-    }
-    
-    isFullscreen = true;
-    document.getElementById('fullscreenBtn').textContent = '❐';
-  } else {
-    // Exit fullscreen
-    if (document.exitFullscreen) {
-      document.exitFullscreen();
-    } else if (document.webkitExitFullscreen) {
-      document.webkitExitFullscreen();
-    } else if (document.msExitFullscreen) {
-      document.msExitFullscreen();
-    }
-    
-    // Show header
-    const header = document.querySelector('header');
-    if (header) {
-      header.style.display = 'block';
-    }
-    
-    isFullscreen = false;
-    document.getElementById('fullscreenBtn').textContent = '⛶';
-  }
-}
-
-// Listen for fullscreen changes
-document.addEventListener('fullscreenchange', function() {
-  if (!document.fullscreenElement) {
-    isFullscreen = false;
-    document.getElementById('fullscreenBtn').textContent = '⛶';
-    const header = document.querySelector('header');
-    if (header) {
-      header.style.display = 'block';
-    }
-  }
-});
-
 // Security functions
 function detectDevToolsInViewer() {
   let devtools = {
@@ -445,10 +379,6 @@ const PDFViewerApplication = {
         case '-':
           this.scale /= 1.2;
           this.renderPage(this.currentPageNumber);
-          break;
-        case 'F11':
-          e.preventDefault();
-          toggleFullscreen();
           break;
       }
     });
