@@ -1649,7 +1649,7 @@ function initializePDFViewer(pdfUrl, userEmail) {
   const iframe = document.createElement('iframe');
   iframe.style.cssText = `
     width: 100%;
-    height: 85%%;
+    height: 100%;
     border: none;
     background: white;
   `;
