@@ -7734,7 +7734,6 @@ function viewAssignmentDetails(assignmentId) {
             
             <div class="feature-actions">
               <button class="action-btn" onclick="editAssignment('${assignmentId}')">Edit Assignment</button>
-              <button class="action-btn" onclick="testAssignment('${assignmentId}')">Preview Assignment</button>
               <button class="action-btn secondary" onclick="closeModal('assignmentDetailsModal'); this.parentElement.parentElement.parentElement.remove();">Close</button>
             </div>
           </div>
