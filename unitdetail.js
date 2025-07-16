@@ -289,7 +289,7 @@ function toggleFilePreviewFullscreen() {
     
     // Request fullscreen on the modal
     if (modal.requestFullscreen) {
-      modal.requestFullscreen();
+      modal.requestFullscreen().catch(e => console.log('Fullscreen failed:', e));
     } else if (modal.webkitRequestFullscreen) {
       modal.webkitRequestFullscreen();
     } else if (modal.msRequestFullscreen) {
@@ -309,6 +309,20 @@ function toggleFilePreviewFullscreen() {
     
     // Remove modal padding in fullscreen
     modal.style.padding = '0%';
+    
+    // Ensure controls are visible in fullscreen on mobile
+    if (isMobile) {
+      const iframe = modal.querySelector('iframe');
+      if (iframe) {
+        // Add a small delay to ensure fullscreen is active
+        setTimeout(() => {
+          // Force landscape orientation again after fullscreen
+          if (screen.orientation && screen.orientation.lock) {
+            screen.orientation.lock('landscape').catch(e => console.log('Orientation lock retry failed:', e));
+          }
+        }, 500);
+      }
+    }
     
     isFilePreviewFullscreen = true;
     
@@ -341,6 +355,11 @@ function toggleFilePreviewFullscreen() {
     // Restore modal padding
     modal.style.padding = '20px';
     
+    // Unlock orientation when exiting fullscreen on mobile
+    if (isMobile && screen.orientation && screen.orientation.unlock) {
+      screen.orientation.unlock();
+    }
+    
     isFilePreviewFullscreen = false;
 
     modal.style.padding = '0%';
@@ -372,6 +391,12 @@ document.addEventListener('fullscreenchange', function() {
       }
       // Restore modal padding
       modal.style.padding = '20px';
+    }
+    
+    // Unlock orientation when exiting fullscreen on mobile
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    if (isMobile && screen.orientation && screen.orientation.unlock) {
+      screen.orientation.unlock();
     }
     
     isFilePreviewFullscreen = false;
@@ -407,6 +432,12 @@ document.addEventListener('webkitfullscreenchange', function() {
       modal.style.padding = '20px';
     }
     
+    // Unlock orientation when exiting fullscreen on mobile
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    if (isMobile && screen.orientation && screen.orientation.unlock) {
+      screen.orientation.unlock();
+    }
+    
     isFilePreviewFullscreen = false;
     
     // Update button text
@@ -418,6 +449,54 @@ document.addEventListener('webkitfullscreenchange', function() {
     }
   }
 });
+
+// Handle orientation changes for file preview fullscreen
+document.addEventListener('orientationchange', function() {
+  const modal = document.getElementById('studentFilePreviewModal');
+  if (modal && isFilePreviewFullscreen) {
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    
+    if (isMobile) {
+      // Small delay to ensure orientation change is complete
+      setTimeout(() => {
+        // Force landscape orientation if in fullscreen
+        if (screen.orientation && screen.orientation.lock) {
+          screen.orientation.lock('landscape').catch(e => console.log('Orientation lock on change failed:', e));
+        }
+        
+        // Ensure iframe controls remain visible
+        const iframe = modal.querySelector('iframe');
+        if (iframe) {
+          // Send a message to the iframe to ensure controls are visible
+          try {
+            iframe.contentWindow.postMessage({ type: 'ensure-controls-visible' }, '*');
+          } catch (e) {
+            console.log('Failed to send message to iframe:', e);
+          }
+        }
+      }, 100);
+    }
+  }
+});
+
+// Also handle screen orientation API change
+if (screen.orientation) {
+  screen.orientation.addEventListener('change', function() {
+    const modal = document.getElementById('studentFilePreviewModal');
+    if (modal && isFilePreviewFullscreen) {
+      const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+      
+      if (isMobile) {
+        // Ensure we stay in landscape when in fullscreen
+        if (screen.orientation.angle !== 90 && screen.orientation.angle !== -90) {
+          if (screen.orientation.lock) {
+            screen.orientation.lock('landscape').catch(e => console.log('Orientation lock on screen change failed:', e));
+          }
+        }
+      }
+    }
+  });
+}
 
 function addVideoWatermark(userEmail, lessonKey) {
   // Remove existing watermark if any
