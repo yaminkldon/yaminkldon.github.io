@@ -4986,7 +4986,7 @@ function openFileManager(unitKey, lessonKey = null) {
             <label style="display: block; margin-bottom: 8px; font-weight: bold;">Description</label>
             <textarea id="fileDescription" class="form-textarea" placeholder="Brief description of the file..."></textarea>
           </div>
-          <button class="action-btn" onclick="uploadFile('${unitKey}', '${lessonKey}')">
+          <button class="action-btn" onclick="uploadFile('${unitKey}')">
             <span class="material-icons" style="margin-right: 8px;">cloud_upload</span>
             Upload File
           </button>
