@@ -310,21 +310,19 @@ function toggleFilePreviewFullscreen() {
     // Remove modal padding in fullscreen
     modal.style.padding = '0%';
     
-    // Ensure controls are visible in fullscreen on mobile
-    if (isMobile) {
-      const iframe = modal.querySelector('iframe');
-      if (iframe) {
-        // Add a small delay to ensure fullscreen is active
-        setTimeout(() => {
-          // Force landscape orientation again after fullscreen
-          if (screen.orientation && screen.orientation.lock) {
-            screen.orientation.lock('landscape').catch(e => console.log('Orientation lock retry failed:', e));
-          }
-          
-          // Add PDF navigation controls for mobile fullscreen
-          addPDFNavigationControls(modal);
-        }, 500);
-      }
+    // Ensure controls are visible in fullscreen on all devices
+    const iframe = modal.querySelector('iframe');
+    if (iframe) {
+      // Add a small delay to ensure fullscreen is active
+      setTimeout(() => {
+        // Force landscape orientation on mobile after fullscreen
+        if (isMobile && screen.orientation && screen.orientation.lock) {
+          screen.orientation.lock('landscape').catch(e => console.log('Orientation lock retry failed:', e));
+        }
+        
+        // Add PDF navigation controls for fullscreen
+        addPDFNavigationControls(modal);
+      }, 500);
     }
     
     isFilePreviewFullscreen = true;
@@ -2262,37 +2260,36 @@ function addPDFSecurityOverlay(iframe, userEmail) {
 
 // PDF Navigation Controls for fullscreen mode
 function addPDFNavigationControls(modal) {
-  const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-  
-  // Only add controls on mobile devices when in fullscreen
-  if (!isMobile || !isFilePreviewFullscreen) {
+  // Add controls for all devices when in fullscreen
+  if (!isFilePreviewFullscreen) {
     return;
   }
   
   // Remove existing controls if any
   removePDFNavigationControls();
   
-  // Create navigation controls container positioned in header
+  // Find the header section in the modal
+  const headerSection = modal.querySelector('div[style*="background: #444"]');
+  if (!headerSection) {
+    console.log('Header section not found');
+    return;
+  }
+  
+  // Find the button container in the header
+  const buttonContainer = headerSection.querySelector('div[style*="display: flex; gap: 10px"]');
+  if (!buttonContainer) {
+    console.log('Button container not found');
+    return;
+  }
+  
+  // Create navigation controls container
   const navControls = document.createElement('div');
   navControls.id = 'pdfNavigationControls';
   navControls.style.cssText = `
-    position: fixed;
-    top: 20px;
-    left: 50%;
-    transform: translateX(-50%);
-    width: auto;
-    height: auto;
-    pointer-events: none;
-    z-index: 16000;
     display: flex;
     align-items: center;
-    justify-content: center;
-    gap: 20px;
-    padding: 10px 20px;
-    background: rgba(0, 0, 0, 0.1);
-    border-radius: 25px;
-    backdrop-filter: blur(10px);
-    transition: opacity 0.3s ease;
+    gap: 10px;
+    margin-right: 10px;
   `;
   
   // Create previous page button
@@ -2300,21 +2297,19 @@ function addPDFNavigationControls(modal) {
   prevBtn.id = 'pdfPrevBtn';
   prevBtn.innerHTML = '◀';
   prevBtn.style.cssText = `
-    width: 50px;
-    height: 50px;
-    background: rgba(0, 0, 0, 0.2);
+    background: rgba(255, 255, 255, 0.2);
     color: white;
     border: none;
     border-radius: 50%;
-    font-size: 20px;
+    font-size: 16px;
     cursor: pointer;
-    pointer-events: auto;
+    padding: 0;
+    width: 30px;
+    height: 30px;
     display: flex;
     align-items: center;
     justify-content: center;
     transition: all 0.3s ease;
-    backdrop-filter: blur(5px);
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
   `;
   
   // Create next page button
@@ -2322,32 +2317,30 @@ function addPDFNavigationControls(modal) {
   nextBtn.id = 'pdfNextBtn';
   nextBtn.innerHTML = '▶';
   nextBtn.style.cssText = `
-    width: 50px;
-    height: 50px;
-    background: rgba(0, 0, 0, 0.2);
+    background: rgba(255, 255, 255, 0.2);
     color: white;
     border: none;
     border-radius: 50%;
-    font-size: 20px;
+    font-size: 16px;
     cursor: pointer;
-    pointer-events: auto;
+    padding: 0;
+    width: 30px;
+    height: 30px;
     display: flex;
     align-items: center;
     justify-content: center;
     transition: all 0.3s ease;
-    backdrop-filter: blur(5px);
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
   `;
   
   // Add hover effects
   const addHoverEffects = (btn) => {
     btn.addEventListener('mouseenter', () => {
-      btn.style.background = 'rgba(0, 0, 0, 0.4)';
-      btn.style.transform = 'scale(1.05)';
+      btn.style.background = 'rgba(255, 255, 255, 0.3)';
+      btn.style.transform = 'scale(1.1)';
     });
     
     btn.addEventListener('mouseleave', () => {
-      btn.style.background = 'rgba(0, 0, 0, 0.2)';
+      btn.style.background = 'rgba(255, 255, 255, 0.2)';
       btn.style.transform = 'scale(1)';
     });
   };
@@ -2382,14 +2375,14 @@ function addPDFNavigationControls(modal) {
   const addTouchHandlers = (btn, action) => {
     btn.addEventListener('touchstart', (e) => {
       e.preventDefault();
-      btn.style.background = 'rgba(0, 0, 0, 0.4)';
-      btn.style.transform = 'scale(1.05)';
+      btn.style.background = 'rgba(255, 255, 255, 0.3)';
+      btn.style.transform = 'scale(1.1)';
       btn.click();
     });
     
     btn.addEventListener('touchend', (e) => {
       e.preventDefault();
-      btn.style.background = 'rgba(0, 0, 0, 0.2)';
+      btn.style.background = 'rgba(255, 255, 255, 0.2)';
       btn.style.transform = 'scale(1)';
     });
   };
@@ -2397,41 +2390,12 @@ function addPDFNavigationControls(modal) {
   addTouchHandlers(prevBtn, 'prev');
   addTouchHandlers(nextBtn, 'next');
   
-  // Add buttons to container
+  // Add buttons to navigation controls
   navControls.appendChild(prevBtn);
   navControls.appendChild(nextBtn);
   
-  // Add to document body
-  document.body.appendChild(navControls);
-  
-  // Auto-hide controls after 3 seconds
-  setTimeout(() => {
-    if (navControls && navControls.parentNode) {
-      navControls.style.opacity = '0.5';
-    }
-  }, 3000);
-  
-  // Show controls on touch/movement
-  const showControls = () => {
-    if (navControls && navControls.parentNode) {
-      navControls.style.opacity = '1';
-      clearTimeout(navControls.hideTimeout);
-      navControls.hideTimeout = setTimeout(() => {
-        navControls.style.opacity = '0.5';
-      }, 3000);
-    }
-  };
-  
-  // Add event listeners to show controls
-  document.addEventListener('touchstart', showControls);
-  document.addEventListener('mousemove', showControls);
-  
-  // Store cleanup function
-  navControls.cleanup = () => {
-    document.removeEventListener('touchstart', showControls);
-    document.removeEventListener('mousemove', showControls);
-    clearTimeout(navControls.hideTimeout);
-  };
+  // Insert navigation controls before the existing button container
+  headerSection.insertBefore(navControls, buttonContainer);
 }
 
 function removePDFNavigationControls() {
