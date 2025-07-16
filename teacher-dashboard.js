@@ -6457,7 +6457,7 @@ function createSubmissionItem(submissionId, submission) {
         </div>
       </div>
       <p><strong>${typeLabel}:</strong> ${submission.title}</p>
-      <p><strong>Submitted:</strong> ${new Date(submission.submittedAt).toLocaleDateString()}</p>
+      <p><strong>Submitted:</strong> ${new Date(submission.submittedAt).toLocaleString()}</p>
       ${gradeDisplay}
       ${attemptInfo}
     </div>
@@ -6743,7 +6743,7 @@ function displayQuizSubmissionModal(attempts, quiz) {
                        data-index="${index}">
                     <span class="attempt-label">Attempt ${index + 1}</span>
                     <span class="attempt-score">${attempt.score ? attempt.score.toFixed(1) : 'N/A'}%</span>
-                    <span class="attempt-date">${new Date(attempt.submittedAt).toLocaleDateString()}</span>
+                    <span class="attempt-date">${new Date(attempt.submittedAt).toLocaleString()}</span>
                   </div>
                 `).join('')}
               </div>
@@ -7234,7 +7234,7 @@ function displaySubmissionDetails(submissionId, submission) {
     <div style="margin-bottom: 20px;">
       <h4>${submission.studentName || 'Unknown Student'}</h4>
       <p><strong>Assignment:</strong> ${submission.assignmentTitle}</p>
-      <p><strong>Submitted:</strong> ${new Date(submission.submittedAt).toLocaleDateString()}</p>
+      <p><strong>Submitted:</strong> ${new Date(submission.submittedAt).toLocaleString()}</p>
       <p><strong>Max Points:</strong> ${submission.maxPoints}</p>
     </div>
     <div style="margin-bottom: 20px;">
@@ -7698,7 +7698,7 @@ function displayAssessmentsList(assessments) {
   assessments.forEach(assessment => {
     const typeIcon = assessment.type === 'quiz' ? 'quiz' : 'assignment';
     const typeLabel = assessment.type === 'quiz' ? 'Quiz' : 'Assignment';
-    const createdDate = new Date(assessment.created).toLocaleDateString();
+    const createdDate = new Date(assessment.created).toLocaleString();
     
     html += `
       <div class="assessment-item" style="border: 1px solid #ddd; border-radius: 8px; padding: 16px; margin-bottom: 12px; background: #fff;">
@@ -7718,7 +7718,7 @@ function displayAssessmentsList(assessments) {
                  <span style="color: #666; font-size: 12px;">Time: ${assessment.timeLimit}min • Attempts: ${assessment.maxAttempts}</span>` : 
                 `<span style="color: #6c4fc1; font-weight: bold;">${assessment.maxPoints} points</span>`
               }
-              ${assessment.dueDate ? `<br><span style="color: #666; font-size: 12px;">Due: ${new Date(assessment.dueDate).toLocaleDateString()}</span>` : ''}
+              ${assessment.dueDate ? `<br><span style="color: #666; font-size: 12px;">Due: ${new Date(assessment.dueDate).toLocaleString()}</span>` : ''}
             </div>
             <div style="display: flex; gap: 4px;">
               <button class="action-btn secondary" onclick="viewAssessment('${assessment.id}', '${assessment.type}')" style="padding: 4px 8px; font-size: 12px;">View</button>
@@ -7768,6 +7768,7 @@ function viewQuizDetails(quizId) {
               <p><strong>Time Limit:</strong> ${quiz.timeLimit} minutes</p>
               <p><strong>Max Attempts:</strong> ${quiz.maxAttempts}</p>
               <p><strong>Questions:</strong> ${quiz.questions.length}</p>
+              ${quiz.dueDate ? `<p><strong>Due Date:</strong> ${new Date(quiz.dueDate).toLocaleString()}</p>` : ''}
               <p><strong>Allow View Answers:</strong> ${quiz.allowViewAnswers ? 'Yes' : 'No'}</p>
               <p><strong>Status:</strong> ${quiz.active ? 'Active' : 'Inactive'}</p>
             </div>
@@ -7813,8 +7814,8 @@ function viewAssignmentDetails(assignmentId) {
       modal.id = 'assignmentDetailsModal';
       modal.style.display = 'flex';
       
-      const dueDate = assignment.dueDate ? new Date(assignment.dueDate).toLocaleDateString() : 'No due date';
-      const createdDate = assignment.createdAt ? new Date(assignment.createdAt).toLocaleDateString() : 'Unknown';
+      const dueDate = assignment.dueDate ? new Date(assignment.dueDate).toLocaleString() : 'No due date';
+      const createdDate = assignment.createdAt ? new Date(assignment.createdAt).toLocaleString() : 'Unknown';
       
       modal.innerHTML = `
         <div class="modal-content" style="max-width: 700px;">

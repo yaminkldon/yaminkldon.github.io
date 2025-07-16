@@ -50,10 +50,9 @@ class AssignmentSubmissionSystem {
           <h3>${assignment.title}</h3>
           <p class="assignment-description">${assignment.description}</p>
           <div class="assignment-meta">
-            <span class="due-date ${isPastDue ? 'overdue' : ''}">Due: ${dueDate.toLocaleDateString()}</span>
+            <span class="due-date ${isPastDue ? 'overdue' : ''}">Due: ${dueDate.toLocaleString()}</span>
             <span class="max-points">Max Points: ${assignment.maxPoints}</span>
           </div>
-          ${isPastDue ? '<div class="alert alert-error">This assignment is past due. Submissions are no longer accepted.</div>' : ''}
         </div>
         
         <div class="submission-interface" ${isPastDue ? 'style="opacity: 0.5; pointer-events: none;"' : ''}>
@@ -70,6 +69,8 @@ class AssignmentSubmissionSystem {
             <button class="action-btn secondary" onclick="saveDraft('${assignmentId}')" ${isPastDue ? 'disabled' : ''}>Save Draft</button>
           </div>
         </div>
+
+        ${isPastDue ? '<div class="alert alert-error">This assignment is past due. Submissions are no longer accepted.</div>' : ''}
         
         <div class="submission-status" id="submissionStatus">
           <!-- Status will be displayed here -->
@@ -296,7 +297,7 @@ class AssignmentSubmissionSystem {
       statusContainer.innerHTML = `
         <div class="submission-submitted">
           <h4>Submission Status: Submitted</h4>
-          <p>Submitted on: ${new Date(submission.submittedAt).toLocaleDateString()}</p>
+          <p>Submitted on: ${new Date(submission.submittedAt).toLocaleString()}</p>
           ${submission.graded ? `<p>Grade: ${submission.grade}/${submission.maxPoints}</p>` : '<p>Pending grading</p>'}
           ${submission.feedback ? `<p>Feedback: ${submission.feedback}</p>` : ''}
         </div>
@@ -305,7 +306,7 @@ class AssignmentSubmissionSystem {
       statusContainer.innerHTML = `
         <div class="submission-draft">
           <h4>Status: Draft</h4>
-          <p>Last saved: ${new Date(submission.lastSaved).toLocaleDateString()}</p>
+          <p>Last saved: ${new Date(submission.lastSaved).toLocaleString()}</p>
         </div>
       `;
     }

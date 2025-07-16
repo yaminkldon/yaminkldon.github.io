@@ -888,7 +888,7 @@
           </div>
           <p class="assignment-description">${assignment.description}</p>
           <div class="assignment-meta">
-            <span class="due-date">Due: ${dueDate.toLocaleDateString()}</span>
+            <span class="due-date">Due: ${dueDate.toLocaleString()}</span>
             <span class="points">${assignment.maxPoints} points</span>
           </div>
           <div class="assignment-actions">
@@ -927,7 +927,7 @@
             <span>Time Limit: ${quiz.timeLimit} minutes</span>
             <span>Attempts: ${attempts.attempts}/${quiz.maxAttempts}</span>
             <span>Questions: ${quiz.questions.length}</span>
-            ${dueDate ? `<span class="due-date ${isPastDue ? 'overdue' : ''}">Due: ${dueDate.toLocaleDateString()}</span>` : ''}
+            ${dueDate ? `<span class="due-date ${isPastDue ? 'overdue' : ''}">Due: ${dueDate.toLocaleString()}</span>` : ''}
             ${attempts.bestScore !== null ? `<span>Best Score: ${attempts.bestScore.toFixed(1)}%</span>` : ''}
           </div>
           ${isPastDue ? '<div class="alert alert-error">This quiz is past due and no longer available.</div>' : ''}
