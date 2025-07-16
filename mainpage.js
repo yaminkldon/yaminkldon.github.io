@@ -717,235 +717,8 @@ document.addEventListener('DOMContentLoaded', function() {
     searchMenuItem.addEventListener('click', showSearchSection);
   }
   
-  // Initialize security measures for file viewing
-  addMainPageSecurityMeasures();
+  // Initialize security measures for file viewing (removed for simplified implementation)
 });
-
-// Function to add additional security overlay to PDF iframe on main page
-function addMainPagePDFSecurityOverlay(iframe, userEmail) {
-  try {
-    // Create watermark overlay on the container
-    const container = iframe.parentElement;
-    const watermark = document.createElement('div');
-    watermark.style.cssText = `
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      pointer-events: none;
-      z-index: 1000;
-      background: repeating-linear-gradient(
-        45deg,
-        transparent,
-        transparent 200px,
-        rgba(255, 255, 255, 0.02) 200px,
-        rgba(255, 255, 255, 0.02) 250px
-      );
-    `;
-    
-    // Add moving watermark with user email
-    const movingWatermark = document.createElement('div');
-    movingWatermark.style.cssText = `
-      position: absolute;
-      color: rgba(0, 0, 0, 0.1);
-      font-size: 14px;
-      font-weight: bold;
-      z-index: 1001;
-      pointer-events: none;
-      animation: moveMainPageWatermark 30s linear infinite;
-      transform: rotate(-25deg);
-    `;
-    movingWatermark.textContent = userEmail;
-    
-    // Add timestamp watermark
-    const timestampWatermark = document.createElement('div');
-    timestampWatermark.style.cssText = `
-      position: absolute;
-      bottom: 10px;
-      right: 10px;
-      color: rgba(0, 0, 0, 0.3);
-      font-size: 10px;
-      z-index: 1001;
-      pointer-events: none;
-      background: rgba(255, 255, 255, 0.8);
-      padding: 2px 6px;
-      border-radius: 3px;
-    `;
-    timestampWatermark.textContent = new Date().toLocaleString();
-    
-    watermark.appendChild(movingWatermark);
-    watermark.appendChild(timestampWatermark);
-    container.appendChild(watermark);
-    
-    // Add CSS animation for moving watermark
-    const style = document.createElement('style');
-    style.textContent = `
-      @keyframes moveMainPageWatermark {
-        0% { top: 10%; left: 10%; }
-        25% { top: 80%; left: 80%; }
-        50% { top: 40%; left: 70%; }
-        75% { top: 70%; left: 20%; }
-        100% { top: 10%; left: 10%; }
-      }
-    `;
-    document.head.appendChild(style);
-    
-  } catch (e) {
-    console.log('MainPage PDF security overlay applied with enhanced protection');
-  }
-}
-
-// Add comprehensive security protections for mainpage PDF viewer
-function addMainPageSecurePDFProtections(container, iframe) {
-  // Create invisible overlay to prevent some interactions
-  const securityOverlay = document.createElement('div');
-  securityOverlay.style.cssText = `
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 30px;
-    z-index: 1002;
-    pointer-events: none;
-    background: transparent;
-  `;
-  
-  container.style.position = 'relative';
-  container.appendChild(securityOverlay);
-  
-  // Disable right-click and selection on container
-  container.addEventListener('contextmenu', function(e) {
-    e.preventDefault();
-    e.stopPropagation();
-    return false;
-  });
-  
-  container.addEventListener('selectstart', function(e) {
-    e.preventDefault();
-    e.stopPropagation();
-    return false;
-  });
-  
-  // Disable drag and drop
-  container.addEventListener('dragstart', function(e) {
-    e.preventDefault();
-    e.stopPropagation();
-    return false;
-  });
-  
-  // Block keyboard shortcuts
-  container.addEventListener('keydown', function(e) {
-    // Block Ctrl+P (print), Ctrl+S (save), Ctrl+A (select all)
-    if (e.ctrlKey && (e.key === 'p' || e.key === 's' || e.key === 'a')) {
-      e.preventDefault();
-      e.stopPropagation();
-      return false;
-    }
-    
-    // Block F12 and other dev tools shortcuts
-    if (e.key === 'F12' || 
-        (e.ctrlKey && e.shiftKey && (e.key === 'I' || e.key === 'J' || e.key === 'C'))) {
-      e.preventDefault();
-      e.stopPropagation();
-      return false;
-    }
-  });
-}
-
-// Security measures for file viewing
-function addMainPageSecurityMeasures() {
-  // Disable right-click context menu on secure content
-  document.addEventListener('contextmenu', function(e) {
-    const modal = document.getElementById('mainPageFilePreviewModal');
-    if (modal && modal.style.display === 'block') {
-      e.preventDefault();
-    }
-  });
-  
-  // Disable keyboard shortcuts for developer tools and saving
-  document.addEventListener('keydown', function(e) {
-    const modal = document.getElementById('mainPageFilePreviewModal');
-    if (modal && modal.style.display === 'block') {
-      // Disable F12, Ctrl+Shift+I, Ctrl+Shift+J, Ctrl+U, Ctrl+S
-      if (e.key === 'F12' || 
-          (e.ctrlKey && e.shiftKey && (e.key === 'I' || e.key === 'J')) ||
-          (e.ctrlKey && e.key === 'u') ||
-          (e.ctrlKey && e.key === 's')) {
-        e.preventDefault();
-      }
-    }
-  });
-  
-  // Disable print screen
-  document.addEventListener('keyup', function(e) {
-    const modal = document.getElementById('mainPageFilePreviewModal');
-    if (modal && modal.style.display === 'block' && e.key === 'PrintScreen') {
-      alert('Screenshots are not allowed while viewing secure content');
-    }
-  });
-  
-  // Detect if developer tools are open
-  let devtools = {
-    open: false,
-    orientation: null
-  };
-  
-  const threshold = 160;
-  
-  setInterval(() => {
-    const modal = document.getElementById('mainPageFilePreviewModal');
-    if (modal && modal.style.display === 'block') {
-      if (window.outerHeight - window.innerHeight > threshold || 
-          window.outerWidth - window.innerWidth > threshold) {
-        if (!devtools.open) {
-          devtools.open = true;
-          
-          // Show warning instead of immediate close
-          const warningDiv = document.createElement('div');
-          warningDiv.style.cssText = `
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            background: linear-gradient(135deg, #ff6b6b, #ee5a52);
-            color: white;
-            padding: 12px 16px;
-            border-radius: 8px;
-            z-index: 10000;
-            font-size: 14px;
-            font-weight: bold;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-            max-width: 300px;
-            text-align: center;
-          `;
-          warningDiv.innerHTML = `
-            <div style="margin-bottom: 8px;">⚠️ Developer Tools Detected</div>
-            <div style="font-size: 12px; font-weight: normal;">Please close developer tools for better security. File will close in 10 seconds if not closed.</div>
-          `;
-          
-          document.body.appendChild(warningDiv);
-          
-          // Auto-remove warning after 5 seconds
-          setTimeout(() => {
-            if (warningDiv.parentNode) {
-              warningDiv.parentNode.removeChild(warningDiv);
-            }
-          }, 5000);
-          
-          // Close modal only after 10 seconds if dev tools still open
-          setTimeout(() => {
-            if (devtools.open) {
-              closeMainPageFilePreview();
-              alert('File preview closed due to developer tools being open for security reasons.');
-            }
-          }, 10000);
-        }
-      } else {
-        devtools.open = false;
-      }
-    }
-  }, 2000); // Check every 2 seconds instead of 500ms
-}
 
 function addTeacherDashboardIfApplicable() {
   const user = firebase.auth().currentUser;
@@ -1541,10 +1314,7 @@ function previewMainPageFile(fileId, unitKey, lessonKey) {
 }
 
 function showMainPageFilePreview(file) {
-  // Get current user email for watermark
-  const currentUser = firebase.auth().currentUser;
-  const userEmail = currentUser ? currentUser.email : 'Unknown Student';
-  
+  // Simple implementation using viewer_readonly.html for PDFs
   const modal = document.createElement('div');
   modal.id = 'mainPageFilePreviewModal';
   modal.style.cssText = `
@@ -1561,211 +1331,48 @@ function showMainPageFilePreview(file) {
     padding: 20px;
     box-sizing: border-box;
   `;
-  
-  let previewContent = '';
-  
-  // Create watermark overlay
-  const watermarkOverlay = `
-    <div class="watermark-overlay" style="
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      pointer-events: none;
-      z-index: 1000;
-      background: repeating-linear-gradient(
-        45deg,
-        transparent,
-        transparent 200px,
-        rgba(255, 255, 255, 0.05) 200px,
-        rgba(255, 255, 255, 0.05) 250px
-      );
-    ">
-      <div style="
-        position: absolute;
-        top: 20px;
-        right: 20px;
-        color: rgba(255, 255, 255, 0.3);
-        font-size: 12px;
-        font-weight: bold;
-        background: rgba(0, 0, 0, 0.3);
-        padding: 8px 12px;
-        border-radius: 4px;
-        backdrop-filter: blur(2px);
-      ">
-        ${userEmail}
-      </div>
-      <div style="
-        position: absolute;
-        bottom: 20px;
-        left: 20px;
-        color: rgba(255, 255, 255, 0.2);
-        font-size: 10px;
-        background: rgba(0, 0, 0, 0.3);
-        padding: 4px 8px;
-        border-radius: 4px;
-        backdrop-filter: blur(2px);
-      ">
-        ${new Date().toLocaleString()}
-      </div>
-    </div>
-  `;
-  
-  switch (file.extension.toLowerCase()) {
-    case 'pdf':
-      previewContent = `
-        <div style="position: relative; width: 100%; height: 70vh; background: white; border-radius: 8px; overflow: hidden;">
-          ${watermarkOverlay}
-          <div id="mainPageSecureDocViewer" style="
-            width: 100%;
-            height: 100%;
-            position: relative;
-            z-index: 1;
-          ">
-            <div style="position: relative; width: 100%; height: 100%; border: 1px solid #ddd; border-radius: 8px; overflow: hidden;">
-              <div style="position: absolute; top: 10px; right: 10px; background: rgba(0,0,0,0.7); color: white; padding: 4px 8px; border-radius: 4px; font-size: 11px; z-index: 1000;">
-                ${userEmail} | ${new Date().toLocaleString()}
-              </div>
-              <div style="position: absolute; top: 10px; left: 10px; background: rgba(0,0,0,0.7); color: white; padding: 4px 8px; border-radius: 4px; font-size: 11px; z-index: 1000;">
-                🔒 Secure View
-              </div>
-              <div id="mainPagePDFContainer" style="width: 100%; height: 100%; background: #f5f5f5;">
-                <div style="text-align: center; padding: 40px; color: #666;">
-                  <div style="font-size: 18px; margin-bottom: 16px;">📄 Loading PDF...</div>
-                  <div style="font-size: 14px;">Please wait while the document loads</div>
-                </div>
-              </div>
-              <div style="position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.7); color: white; padding: 4px 8px; border-radius: 4px; font-size: 10px; z-index: 1000;">
-                Viewed by: ${userEmail} | ${new Date().toLocaleString()}
-              </div>
-            </div>
+
+  // Only handle PDF files with the readonly viewer
+  if (file.extension.toLowerCase() === 'pdf') {
+    // Use secure proxy to hide original URL
+    const secureViewerUrl = createMainPageSecureProxy(file.url);
+    
+    modal.innerHTML = `
+      <div style="background: #333; border-radius: 12px; max-width: 95vw; max-height: 95vh; width: 100%; height: 100%; position: relative; overflow: hidden;">
+        <div style="background: #444; padding: 16px; display: flex; justify-content: space-between; align-items: center; border-radius: 12px 12px 0 0;">
+          <h3 style="margin: 0; color: white; font-size: 18px;">📄 ${file.name}</h3>
+          <div style="display: flex; gap: 10px;">
+            <button onclick="toggleMainPageFilePreviewFullscreen()" style="background: none; border: none; color: white; font-size: 24px; cursor: pointer; padding: 0; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; border-radius: 50%;" title="Toggle Fullscreen">⛶</button>
+            <button onclick="closeMainPageFilePreview()" style="background: none; border: none; color: white; font-size: 24px; cursor: pointer; padding: 0; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; border-radius: 50%;">&times;</button>
           </div>
         </div>
-      `;
-      break;
-    case 'jpg':
-    case 'jpeg':
-    case 'png':
-    case 'gif':
-      previewContent = `
-        <div style="position: relative; max-width: 100%; max-height: 70vh; border-radius: 8px; overflow: hidden;">
-          ${watermarkOverlay}
-          <img src="${file.url}" style="max-width: 100%; max-height: 70vh; border-radius: 8px; object-fit: contain; position: relative; z-index: 1;">
+        <iframe src="${secureViewerUrl}" style="width: 100%; height: 85%; border: none; background: white;" sandbox="allow-same-origin allow-scripts allow-forms"></iframe>
+      </div>
+    `;
+  } else {
+    // For non-PDF files, show a simple preview or download option
+    modal.innerHTML = `
+      <div style="background: #333; border-radius: 12px; max-width: 90vw; max-height: 90vh; width: 100%; position: relative; overflow: hidden;">
+        <div style="background: #444; padding: 16px; display: flex; justify-content: space-between; align-items: center; border-radius: 12px 12px 0 0;">
+          <h3 style="margin: 0; color: white; font-size: 18px;">📄 ${file.name}</h3>
+          <button onclick="closeMainPageFilePreview()" style="background: none; border: none; color: white; font-size: 24px; cursor: pointer; padding: 0; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; border-radius: 50%;">&times;</button>
         </div>
-      `;
-      break;
-    case 'mp4':
-      previewContent = `
-        <div style="position: relative; max-width: 100%; max-height: 70vh; border-radius: 8px; overflow: hidden;">
-          ${watermarkOverlay}
-          <video controls style="max-width: 100%; max-height: 70vh; border-radius: 8px; position: relative; z-index: 1;" controlsList="nodownload">
-            <source src="${file.url}" type="video/mp4">
-            Your browser does not support the video tag.
-          </video>
-        </div>
-      `;
-      break;
-    case 'mp3':
-      previewContent = `
-        <div style="position: relative; width: 100%; max-width: 400px; background: #333; border-radius: 8px; padding: 20px;">
-          ${watermarkOverlay}
-          <audio controls style="width: 100%; position: relative; z-index: 1;" controlsList="nodownload">
-            <source src="${file.url}" type="audio/mpeg">
-            Your browser does not support the audio element.
-          </audio>
-        </div>
-      `;
-      break;
-    case 'txt':
-      previewContent = `
-        <div style="position: relative; background: white; padding: 20px; border-radius: 8px; max-width: 100%; max-height: 70vh; overflow-y: auto;">
-          ${watermarkOverlay}
-          <div id="mainPageSecureTextViewer" style="
-            font-family: monospace;
-            white-space: pre-wrap;
-            color: black;
-            position: relative;
-            z-index: 1;
-            user-select: ${file.access === 'view-only' ? 'none' : 'text'};
-            -webkit-user-select: ${file.access === 'view-only' ? 'none' : 'text'};
-            -moz-user-select: ${file.access === 'view-only' ? 'none' : 'text'};
-            -ms-user-select: ${file.access === 'view-only' ? 'none' : 'text'};
-          ">
-            <div style="text-align: center; padding: 20px; color: #666;">Loading text content...</div>
-          </div>
-        </div>
-      `;
-      break;
-    default:
-      previewContent = `
-        <div style="text-align: center; color: white; padding: 40px; position: relative;">
-          ${watermarkOverlay}
+        <div style="padding: 40px; text-align: center; color: white;">
           <span class="material-icons" style="font-size: 48px; margin-bottom: 16px;">insert_drive_file</span>
-          <div>Preview not available for this file type</div>
+          <div style="margin-bottom: 20px;">Preview not available for this file type</div>
+          ${file.access === 'downloadable' ? `
+            <button onclick="downloadMainPageFile('${file.url}', '${file.name}')" style="padding: 12px 24px; background: #28a745; color: white; border: none; border-radius: 6px; font-size: 14px; cursor: pointer; display: inline-flex; align-items: center; gap: 8px;">
+              <span class="material-icons" style="font-size: 18px;">download</span>
+              Download File
+            </button>
+          ` : ''}
         </div>
-      `;
+      </div>
+    `;
   }
-  
-  modal.innerHTML = `
-    <div style="background: #333; border-radius: 12px; max-width: 90vw; max-height: 90vh; width: 100%; position: relative; overflow: hidden;">
-      <div style="background: #444; padding: 16px; display: flex; justify-content: space-between; align-items: center; border-radius: 12px 12px 0 0;">
-        <h3 style="margin: 0; color: white; font-size: 18px;">📄 ${file.name}</h3>
-        <div style="display: flex; gap: 8px; align-items: center;">
-          ${file.access === 'downloadable' ? `<button onclick="downloadMainPageFile('${file.url}', '${file.name}')" style="padding: 6px 12px; background: #28a745; color: white; border: none; border-radius: 4px; font-size: 12px; cursor: pointer; display: flex; align-items: center; gap: 4px;">
-            <span class="material-icons" style="font-size: 14px;">download</span>
-            Download
-          </button>` : ''}
-          <button onclick="closeMainPageFilePreview()" style="background: none; border: none; color: white; font-size: 24px; cursor: pointer; padding: 0; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; border-radius: 50%; transition: background 0.2s;">&times;</button>
-        </div>
-      </div>
-      
-      <div style="padding: 20px; text-align: center; overflow-y: auto; max-height: calc(90vh - 100px);">
-        ${previewContent}
-      </div>
-    </div>
-  `;
-  
+
   document.body.appendChild(modal);
   document.body.style.overflow = 'hidden';
-  
-  // Handle secure content loading
-  if (file.extension.toLowerCase() === 'pdf') {
-    // Override window.print function when secure modal is open
-    const originalPrint = window.print;
-    window.print = function() {
-      const modal = document.getElementById('mainPageFilePreviewModal');
-      if (modal) {
-        alert('Printing is not allowed for secure content');
-        return false;
-      }
-      return originalPrint.apply(this, arguments);
-    };
-    
-    // Restore original print function when modal closes
-    const originalClose = closeMainPageFilePreview;
-    closeMainPageFilePreview = function() {
-      window.print = originalPrint;
-      return originalClose.apply(this, arguments);
-    };
-    
-    // Use secure PDF viewer instead of PDFObject
-    initializeMainPagePDFViewer(file.url, userEmail);
-  } else if (file.extension.toLowerCase() === 'txt') {
-    loadMainPageSecureTextContent(file.url, userEmail, file.access);
-  }
-  
-  // Prevent right-click context menu on the modal
-  modal.addEventListener('contextmenu', function(e) {
-    e.preventDefault();
-  });
-  
-  // Prevent text selection for secure viewing
-  modal.addEventListener('selectstart', function(e) {
-    if (file.access === 'view-only') {
-      e.preventDefault();
-    }
-  });
 }
 
 function closeMainPageFilePreview() {
@@ -1776,190 +1383,293 @@ function closeMainPageFilePreview() {
   document.body.style.overflow = 'auto';
 }
 
-// Secure content loading functions for main page
-// Enhanced PDF security functions for mainpage
-function loadMainPagePDFObjectLibrary() {
-  // No longer using PDFObject to prevent URL exposure and print access
-  return Promise.resolve();
-}
-
-// Initialize secure PDF viewer for mainpage students using PDF.js readonly
-function initializeMainPagePDFViewer(pdfUrl, userEmail) {
-  const container = document.getElementById('mainPagePDFContainer');
-  if (!container) return;
-  
-  // Create secure PDF viewer with PDF.js readonly
-  const viewerUrl = getMainPageSecurePDFViewerUrl(pdfUrl, userEmail);
-  
-  const iframe = document.createElement('iframe');
-  iframe.style.cssText = `
-    width: 100%;
-    height: 100%;
-    border: none;
-    background: white;
-  `;
-  
-  // Use secure iframe with necessary permissions but no modals
-  iframe.sandbox = 'allow-same-origin allow-scripts allow-forms allow-downloads';
-  iframe.src = viewerUrl;
-  
-  // Add security attributes
-  iframe.setAttribute('oncontextmenu', 'return false;');
-  iframe.setAttribute('onselectstart', 'return false;');
-  iframe.setAttribute('ondragstart', 'return false;');
-  
-  // Listen for security messages from the sandboxed iframe
-  const messageHandler = function(event) {
-    if (event.data && event.data.type === 'pdf-security-warning') {
-      // Show security warning in parent window
-      const warningDiv = document.createElement('div');
-      warningDiv.style.cssText = `
-        position: fixed;
-        top: 20px;
-        right: 20px;
-        background: #ff6b6b;
-        color: white;
-        padding: 12px 16px;
-        border-radius: 6px;
-        z-index: 20000;
-        font-size: 14px;
-        font-weight: bold;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-        animation: slideInRight 0.3s ease-out;
-      `;
-      warningDiv.textContent = `🔒 ${event.data.message}`;
-      
-      // Add animation styles
-      const animationStyle = document.createElement('style');
-      animationStyle.textContent = `
-        @keyframes slideInRight {
-          from { transform: translateX(100%); opacity: 0; }
-          to { transform: translateX(0); opacity: 1; }
-        }
-      `;
-      document.head.appendChild(animationStyle);
-      
-      document.body.appendChild(warningDiv);
-      
-      // Remove after 3 seconds
-      setTimeout(() => {
-        if (warningDiv.parentNode) {
-          warningDiv.parentNode.removeChild(warningDiv);
-        }
-      }, 3000);
-    }
+// Create secure proxy for mainpage
+function createMainPageSecureProxy(originalUrl) {
+  // Create a secure proxy to hide the original URL
+  const proxyData = {
+    url: originalUrl,
+    timestamp: Date.now(),
+    user: firebase.auth().currentUser?.email || 'anonymous'
   };
   
-  window.addEventListener('message', messageHandler);
+  // Store in session storage with encrypted key
+  const proxyKey = btoa(Date.now().toString()).replace(/[^a-zA-Z0-9]/g, '');
+  sessionStorage.setItem('proxy_' + proxyKey, btoa(JSON.stringify(proxyData)));
   
-  container.innerHTML = '';
-  container.appendChild(iframe);
-  
-  // Add security overlay after PDF loads
-  setTimeout(() => {
-    addMainPagePDFSecurityOverlay(iframe, userEmail);
-  }, 1000);
+  // Return obfuscated URL
+  return `viewer_readonly.html?p=${proxyKey}&t=${Date.now()}`;
 }
 
-// Generate secure PDF viewer URL with hidden PDF path for main page
-function getMainPageSecurePDFViewerUrl(pdfUrl, userEmail) {
-  // Extract filename without extension to hide PDF nature
-  const filename = pdfUrl.split('/').pop().replace('.pdf', '');
-  
-  // Create secure viewer URL with encoded parameters
-  const viewerUrl = 'secure-pdf-viewer.html?' + 
-    'file=' + encodeURIComponent(pdfUrl) + 
-    '&user=' + encodeURIComponent(userEmail) + 
-    '&timestamp=' + Date.now();
-  
-  return viewerUrl;
-}
+// Fullscreen functionality for mainpage
+let isMainPageFilePreviewFullscreen = false;
 
-function loadMainPageSecurePDFContent(url, userEmail) {
-  const viewer = document.getElementById('mainPageSecureDocViewer');
-  if (!viewer) return;
+function toggleMainPageFilePreviewFullscreen() {
+  const modal = document.getElementById('mainPageFilePreviewModal');
+  const appbar = document.querySelector('.appbar');
+  const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
   
-  // Use iframe with PDF.js viewer to avoid Chrome blocking
-  viewer.innerHTML = `
-    <div style="position: relative; width: 100%; height: 600px; border: 1px solid #ddd; border-radius: 8px; overflow: hidden;">
-      <div style="position: absolute; top: 10px; right: 10px; background: rgba(0,0,0,0.8); color: white; padding: 6px 12px; border-radius: 4px; font-size: 12px; z-index: 1000; backdrop-filter: blur(2px);">
-        👤 ${userEmail}
-      </div>
-      <div style="position: absolute; top: 10px; left: 10px; background: rgba(0,0,0,0.8); color: white; padding: 6px 12px; border-radius: 4px; font-size: 12px; z-index: 1000; backdrop-filter: blur(2px);">
-        🔒 Secure PDF View
-      </div>
-      <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(0,0,0,0.1); color: rgba(0,0,0,0.3); font-size: 24px; font-weight: bold; z-index: 999; pointer-events: none; writing-mode: vertical-lr; text-orientation: mixed;">
-        ${userEmail} - ${new Date().toLocaleDateString()}
-      </div>
-      <iframe 
-        src="${url}" 
-        type="application/pdf" 
-        width="100%" 
-        height="100%" 
-        style="border: none;"
-        sandbox="allow-same-origin allow-scripts allow-popups allow-forms"
-        onload="addMainPagePDFSecurityOverlay(this)"
-      ></iframe>
-      <div style="position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.8); color: white; padding: 4px 8px; border-radius: 4px; font-size: 10px; z-index: 1000; backdrop-filter: blur(2px);">
-        📄 Viewed: ${new Date().toLocaleString()}
-      </div>
-    </div>
-  `;
-}
-
-function loadMainPageSecureTextContent(url, userEmail, fileAccess) {
-  const viewer = document.getElementById('mainPageSecureTextViewer');
-  if (!viewer) return;
-  
-  fetch(url)
-    .then(response => response.text())
-    .then(text => {
-      // Process text to add watermarks periodically
-      const lines = text.split('\n');
-      let processedText = '';
-      
-      lines.forEach((line, index) => {
-        processedText += line + '\n';
-        // Add subtle watermark every 10 lines
-        if ((index + 1) % 10 === 0) {
-          processedText += `\n[Viewed by: ${userEmail} - ${new Date().toLocaleString()}]\n\n`;
+  if (!isMainPageFilePreviewFullscreen) {
+    // Enter fullscreen
+    if (isMobile) {
+      // For mobile - force horizontal orientation
+      if (screen.orientation && screen.orientation.lock) {
+        screen.orientation.lock('landscape').catch(e => console.log('Orientation lock failed:', e));
+      }
+    }
+    
+    // Request fullscreen on the modal
+    if (modal.requestFullscreen) {
+      modal.requestFullscreen().catch(e => console.log('Fullscreen failed:', e));
+    } else if (modal.webkitRequestFullscreen) {
+      modal.webkitRequestFullscreen();
+    } else if (modal.msRequestFullscreen) {
+      modal.msRequestFullscreen();
+    }
+    
+    // Hide the appbar
+    if (appbar) {
+      appbar.style.display = 'none';
+    }
+    
+    // Update modal content styling for fullscreen
+    const modalContent = modal.querySelector('div[style*="background: #333"]');
+    if (modalContent) {
+      modalContent.style.cssText = 'background: #333; border-radius: 12px; width: 100%; height: 100%; position: relative; overflow: hidden;';
+    }
+    
+    // Remove modal padding in fullscreen
+    modal.style.padding = '0%';
+    
+    // Ensure controls are visible in fullscreen on all devices
+    const iframe = modal.querySelector('iframe');
+    if (iframe) {
+      // Add a small delay to ensure fullscreen is active
+      setTimeout(() => {
+        // Force landscape orientation on mobile after fullscreen
+        if (isMobile && screen.orientation && screen.orientation.lock) {
+          screen.orientation.lock('landscape').catch(e => console.log('Orientation lock retry failed:', e));
         }
-      });
-      
-      viewer.innerHTML = `
-        <div style="
-          background: rgba(255, 255, 255, 0.95);
-          padding: 20px;
-          border-radius: 8px;
-          position: relative;
-          user-select: ${fileAccess === 'view-only' ? 'none' : 'text'};
-          -webkit-user-select: ${fileAccess === 'view-only' ? 'none' : 'text'};
-          -moz-user-select: ${fileAccess === 'view-only' ? 'none' : 'text'};
-          -ms-user-select: ${fileAccess === 'view-only' ? 'none' : 'text'};
-        ">
-          <pre style="white-space: pre-wrap; font-family: monospace; font-size: 14px; line-height: 1.6; color: #333; margin: 0;">${processedText}</pre>
-        </div>
-      `;
-    })
-    .catch(error => {
-      console.error('Error loading text file:', error);
-      viewer.innerHTML = `
-        <div style="text-align: center; color: #dc3545; padding: 20px;">
-          <span class="material-icons" style="font-size: 48px; margin-bottom: 16px;">error</span>
-          <div>Error loading text file content</div>
-        </div>
-      `;
-    });
+        
+        // Add PDF navigation controls for fullscreen
+        addMainPagePDFNavigationControls(modal);
+      }, 500);
+    }
+    
+    isMainPageFilePreviewFullscreen = true;
+    
+    // Update button text
+    const fullscreenBtn = modal.querySelector('button[onclick="toggleMainPageFilePreviewFullscreen()"]');
+    if (fullscreenBtn) {
+      fullscreenBtn.textContent = '❐';
+    }
+  } else {
+    // Exit fullscreen
+    if (document.exitFullscreen) {
+      document.exitFullscreen();
+    } else if (document.webkitExitFullscreen) {
+      document.webkitExitFullscreen();
+    } else if (document.msExitFullscreen) {
+      document.msExitFullscreen();
+    }
+    
+    // Show the appbar
+    if (appbar) {
+      appbar.style.display = 'flex';
+    }
+    
+    // Restore original modal content styling
+    const modalContent = modal.querySelector('div[style*="background: #333"]');
+    if (modalContent) {
+      modalContent.style.cssText = 'background: #333; border-radius: 12px; max-width: 95vw; max-height: 95vh; width: 100%; height: 100%; position: relative; overflow: hidden;';
+    }
+    
+    // Restore modal padding
+    modal.style.padding = '20px';
+    
+    // Unlock orientation when exiting fullscreen on mobile
+    if (isMobile && screen.orientation && screen.orientation.unlock) {
+      screen.orientation.unlock();
+    }
+    
+    // Remove PDF navigation controls
+    removeMainPagePDFNavigationControls();
+    
+    isMainPageFilePreviewFullscreen = false;
+
+    modal.style.padding = '0%';
+    
+    // Update button text
+    const fullscreenBtn = modal.querySelector('button[onclick="toggleMainPageFilePreviewFullscreen()"]');
+    if (fullscreenBtn) {
+      fullscreenBtn.textContent = '⛶';
+    }
+  }
 }
 
+// PDF Navigation Controls for mainpage
+function addMainPagePDFNavigationControls(modal) {
+  // Add controls for all devices when in fullscreen
+  if (!isMainPageFilePreviewFullscreen) {
+    return;
+  }
+  
+  // Remove existing controls if any
+  removeMainPagePDFNavigationControls();
+  
+  // Find the header section in the modal
+  const headerSection = modal.querySelector('div[style*="background: #444"]');
+  if (!headerSection) {
+    console.log('Header section not found');
+    return;
+  }
+  
+  // Find the button container in the header
+  const buttonContainer = headerSection.querySelector('div[style*="display: flex; gap: 10px"]');
+  if (!buttonContainer) {
+    console.log('Button container not found');
+    return;
+  }
+  
+  // Create navigation controls container
+  const navControls = document.createElement('div');
+  navControls.id = 'mainPagePdfNavigationControls';
+  navControls.style.cssText = `
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-right: 10px;
+  `;
+  
+  // Create previous page button
+  const prevBtn = document.createElement('button');
+  prevBtn.id = 'mainPagePdfPrevBtn';
+  prevBtn.innerHTML = '◀';
+  prevBtn.style.cssText = `
+    background: rgba(255, 255, 255, 0.2);
+    color: white;
+    border: none;
+    border-radius: 50%;
+    font-size: 16px;
+    cursor: pointer;
+    padding: 0;
+    width: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s ease;
+  `;
+  
+  // Create next page button
+  const nextBtn = document.createElement('button');
+  nextBtn.id = 'mainPagePdfNextBtn';
+  nextBtn.innerHTML = '▶';
+  nextBtn.style.cssText = `
+    background: rgba(255, 255, 255, 0.2);
+    color: white;
+    border: none;
+    border-radius: 50%;
+    font-size: 16px;
+    cursor: pointer;
+    padding: 0;
+    width: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s ease;
+  `;
+  
+  // Add hover effects
+  const addHoverEffects = (btn) => {
+    btn.addEventListener('mouseenter', () => {
+      btn.style.background = 'rgba(255, 255, 255, 0.3)';
+      btn.style.transform = 'scale(1.1)';
+    });
+    
+    btn.addEventListener('mouseleave', () => {
+      btn.style.background = 'rgba(255, 255, 255, 0.2)';
+      btn.style.transform = 'scale(1)';
+    });
+  };
+  
+  addHoverEffects(prevBtn);
+  addHoverEffects(nextBtn);
+  
+  // Add click handlers that trigger the iframe's navigation
+  prevBtn.addEventListener('click', () => {
+    const iframe = modal.querySelector('iframe');
+    if (iframe) {
+      try {
+        // Try to trigger the previous button in the iframe
+        iframe.contentWindow.postMessage({ 
+          type: 'navigate', 
+          action: 'previous' 
+        }, '*');
+      } catch (e) {
+        console.log('Failed to navigate to previous page:', e);
+      }
+    }
+  });
+  
+  nextBtn.addEventListener('click', () => {
+    const iframe = modal.querySelector('iframe');
+    if (iframe) {
+      try {
+        // Try to trigger the next button in the iframe
+        iframe.contentWindow.postMessage({ 
+          type: 'navigate', 
+          action: 'next' 
+        }, '*');
+      } catch (e) {
+        console.log('Failed to navigate to next page:', e);
+      }
+    }
+  });
+  
+  // Add touch handlers for mobile
+  const addTouchHandlers = (btn, action) => {
+    btn.addEventListener('touchstart', (e) => {
+      e.preventDefault();
+      btn.style.background = 'rgba(255, 255, 255, 0.3)';
+      btn.style.transform = 'scale(1.1)';
+      btn.click();
+    });
+    
+    btn.addEventListener('touchend', (e) => {
+      e.preventDefault();
+      btn.style.background = 'rgba(255, 255, 255, 0.2)';
+      btn.style.transform = 'scale(1)';
+    });
+  };
+  
+  addTouchHandlers(prevBtn, 'prev');
+  addTouchHandlers(nextBtn, 'next');
+  
+  // Add buttons to navigation controls
+  navControls.appendChild(prevBtn);
+  navControls.appendChild(nextBtn);
+  
+  // Insert navigation controls before the existing button container
+  headerSection.insertBefore(navControls, buttonContainer);
+}
+
+function removeMainPagePDFNavigationControls() {
+  const navControls = document.getElementById('mainPagePdfNavigationControls');
+  if (navControls) {
+    navControls.remove();
+  }
+}
+
+// Download function for mainpage
 function downloadMainPageFile(url, filename) {
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = filename;
-  link.target = '_blank';
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.target = '_blank';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
 }
 
 // Open assignments and quizzes page
