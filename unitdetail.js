@@ -320,6 +320,9 @@ function toggleFilePreviewFullscreen() {
           if (screen.orientation && screen.orientation.lock) {
             screen.orientation.lock('landscape').catch(e => console.log('Orientation lock retry failed:', e));
           }
+          
+          // Add PDF navigation controls for landscape fullscreen
+          addPDFNavigationControls(modal);
         }, 500);
       }
     }
@@ -360,6 +363,9 @@ function toggleFilePreviewFullscreen() {
       screen.orientation.unlock();
     }
     
+    // Remove PDF navigation controls
+    removePDFNavigationControls();
+    
     isFilePreviewFullscreen = false;
 
     modal.style.padding = '0%';
@@ -399,6 +405,9 @@ document.addEventListener('fullscreenchange', function() {
       screen.orientation.unlock();
     }
     
+    // Remove PDF navigation controls
+    removePDFNavigationControls();
+    
     isFilePreviewFullscreen = false;
     
     // Update button text
@@ -437,6 +446,51 @@ document.addEventListener('webkitfullscreenchange', function() {
     if (isMobile && screen.orientation && screen.orientation.unlock) {
       screen.orientation.unlock();
     }
+    
+    // Remove PDF navigation controls
+    removePDFNavigationControls();
+    
+    isFilePreviewFullscreen = false;
+    
+    // Update button text
+    if (modal) {
+      const fullscreenBtn = modal.querySelector('button[onclick="toggleFilePreviewFullscreen()"]');
+      if (fullscreenBtn) {
+        fullscreenBtn.textContent = '⛶';
+      }
+    }
+  }
+});
+
+// Also handle moz fullscreen change for file preview
+document.addEventListener('mozfullscreenchange', function() {
+  if (!document.mozFullScreenElement) {
+    const appbar = document.querySelector('.appbar');
+    const modal = document.getElementById('studentFilePreviewModal');
+    
+    // Show the appbar
+    if (appbar) {
+      appbar.style.display = 'flex';
+    }
+    
+    // Restore original modal content styling
+    if (modal) {
+      const modalContent = modal.querySelector('div[style*="background: #333"]');
+      if (modalContent) {
+        modalContent.style.cssText = 'background: #333; border-radius: 12px; max-width: 95vw; max-height: 95vh; width: 100%; height: 100%; position: relative; overflow: hidden;';
+      }
+      // Restore modal padding
+      modal.style.padding = '20px';
+    }
+    
+    // Unlock orientation when exiting fullscreen on mobile
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    if (isMobile && screen.orientation && screen.orientation.unlock) {
+      screen.orientation.unlock();
+    }
+    
+    // Remove PDF navigation controls
+    removePDFNavigationControls();
     
     isFilePreviewFullscreen = false;
     
@@ -2204,5 +2258,191 @@ document.addEventListener('DOMContentLoaded', function() {
 // Simple PDF security (handled by viewer itself)
 function addPDFSecurityOverlay(iframe, userEmail) {
   // No additional security overlay needed - pdfjs-readonly handles this
+}
+
+// PDF Navigation Controls for fullscreen landscape mode
+function addPDFNavigationControls(modal) {
+  const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+  
+  // Only add controls on mobile in landscape fullscreen
+  if (!isMobile || !isFilePreviewFullscreen) {
+    return;
+  }
+  
+  // Remove existing controls if any
+  removePDFNavigationControls();
+  
+  // Check if we're in landscape orientation
+  const isLandscape = window.innerWidth > window.innerHeight;
+  if (!isLandscape) {
+    return;
+  }
+  
+  // Create navigation controls container
+  const navControls = document.createElement('div');
+  navControls.id = 'pdfNavigationControls';
+  navControls.style.cssText = `
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 16000;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 20px;
+    box-sizing: border-box;
+  `;
+  
+  // Create previous page button
+  const prevBtn = document.createElement('button');
+  prevBtn.id = 'pdfPrevBtn';
+  prevBtn.innerHTML = '◀';
+  prevBtn.style.cssText = `
+    width: 60px;
+    height: 60px;
+    background: rgba(0, 0, 0, 0.3);
+    color: white;
+    border: none;
+    border-radius: 50%;
+    font-size: 24px;
+    cursor: pointer;
+    pointer-events: auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s ease;
+    backdrop-filter: blur(10px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  `;
+  
+  // Create next page button
+  const nextBtn = document.createElement('button');
+  nextBtn.id = 'pdfNextBtn';
+  nextBtn.innerHTML = '▶';
+  nextBtn.style.cssText = `
+    width: 60px;
+    height: 60px;
+    background: rgba(0, 0, 0, 0.3);
+    color: white;
+    border: none;
+    border-radius: 50%;
+    font-size: 24px;
+    cursor: pointer;
+    pointer-events: auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s ease;
+    backdrop-filter: blur(10px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  `;
+  
+  // Add hover effects
+  const addHoverEffects = (btn) => {
+    btn.addEventListener('mouseenter', () => {
+      btn.style.background = 'rgba(0, 0, 0, 0.5)';
+      btn.style.transform = 'scale(1.1)';
+    });
+    
+    btn.addEventListener('mouseleave', () => {
+      btn.style.background = 'rgba(0, 0, 0, 0.3)';
+      btn.style.transform = 'scale(1)';
+    });
+  };
+  
+  addHoverEffects(prevBtn);
+  addHoverEffects(nextBtn);
+  
+  // Add click handlers for PDF navigation
+  prevBtn.addEventListener('click', () => {
+    const iframe = modal.querySelector('iframe');
+    if (iframe) {
+      try {
+        iframe.contentWindow.postMessage({ type: 'pdf-prev-page' }, '*');
+      } catch (e) {
+        console.log('Failed to send prev page message:', e);
+      }
+    }
+  });
+  
+  nextBtn.addEventListener('click', () => {
+    const iframe = modal.querySelector('iframe');
+    if (iframe) {
+      try {
+        iframe.contentWindow.postMessage({ type: 'pdf-next-page' }, '*');
+      } catch (e) {
+        console.log('Failed to send next page message:', e);
+      }
+    }
+  });
+  
+  // Add touch handlers for mobile
+  const addTouchHandlers = (btn, action) => {
+    btn.addEventListener('touchstart', (e) => {
+      e.preventDefault();
+      btn.style.background = 'rgba(0, 0, 0, 0.5)';
+      btn.style.transform = 'scale(1.1)';
+      btn.click();
+    });
+    
+    btn.addEventListener('touchend', (e) => {
+      e.preventDefault();
+      btn.style.background = 'rgba(0, 0, 0, 0.3)';
+      btn.style.transform = 'scale(1)';
+    });
+  };
+  
+  addTouchHandlers(prevBtn, 'prev');
+  addTouchHandlers(nextBtn, 'next');
+  
+  // Add buttons to container
+  navControls.appendChild(prevBtn);
+  navControls.appendChild(nextBtn);
+  
+  // Add to document body
+  document.body.appendChild(navControls);
+  
+  // Auto-hide controls after 3 seconds
+  setTimeout(() => {
+    if (navControls && navControls.parentNode) {
+      navControls.style.opacity = '0.5';
+    }
+  }, 3000);
+  
+  // Show controls on touch/movement
+  const showControls = () => {
+    if (navControls && navControls.parentNode) {
+      navControls.style.opacity = '1';
+      clearTimeout(navControls.hideTimeout);
+      navControls.hideTimeout = setTimeout(() => {
+        navControls.style.opacity = '0.5';
+      }, 3000);
+    }
+  };
+  
+  // Add event listeners to show controls
+  document.addEventListener('touchstart', showControls);
+  document.addEventListener('mousemove', showControls);
+  
+  // Store cleanup function
+  navControls.cleanup = () => {
+    document.removeEventListener('touchstart', showControls);
+    document.removeEventListener('mousemove', showControls);
+    clearTimeout(navControls.hideTimeout);
+  };
+}
+
+function removePDFNavigationControls() {
+  const navControls = document.getElementById('pdfNavigationControls');
+  if (navControls) {
+    // Call cleanup function if it exists
+    if (navControls.cleanup) {
+      navControls.cleanup();
+    }
+    navControls.remove();
+  }
 }
 
