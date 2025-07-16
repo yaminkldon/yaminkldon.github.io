@@ -321,7 +321,7 @@ function toggleFilePreviewFullscreen() {
             screen.orientation.lock('landscape').catch(e => console.log('Orientation lock retry failed:', e));
           }
           
-          // Add PDF navigation controls for landscape fullscreen
+          // Add PDF navigation controls for mobile fullscreen
           addPDFNavigationControls(modal);
         }, 500);
       }
@@ -2260,11 +2260,11 @@ function addPDFSecurityOverlay(iframe, userEmail) {
   // No additional security overlay needed - pdfjs-readonly handles this
 }
 
-// PDF Navigation Controls for fullscreen landscape mode
+// PDF Navigation Controls for fullscreen mode
 function addPDFNavigationControls(modal) {
   const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
   
-  // Only add controls on mobile in landscape fullscreen
+  // Only add controls on mobile devices when in fullscreen
   if (!isMobile || !isFilePreviewFullscreen) {
     return;
   }
@@ -2272,18 +2272,12 @@ function addPDFNavigationControls(modal) {
   // Remove existing controls if any
   removePDFNavigationControls();
   
-  // Check if we're in landscape orientation
-  const isLandscape = window.innerWidth > window.innerHeight;
-  if (!isLandscape) {
-    return;
-  }
-  
   // Create navigation controls container positioned in header
   const navControls = document.createElement('div');
   navControls.id = 'pdfNavigationControls';
   navControls.style.cssText = `
     position: fixed;
-    top: 60px;
+    top: 20px;
     left: 50%;
     transform: translateX(-50%);
     width: auto;
