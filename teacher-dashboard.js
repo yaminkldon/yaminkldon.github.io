@@ -5370,6 +5370,7 @@ document.getElementById('createQuizForm').addEventListener('submit', function(e)
     title: document.getElementById('quizTitle').value,
     description: document.getElementById('quizDescription').value,
     unit: document.getElementById('quizUnit').value,
+    dueDate: document.getElementById('quizDueDate').value,
     timeLimit: parseInt(document.getElementById('quizTimeLimit').value),
     maxAttempts: parseInt(document.getElementById('quizAttempts').value),
     questions: [],
@@ -5938,10 +5939,15 @@ function loadAssignmentSubmissionsForStudents(assignmentId, assignment, students
   db.ref('submissions').orderByChild('assignmentId').equalTo(assignmentId).once('value').then(snapshot => {
     const submissions = {};
     
+    console.log('Loading assignment submissions for:', assignmentId);
+    console.log('Snapshot exists:', snapshot.exists());
+    
     if (snapshot.exists()) {
       snapshot.forEach(child => {
         const submission = child.val();
         const studentId = submission.studentId;
+        
+        console.log('Found submission for student:', studentId, submission);
         
         submissions[studentId] = {
           id: child.key,
@@ -5950,12 +5956,25 @@ function loadAssignmentSubmissionsForStudents(assignmentId, assignment, students
       });
     }
     
+    console.log('Final submissions object:', submissions);
+    
     displayStudentSubmissions(assignmentId, assignment, 'assignment', students, submissions, container);
+  }).catch(error => {
+    console.error('Error loading assignment submissions:', error);
+    container.innerHTML = '<div style="text-align: center; padding: 20px; color: #ff5722;">Error loading submissions</div>';
   });
 }
 
 function displayStudentSubmissions(assessmentId, assessment, type, students, submissions, container) {
   const typeLabel = type === 'quiz' ? 'Quiz' : 'Assignment';
+  
+  console.log('Displaying student submissions:', {
+    assessmentId,
+    type,
+    studentsCount: students.length,
+    submissions,
+    submissionsCount: Object.keys(submissions).length
+  });
   
   let html = `
     <div class="back-to-assessments">
@@ -5979,6 +5998,8 @@ function displayStudentSubmissions(assessmentId, assessment, type, students, sub
       const studentSubmissions = submissions[student.id];
       let statusHtml = '';
       let actionHtml = '';
+      
+      console.log(`Processing student ${student.name} (${student.id}):`, studentSubmissions);
       
       if (type === 'quiz') {
         if (studentSubmissions && studentSubmissions.length > 0) {
@@ -7729,6 +7750,7 @@ function viewAssignmentDetails(assignmentId) {
               <p><strong>Due Date:</strong> ${dueDate}</p>
               <p><strong>Submission Type:</strong> ${assignment.submissionType || 'Text'}</p>
               <p><strong>Allowed File Types:</strong> ${assignment.allowedFileTypes ? assignment.allowedFileTypes.join(', ') : 'None'}</p>
+              <p><strong>Max File Uploads:</strong> ${assignment.maxFileUploads || 1}</p>
               <p><strong>Created:</strong> ${createdDate}</p>
             </div>
             
@@ -7929,6 +7951,11 @@ async function editQuiz(quizId) {
     console.log('Quiz unit:', (quiz.unit || '').trim());
     document.getElementById('quizTimeLimit').value = quiz.timeLimit || '';
     document.getElementById('quizAttempts').value = quiz.maxAttempts || '';
+    
+    // Set due date if it exists
+    if (quiz.dueDate) {
+      document.getElementById('quizDueDate').value = quiz.dueDate;
+    }
 
     window.editingQuizId = quizId;
 

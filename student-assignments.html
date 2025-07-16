@@ -909,12 +909,17 @@
       const canTakeQuiz = attempts.attempts < quiz.maxAttempts;
       const hasSubmissions = attempts.attempts > 0;
       
+      // Check if quiz is past due
+      const dueDate = quiz.dueDate ? new Date(quiz.dueDate) : null;
+      const isPastDue = dueDate && dueDate < new Date();
+      const finalCanTakeQuiz = canTakeQuiz && !isPastDue;
+      
       return `
         <div class="quiz-card">
           <div class="quiz-header">
             <h3 class="quiz-title">${quiz.title}</h3>
-            <span class="assignment-status ${canTakeQuiz ? 'pending' : 'completed'}">
-              ${canTakeQuiz ? 'Available' : 'Completed'}
+            <span class="assignment-status ${finalCanTakeQuiz ? 'pending' : (isPastDue ? 'overdue' : 'completed')}">
+              ${isPastDue ? 'Overdue' : (finalCanTakeQuiz ? 'Available' : 'Completed')}
             </span>
           </div>
           <p class="assignment-description">${quiz.description}</p>
@@ -922,13 +927,15 @@
             <span>Time Limit: ${quiz.timeLimit} minutes</span>
             <span>Attempts: ${attempts.attempts}/${quiz.maxAttempts}</span>
             <span>Questions: ${quiz.questions.length}</span>
+            ${dueDate ? `<span class="due-date ${isPastDue ? 'overdue' : ''}">Due: ${dueDate.toLocaleDateString()}</span>` : ''}
             ${attempts.bestScore !== null ? `<span>Best Score: ${attempts.bestScore.toFixed(1)}%</span>` : ''}
           </div>
+          ${isPastDue ? '<div class="alert alert-error">This quiz is past due and no longer available.</div>' : ''}
           <div class="assignment-actions">
-            <button class="action-btn ${canTakeQuiz ? '' : 'secondary'}" 
+            <button class="action-btn ${finalCanTakeQuiz ? '' : 'secondary'}" 
                     onclick="takeQuiz('${quiz.id}')" 
-                    ${canTakeQuiz ? '' : 'disabled'}>
-              ${canTakeQuiz ? 'Take Quiz' : 'No Attempts Left'}
+                    ${finalCanTakeQuiz ? '' : 'disabled'}>
+              ${isPastDue ? 'Past Due' : (finalCanTakeQuiz ? 'Take Quiz' : 'No Attempts Left')}
             </button>
             ${hasSubmissions ? `
               <button class="action-btn secondary" 
@@ -954,6 +961,16 @@
         if (snapshot.exists()) {
           const quiz = snapshot.val();
           quiz.id = quizId;
+          
+          // Check if quiz is past due
+          const dueDate = quiz.dueDate ? new Date(quiz.dueDate) : null;
+          const isPastDue = dueDate && dueDate < new Date();
+          
+          if (isPastDue) {
+            alert('This quiz is past due and no longer available.');
+            return;
+          }
+          
           startQuiz(quiz);
         }
       });

@@ -39,18 +39,24 @@ class AssignmentSubmissionSystem {
     const container = document.getElementById(containerId);
     const maxFiles = assignment.maxFileUploads || 1;
     
+    // Check if assignment is past due
+    const dueDate = new Date(assignment.dueDate);
+    const now = new Date();
+    const isPastDue = dueDate < now;
+    
     const interfaceHtml = `
       <div class="assignment-submission-container">
         <div class="assignment-header">
           <h3>${assignment.title}</h3>
           <p class="assignment-description">${assignment.description}</p>
           <div class="assignment-meta">
-            <span class="due-date">Due: ${new Date(assignment.dueDate).toLocaleDateString()}</span>
+            <span class="due-date ${isPastDue ? 'overdue' : ''}">Due: ${dueDate.toLocaleDateString()}</span>
             <span class="max-points">Max Points: ${assignment.maxPoints}</span>
           </div>
+          ${isPastDue ? '<div class="alert alert-error">This assignment is past due. Submissions are no longer accepted.</div>' : ''}
         </div>
         
-        <div class="submission-interface">
+        <div class="submission-interface" ${isPastDue ? 'style="opacity: 0.5; pointer-events: none;"' : ''}>
           ${assignment.submissionType === 'file' || assignment.submissionType === 'both' ? 
             this.createFileUploadInterface(assignment.allowedFileTypes, maxFiles) : ''
           }
@@ -60,8 +66,8 @@ class AssignmentSubmissionSystem {
           }
           
           <div class="submission-actions">
-            <button class="action-btn" onclick="submitAssignment('${assignmentId}')">Submit Assignment</button>
-            <button class="action-btn secondary" onclick="saveDraft('${assignmentId}')">Save Draft</button>
+            <button class="action-btn" onclick="submitAssignment('${assignmentId}')" ${isPastDue ? 'disabled' : ''}>Submit Assignment</button>
+            <button class="action-btn secondary" onclick="saveDraft('${assignmentId}')" ${isPastDue ? 'disabled' : ''}>Save Draft</button>
           </div>
         </div>
         
@@ -76,9 +82,12 @@ class AssignmentSubmissionSystem {
     // Store max files for validation
     this.maxFiles = maxFiles;
     this.assignmentId = assignmentId;
+    this.isPastDue = isPastDue;
     
-    // Initialize drag and drop for file uploads
-    this.initializeDragAndDrop();
+    // Initialize drag and drop for file uploads if not past due
+    if (!isPastDue) {
+      this.initializeDragAndDrop();
+    }
     
     // Load existing submission if any
     this.loadExistingSubmission(assignmentId);
@@ -314,6 +323,12 @@ class AssignmentSubmissionSystem {
       return;
     }
     
+    // Check if assignment is past due
+    if (this.isPastDue) {
+      alert('This assignment is past due. Submissions are no longer accepted.');
+      return;
+    }
+    
     const textContent = document.getElementById('textSubmission')?.value || '';
     const uploadedFiles = document.querySelectorAll('.uploaded-file-item');
     
@@ -449,6 +464,12 @@ class AssignmentSubmissionSystem {
     
     const currentUser = firebase.auth().currentUser;
     if (!currentUser) return;
+    
+    // Check if assignment is past due
+    if (this.isPastDue) {
+      alert('This assignment is past due. Drafts can no longer be saved.');
+      return;
+    }
     
     const textContent = document.getElementById('textSubmission')?.value || '';
     const uploadedFiles = document.querySelectorAll('.uploaded-file-item');
