@@ -194,14 +194,50 @@ setInterval(() => {
     if (!devtools.open) {
       devtools.open = true;
       if (disableRghtClck) {
-        alert('Developer tools detected! Closing PDF for security.');
-        window.location.href = 'about:blank';
+        // Show warning instead of immediate close
+        const warningDiv = document.createElement('div');
+        warningDiv.style.cssText = `
+          position: fixed;
+          top: 20px;
+          right: 20px;
+          background: linear-gradient(135deg, #ff6b6b, #ee5a52);
+          color: white;
+          padding: 12px 16px;
+          border-radius: 8px;
+          z-index: 10000;
+          font-size: 14px;
+          font-weight: bold;
+          box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+          max-width: 300px;
+          text-align: center;
+        `;
+        warningDiv.innerHTML = `
+          <div style="margin-bottom: 8px;">⚠️ Developer Tools Detected</div>
+          <div style="font-size: 12px; font-weight: normal;">Please close developer tools for better security. PDF will close in 10 seconds if not closed.</div>
+        `;
+        
+        document.body.appendChild(warningDiv);
+        
+        // Auto-remove warning after 5 seconds
+        setTimeout(() => {
+          if (warningDiv.parentNode) {
+            warningDiv.parentNode.removeChild(warningDiv);
+          }
+        }, 5000);
+        
+        // Close PDF only after 10 seconds if dev tools still open
+        setTimeout(() => {
+          if (devtools.open) {
+            alert('PDF closed due to developer tools being open for security reasons.');
+            window.location.href = 'about:blank';
+          }
+        }, 10000);
       }
     }
   } else {
     devtools.open = false;
   }
-}, 500);
+}, 2000); // Check every 2 seconds instead of 500ms
 
 // Disable text selection
 if (disableCopyText) {

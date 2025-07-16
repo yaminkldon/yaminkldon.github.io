@@ -220,34 +220,45 @@ $(document).on('dragstart', function(e) {
     }
 });
 
-// Enhanced Developer Tools Detection
+// Enhanced Developer Tools Detection (Less Aggressive)
 let devtoolsOpen = false;
+let devtoolsWarningShown = false;
+let devtoolsBlurTimeout;
 let devtoolsCheckInterval = setInterval(function() {
-    const threshold = 160;
+    const threshold = 200; // Increased threshold to reduce false positives
     const heightDiff = window.outerHeight - window.innerHeight;
     const widthDiff = window.outerWidth - window.innerWidth;
     
     if (heightDiff > threshold || widthDiff > threshold) {
         if (!devtoolsOpen) {
             devtoolsOpen = true;
-            showSecurityMessage('Developer tools detected! PDF access may be restricted.');
             
-            // Optional: Blur content when dev tools are open
-            if (document.body) {
-                document.body.style.filter = 'blur(3px)';
-                document.body.style.userSelect = 'none';
+            // Show warning only once per session
+            if (!devtoolsWarningShown) {
+                devtoolsWarningShown = true;
+                showSecurityMessage('Developer tools detected! Please close them for better security.');
             }
+            
+            // Apply blur after a delay to allow legitimate use
+            clearTimeout(devtoolsBlurTimeout);
+            devtoolsBlurTimeout = setTimeout(() => {
+                if (document.body && devtoolsOpen) {
+                    document.body.style.filter = 'blur(1px)'; // Reduced blur intensity
+                    document.body.style.userSelect = 'none';
+                }
+            }, 3000); // 3 second delay before applying blur
         }
     } else {
         if (devtoolsOpen) {
             devtoolsOpen = false;
+            clearTimeout(devtoolsBlurTimeout);
             if (document.body) {
                 document.body.style.filter = 'none';
                 document.body.style.userSelect = disableCopyText ? 'none' : 'auto';
             }
         }
     }
-}, 1000);
+}, 2000); // Check every 2 seconds instead of 1 second
 
 // Override window.print function
 window.print = function() {
@@ -407,14 +418,22 @@ window.addEventListener('beforeunload', function(e) {
     return undefined;
 });
 
-// Handle window blur/focus for additional security
+// Handle window blur/focus for additional security (Less Aggressive)
+let windowBlurTimeout;
 window.addEventListener('blur', function() {
-    if (document.body) {
-        document.body.style.filter = 'blur(2px)';
+    // Only blur if not caused by developer tools detection
+    if (!devtoolsOpen) {
+        clearTimeout(windowBlurTimeout);
+        windowBlurTimeout = setTimeout(() => {
+            if (document.body) {
+                document.body.style.filter = 'blur(1px)'; // Reduced blur
+            }
+        }, 1000); // 1 second delay
     }
 });
 
 window.addEventListener('focus', function() {
+    clearTimeout(windowBlurTimeout);
     if (document.body && !devtoolsOpen) {
         document.body.style.filter = 'none';
     }

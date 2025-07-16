@@ -1986,13 +1986,14 @@ function addSecurityMeasures() {
     }
   });
   
-  // Detect if developer tools are open
+  // Detect if developer tools are open (Less Aggressive)
   let devtools = {
     open: false,
-    orientation: null
+    orientation: null,
+    warningShown: false
   };
   
-  const threshold = 160;
+  const threshold = 200; // Increased threshold to reduce false positives
   
   setInterval(() => {
     const modal = document.getElementById('studentFilePreviewModal');
@@ -2001,15 +2002,56 @@ function addSecurityMeasures() {
           window.outerWidth - window.innerWidth > threshold) {
         if (!devtools.open) {
           devtools.open = true;
-          // Close the modal if developer tools are detected
-          closeStudentFilePreview();
-          alert('Developer tools detected. File preview has been closed for security reasons.');
+          
+          // Show warning only once per session
+          if (!devtools.warningShown) {
+            devtools.warningShown = true;
+            
+            // Show warning but don't immediately close modal
+            const warningDiv = document.createElement('div');
+            warningDiv.style.cssText = `
+              position: fixed;
+              top: 20px;
+              right: 20px;
+              background: #ff9800;
+              color: white;
+              padding: 12px 16px;
+              border-radius: 6px;
+              z-index: 25000;
+              font-size: 14px;
+              font-weight: bold;
+              box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+              max-width: 300px;
+              text-align: center;
+            `;
+            warningDiv.innerHTML = `
+              <div style="margin-bottom: 8px;">⚠️ Developer Tools Detected</div>
+              <div style="font-size: 12px; font-weight: normal;">Please close developer tools for better security. File will close in 10 seconds if not closed.</div>
+            `;
+            
+            document.body.appendChild(warningDiv);
+            
+            // Auto-remove warning after 5 seconds
+            setTimeout(() => {
+              if (warningDiv.parentNode) {
+                warningDiv.parentNode.removeChild(warningDiv);
+              }
+            }, 5000);
+            
+            // Close modal only after 10 seconds if dev tools still open
+            setTimeout(() => {
+              if (devtools.open) {
+                closeStudentFilePreview();
+                alert('File preview closed due to developer tools being open for security reasons.');
+              }
+            }, 10000);
+          }
         }
       } else {
         devtools.open = false;
       }
     }
-  }, 500);
+  }, 2000); // Check every 2 seconds instead of 500ms
 }
 
 // Modal event listeners
@@ -2148,13 +2190,14 @@ function addSecurityMeasures() {
     }
   });
   
-  // Detect if developer tools are open
+  // Detect if developer tools are open (Less Aggressive - Enhanced Version)
   let devtools = {
     open: false,
-    orientation: null
+    orientation: null,
+    warningShown: false
   };
   
-  const threshold = 160;
+  const threshold = 200; // Increased threshold to reduce false positives
   
   setInterval(() => {
     const modal = document.getElementById('studentFilePreviewModal');
@@ -2163,15 +2206,56 @@ function addSecurityMeasures() {
           window.outerWidth - window.innerWidth > threshold) {
         if (!devtools.open) {
           devtools.open = true;
-          // Close the modal if developer tools are detected
-          closeStudentFilePreview();
-          alert('Developer tools detected. File preview has been closed for security reasons.');
+          
+          // Show warning only once per session
+          if (!devtools.warningShown) {
+            devtools.warningShown = true;
+            
+            // Show warning but don't immediately close modal
+            const warningDiv = document.createElement('div');
+            warningDiv.style.cssText = `
+              position: fixed;
+              top: 20px;
+              right: 20px;
+              background: #ff9800;
+              color: white;
+              padding: 12px 16px;
+              border-radius: 6px;
+              z-index: 25000;
+              font-size: 14px;
+              font-weight: bold;
+              box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+              max-width: 300px;
+              text-align: center;
+            `;
+            warningDiv.innerHTML = `
+              <div style="margin-bottom: 8px;">⚠️ Developer Tools Detected</div>
+              <div style="font-size: 12px; font-weight: normal;">Please close developer tools for better security. File will close in 10 seconds if not closed.</div>
+            `;
+            
+            document.body.appendChild(warningDiv);
+            
+            // Auto-remove warning after 5 seconds
+            setTimeout(() => {
+              if (warningDiv.parentNode) {
+                warningDiv.parentNode.removeChild(warningDiv);
+              }
+            }, 5000);
+            
+            // Close modal only after 10 seconds if dev tools still open
+            setTimeout(() => {
+              if (devtools.open) {
+                closeStudentFilePreview();
+                alert('File preview closed due to developer tools being open for security reasons.');
+              }
+            }, 10000);
+          }
         }
       } else {
         devtools.open = false;
       }
     }
-  }, 500);
+  }, 2000); // Check every 2 seconds instead of 500ms
   
   // Detect window blur (user switched to another app/window)
   let blurTimeout;
