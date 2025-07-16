@@ -80,9 +80,10 @@ function loadUnits() {
           const progress = calculateUnitProgress(unitName, unitData, userProgress);
           
           const li = document.createElement('li');
+          li.onclick = () => goToUnit(unitName);
           li.innerHTML = `
             <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
-              <div style="flex: 1; cursor: pointer;" onclick="goToUnit('${unitName}')">
+              <div style="flex: 1; cursor: pointer;"">
                 <span>${unitName}</span>
                 <div style="font-size: 12px; color: #666; margin-top: 4px;">
                   ${progress.completed}/${progress.total} lessons
@@ -130,9 +131,10 @@ function loadUnitsWithoutProgress() {
     snapshot.forEach(unitSnap => {
       const unitName = unitSnap.key;
       const li = document.createElement('li');
+      li.onclick = () => goToUnit(unitName);
       li.innerHTML = `
         <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
-          <div style="flex: 1; cursor: pointer;" onclick="goToUnit('${unitName}')">
+          <div style="flex: 1; cursor: pointer;"">
             <span>${unitName}</span>
           </div>
           <button onclick="event.stopPropagation(); openMainPageFileViewer('${unitName}', null)" style="padding: 4px 8px; background: #17a2b8; color: white; border: none; border-radius: 4px; font-size: 10px; cursor: pointer; margin: 0%; align-items: center; gap: 4px;">
