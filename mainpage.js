@@ -90,7 +90,7 @@ function loadUnits() {
                   ${progress.percentage > 0 ? `(${progress.percentage}%)` : ''}
                 </div>
               </div>
-              <button onclick="event.stopPropagation(); openMainPageFileViewer('${unitName}', null)" style="padding: 4px 8px; background: #17a2b8; color: white; border: none; border-radius: 4px; font-size: 10px; cursor: pointer; margin: 0%; align-items: center; gap: 4px;">
+              <button onclick="event.stopPropagation(); openStudentFileViewer('${unitName}', null)" style="padding: 4px 8px; background: #17a2b8; color: white; border: none; border-radius: 4px; font-size: 10px; cursor: pointer; margin: 0%; align-items: center; gap: 4px;">
                 <span class="material-icons" style="font-size: 12px;">folder</span>
                 Files
               </button>
@@ -137,7 +137,7 @@ function loadUnitsWithoutProgress() {
           <div style="flex: 1; cursor: pointer;"">
             <span>${unitName}</span>
           </div>
-          <button onclick="event.stopPropagation(); openMainPageFileViewer('${unitName}', null)" style="padding: 4px 8px; background: #17a2b8; color: white; border: none; border-radius: 4px; font-size: 10px; cursor: pointer; margin: 0%; align-items: center; gap: 4px;">
+          <button onclick="event.stopPropagation(); openStudentFileViewer('${unitName}', null)" style="padding: 4px 8px; background: #17a2b8; color: white; border: none; border-radius: 4px; font-size: 10px; cursor: pointer; margin: 0%; align-items: center; gap: 4px;">
             <span class="material-icons" style="font-size: 12px;">folder</span>
             Files
           </button>
@@ -217,7 +217,7 @@ function loadLessons(unitName, unitSnap) {
           <span class="material-icons" style="font-size: 14px;">play_arrow</span>
           View
         </button>
-        <button class="lesson-action-btn files-btn" onclick="event.stopPropagation(); openMainPageFileViewer('${currentUnit}', '${lessonKey}')" style="flex: 1; padding: 4px 8px; background: #17a2b8; color: white; border: none; border-radius: 4px; font-size: 11px; cursor: pointer;">
+        <button class="lesson-action-btn files-btn" onclick="event.stopPropagation(); openStudentFileViewer('${currentUnit}', '${lessonKey}')" style="flex: 1; padding: 4px 8px; background: #17a2b8; color: white; border: none; border-radius: 4px; font-size: 11px; cursor: pointer;">
           <span class="material-icons" style="font-size: 14px;">folder</span>
           Files
         </button>
@@ -770,12 +770,11 @@ function addTeacherDashboardIfApplicable() {
   });
 }
 
-// ========= MAIN PAGE FILE VIEWER FUNCTIONS =========
-
-function openMainPageFileViewer(unitKey, lessonKey) {
+// Student file viewer functions
+function openStudentFileViewer(unitKey, lessonKey) {
   const modal = document.createElement('div');
   modal.className = 'modal';
-  modal.id = 'mainPageFileViewerModal';
+  modal.id = 'studentFileViewerModal';
   modal.style.display = 'flex';
   modal.style.position = 'fixed';
   modal.style.top = '0';
@@ -795,11 +794,11 @@ function openMainPageFileViewer(unitKey, lessonKey) {
     <div class="modal-content" style="background: white; border-radius: 12px; max-width: 900px; max-height: 90vh; width: 100%; overflow-y: auto; position: relative;">
       <div class="modal-header" style="padding: 20px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center;">
         <h3 style="margin: 0; color: #6c4fc1; font-size: 20px;">📁 Files - ${targetName}</h3>
-        <button onclick="closeMainPageFileViewer()" style="background: none; border: none; font-size: 24px; cursor: pointer; color: #666; padding: 0; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; border-radius: 50%; transition: background 0.2s;">&times;</button>
+        <button onclick="closeStudentFileViewer()" style="background: none; border: none; font-size: 24px; cursor: pointer; color: #666; padding: 0; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; border-radius: 50%; transition: background 0.2s;">&times;</button>
       </div>
       
       <div style="padding: 20px;">
-        <div id="mainPageFilesList" style="min-height: 200px;">
+        <div id="studentFilesList" style="min-height: 200px;">
           <div style="text-align: center; padding: 40px; color: #666;">
             <span class="material-icons" style="font-size: 48px; color: #ddd; margin-bottom: 16px;">folder_open</span>
             <div>Loading files...</div>
@@ -813,168 +812,38 @@ function openMainPageFileViewer(unitKey, lessonKey) {
   document.body.style.overflow = 'hidden';
   
   // Load files
-  loadMainPageFiles(unitKey, lessonKey);
+  loadStudentFiles(unitKey, lessonKey);
 }
 
-function closeMainPageFileViewer() {
-  const modal = document.getElementById('mainPageFileViewerModal');
+function closeStudentFileViewer() {
+  const modal = document.getElementById('studentFileViewerModal');
   if (modal) {
     modal.remove();
   }
   document.body.style.overflow = 'auto';
 }
 
-function loadMainPageFiles(unitKey, lessonKey) {
-  const filesList = document.getElementById('mainPageFilesList');
-  const dbPath = lessonKey ? 
-    `units/${unitKey}/lessons/${lessonKey}/files` : 
-    `units/${unitKey}/files`;
+function loadStudentFiles(unitKey, lessonKey) {
+  const filesList = document.getElementById('studentFilesList');
   
-  console.log('Loading main page files from path:', dbPath); // Debug log
-  
-  // Helper function to handle files snapshot
-  function handleMainPageFilesSnapshot(snapshot) {
-    console.log('Main page files snapshot exists:', snapshot.exists()); // Debug log
-    if (!snapshot.exists()) {
-      console.log('No files found at path:', dbPath); // Debug log
-      
-      // If it's a lesson and we didn't find files, try the new structure
-      if (lessonKey && dbPath.includes('/lessons/')) {
-        console.log('Trying new structure for lesson files'); // Debug log
-        const newDbPath = `units/${unitKey}/lesson${lessonKey}/files`;
-        console.log('Loading files from new path:', newDbPath); // Debug log
-        
-        db.ref(newDbPath).once('value').then(newSnapshot => {
-          if (newSnapshot.exists()) {
-            console.log('Found files in new structure'); // Debug log
-            handleMainPageFilesSnapshot(newSnapshot);
-          } else {
-            console.log('No files found in new structure either'); // Debug log
-            showMainPageNoFiles(lessonKey);
-          }
-        }).catch(error => {
-          console.error('Error loading files from new structure:', error);
-          showMainPageNoFiles(lessonKey);
-        });
-        return;
-      }
-      
-      showMainPageNoFiles(lessonKey);
-      return;
-    }
-    
-    const files = [];
-    snapshot.forEach(child => {
-      const fileData = child.val();
-      fileData.id = child.key;
-      console.log('Found main page file:', child.key, fileData); // Debug log
-      
-      // Only show files that students can access (not restricted)
-      if (fileData.access !== 'restricted') {
-        files.push(fileData);
-      }
-    });
-    
-    if (files.length === 0) {
-      filesList.innerHTML = `
-        <div style="text-align: center; padding: 40px; color: #666;">
-          <span class="material-icons" style="font-size: 48px; color: #ddd; margin-bottom: 16px;">folder_open</span>
-          <div>No files available for students</div>
-        </div>
-      `;
-      return;
-    }
-    
-    // Sort files by upload date (newest first)
-    files.sort((a, b) => b.uploadedAt - a.uploadedAt);
-    
-    displayMainPageFiles(files, unitKey, lessonKey);
+  if (lessonKey) {
+    // Load lesson files
+    loadStudentLessonFiles(unitKey, lessonKey);
+  } else {
+    // Load unit files
+    loadStudentUnitFiles(unitKey);
   }
-  
-  // Helper function to show no files message
-  function showMainPageNoFiles(lessonKey) {
-    filesList.innerHTML = `
-      <div style="text-align: center; padding: 40px; color: #666;">
-        <span class="material-icons" style="font-size: 48px; color: #ddd; margin-bottom: 16px;">folder_open</span>
-        <div>No files available for this ${lessonKey ? 'lesson' : 'unit'}</div>
-        <div style="font-size: 12px; color: #999; margin-top: 8px;">Files will appear here once uploaded by your teacher</div>
-      </div>
-    `;
-  }
-  
-  // Helper function to display files
-  function displayMainPageFiles(files, unitKey, lessonKey) {
-    let html = '<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px;">';
-    
-    files.forEach(file => {
-      const fileIcon = getMainPageFileIcon(file.extension);
-      const fileSize = formatMainPageFileSize(file.size);
-      const uploadDate = new Date(file.uploadedAt).toLocaleDateString();
-      const canDownload = file.access === 'downloadable';
-      const canPreview = canMainPagePreviewFile(file.extension);
-      
-      html += `
-        <div class="main-page-file-card" style="background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 8px; padding: 16px; transition: all 0.2s ease;">
-          <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
-            <span class="material-icons" style="font-size: 32px; color: #6c4fc1;">${fileIcon}</span>
-            <div style="flex: 1; min-width: 0;">
-              <div style="font-weight: bold; font-size: 14px; color: #333; margin-bottom: 4px; word-break: break-word;">${file.name}</div>
-              <div style="font-size: 12px; color: #666;">${file.type} • ${fileSize}</div>
-            </div>
-          </div>
-          
-          ${file.description ? `<div style="font-size: 12px; color: #666; margin-bottom: 12px; line-height: 1.4;">${file.description}</div>` : ''}
-          
-          <div style="display: flex; align-items: center; justify-content: space-between; font-size: 11px; color: #888; margin-bottom: 12px;">
-            <span>Uploaded: ${uploadDate}</span>
-            <span class="main-page-access-badge ${file.access}">${file.access === 'view-only' ? 'View Only' : 'Downloadable'}</span>
-          </div>
-          
-          <div style="display: flex; gap: 8px;">
-            ${canPreview ? `<button onclick="previewMainPageFile('${file.id}', '${unitKey}', '${lessonKey}')" style="flex: 1; padding: 6px 12px; background: #6c4fc1; color: white; border: none; border-radius: 4px; font-size: 12px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 4px; transition: background 0.2s;">
-              <span class="material-icons" style="font-size: 14px;">visibility</span>
-              Preview
-            </button>` : ''}
-            
-            ${canDownload ? `<button onclick="downloadMainPageFile('${file.url}', '${file.name}')" style="flex: 1; padding: 6px 12px; background: #28a745; color: white; border: none; border-radius: 4px; font-size: 12px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 4px; transition: background 0.2s;">
-              <span class="material-icons" style="font-size: 14px;">download</span>
-              Download
-            </button>` : `<button disabled style="flex: 1; padding: 6px 12px; background: #6c757d; color: white; border: none; border-radius: 4px; font-size: 12px; cursor: not-allowed; display: flex; align-items: center; justify-content: center; gap: 4px;">
-              <span class="material-icons" style="font-size: 14px;">block</span>
-              No Download
-            </button>`}
-          </div>
-        </div>
-      `;
-    });
-    
-    html += '</div>';
-    filesList.innerHTML = html;
-  }
-  
-  // Start the file loading process
-  db.ref(dbPath).once('value').then(handleMainPageFilesSnapshot).catch(error => {
-    console.error('Error loading files:', error);
-    filesList.innerHTML = `
-      <div style="text-align: center; padding: 40px; color: #dc3545;">
-        <span class="material-icons" style="font-size: 48px; margin-bottom: 16px;">error</span>
-        <div>Error loading files</div>
-      </div>
-    `;
-  });
 }
 
-// ========= STUDENT UNIT FILE FUNCTIONS =========
-
 function loadStudentUnitFiles(unitKey) {
-  const filesList = document.getElementById('mainPageFilesList');
+  const filesList = document.getElementById('studentFilesList');
   const dbPath = `units/${unitKey}/files`;
   
-  console.log('Loading student unit files from path:', dbPath); // Debug log
+  console.log('Loading student unit files from path:', dbPath);
   
   db.ref(dbPath).once('value').then(snapshot => {
     if (!snapshot.exists()) {
-      console.log('No unit files found at path:', dbPath); // Debug log
+      console.log('No unit files found at path:', dbPath);
       filesList.innerHTML = `
         <div style="text-align: center; padding: 40px; color: #666;">
           <span class="material-icons" style="font-size: 48px; color: #ddd; margin-bottom: 16px;">folder_open</span>
@@ -989,7 +858,7 @@ function loadStudentUnitFiles(unitKey) {
     snapshot.forEach(child => {
       const fileData = child.val();
       fileData.id = child.key;
-      console.log('Found student unit file:', child.key, fileData); // Debug log
+      console.log('Found student unit file:', child.key, fileData);
       
       // Only show files that students can access (not restricted)
       if (fileData.access !== 'restricted') {
@@ -1023,19 +892,19 @@ function loadStudentUnitFiles(unitKey) {
 }
 
 function displayStudentUnitFiles(files, unitKey) {
-  const filesList = document.getElementById('mainPageFilesList');
+  const filesList = document.getElementById('studentFilesList');
   
   let html = '<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px;">';
   
   files.forEach(file => {
-    const fileIcon = getMainPageFileIcon(file.extension);
-    const fileSize = formatMainPageFileSize(file.size);
+    const fileIcon = getStudentFileIcon(file.extension);
+    const fileSize = formatStudentFileSize(file.size);
     const uploadDate = new Date(file.uploadedAt).toLocaleDateString();
     const canDownload = file.access === 'downloadable';
-    const canPreview = canMainPagePreviewFile(file.extension);
+    const canPreview = canStudentPreviewFile(file.extension);
     
     html += `
-      <div class="main-page-file-card" style="background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 8px; padding: 16px; transition: all 0.2s ease;">
+      <div class="student-file-card" style="background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 8px; padding: 16px; transition: all 0.2s ease;">
         <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
           <span class="material-icons" style="font-size: 32px; color: #6c4fc1;">${fileIcon}</span>
           <div style="flex: 1; min-width: 0;">
@@ -1048,16 +917,16 @@ function displayStudentUnitFiles(files, unitKey) {
         
         <div style="display: flex; align-items: center; justify-content: space-between; font-size: 11px; color: #888; margin-bottom: 12px;">
           <span>Uploaded: ${uploadDate}</span>
-          <span class="main-page-access-badge ${file.access}">${file.access === 'view-only' ? 'View Only' : 'Downloadable'}</span>
+          <span class="student-access-badge ${file.access}">${file.access === 'view-only' ? 'View Only' : 'Downloadable'}</span>
         </div>
         
         <div style="display: flex; gap: 8px;">
-          ${canPreview ? `<button onclick="previewStudentUnitFile('${file.id}', '${unitKey}')" style="flex: 1; padding: 6px 12px; background: #6c4fc1; color: white; border: none; border-radius: 4px; font-size: 12px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 4px; transition: background 0.2s;">
+          ${canPreview ? `<button onclick="previewStudentFile('${file.id}', '${unitKey}', null)" style="flex: 1; padding: 6px 12px; background: #6c4fc1; color: white; border: none; border-radius: 4px; font-size: 12px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 4px; transition: background 0.2s;">
             <span class="material-icons" style="font-size: 14px;">visibility</span>
             Preview
           </button>` : ''}
           
-          ${canDownload ? `<button onclick="downloadMainPageFile('${file.url}', '${file.name}')" style="flex: 1; padding: 6px 12px; background: #28a745; color: white; border: none; border-radius: 4px; font-size: 12px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 4px; transition: background 0.2s;">
+          ${canDownload ? `<button onclick="downloadStudentFile('${file.url}', '${file.name}')" style="flex: 1; padding: 6px 12px; background: #28a745; color: white; border: none; border-radius: 4px; font-size: 12px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 4px; transition: background 0.2s;">
             <span class="material-icons" style="font-size: 14px;">download</span>
             Download
           </button>` : `<button disabled style="flex: 1; padding: 6px 12px; background: #6c757d; color: white; border: none; border-radius: 4px; font-size: 12px; cursor: not-allowed; display: flex; align-items: center; justify-content: center; gap: 4px;">
@@ -1073,168 +942,29 @@ function displayStudentUnitFiles(files, unitKey) {
   filesList.innerHTML = html;
 }
 
-function previewStudentUnitFile(fileId, unitKey) {
-  const dbPath = `units/${unitKey}/files/${fileId}`;
+function previewStudentFile(fileId, unitKey, lessonKey) {
+  const dbPath = lessonKey ? 
+    `units/${unitKey}/lesson${lessonKey}/files/${fileId}` : 
+    `units/${unitKey}/files/${fileId}`;
   
-  console.log('Loading student unit file for preview from path:', dbPath); // Debug log
+  console.log('Loading student file for preview from path:', dbPath);
   
   db.ref(dbPath).once('value').then(snapshot => {
     if (!snapshot.exists()) {
-      alert('Unit file not found');
+      console.log('File not found at path:', dbPath);
+      alert('File not found');
       return;
     }
     
     const file = snapshot.val();
-    showMainPageFilePreview(file);
+    showStudentFilePreview(file);
   }).catch(error => {
-    console.error('Error loading student unit file:', error);
+    console.error('Error loading student file:', error);
     alert('Error loading file preview');
   });
 }
 
-// ========= LESSON FILE FUNCTIONS =========
-
-function loadMainPageFiles(unitKey, lessonKey) {
-  const filesList = document.getElementById('mainPageFilesList');
-  const dbPath = lessonKey ? 
-    `units/${unitKey}/lessons/${lessonKey}/files` : 
-    `units/${unitKey}/files`;
-  
-  console.log('Loading main page files from path:', dbPath); // Debug log
-  
-  // Helper function to handle files snapshot
-  function handleMainPageFilesSnapshot(snapshot) {
-    console.log('Main page files snapshot exists:', snapshot.exists()); // Debug log
-    if (!snapshot.exists()) {
-      console.log('No files found at path:', dbPath); // Debug log
-      
-      // If it's a lesson and we didn't find files, try the new structure
-      if (lessonKey && dbPath.includes('/lessons/')) {
-        console.log('Trying new structure for lesson files'); // Debug log
-        const newDbPath = `units/${unitKey}/lesson${lessonKey}/files`;
-        console.log('Loading files from new path:', newDbPath); // Debug log
-        
-        db.ref(newDbPath).once('value').then(newSnapshot => {
-          if (newSnapshot.exists()) {
-            console.log('Found files in new structure'); // Debug log
-            handleMainPageFilesSnapshot(newSnapshot);
-          } else {
-            console.log('No files found in new structure either'); // Debug log
-            showMainPageNoFiles(lessonKey);
-          }
-        }).catch(error => {
-          console.error('Error loading files from new structure:', error);
-          showMainPageNoFiles(lessonKey);
-        });
-        return;
-      }
-      
-      showMainPageNoFiles(lessonKey);
-      return;
-    }
-    
-    const files = [];
-    snapshot.forEach(child => {
-      const fileData = child.val();
-      fileData.id = child.key;
-      console.log('Found main page file:', child.key, fileData); // Debug log
-      
-      // Only show files that students can access (not restricted)
-      if (fileData.access !== 'restricted') {
-        files.push(fileData);
-      }
-    });
-    
-    if (files.length === 0) {
-      filesList.innerHTML = `
-        <div style="text-align: center; padding: 40px; color: #666;">
-          <span class="material-icons" style="font-size: 48px; color: #ddd; margin-bottom: 16px;">folder_open</span>
-          <div>No files available for students</div>
-        </div>
-      `;
-      return;
-    }
-    
-    // Sort files by upload date (newest first)
-    files.sort((a, b) => b.uploadedAt - a.uploadedAt);
-    
-    displayMainPageFiles(files, unitKey, lessonKey);
-  }
-  
-  // Helper function to show no files message
-  function showMainPageNoFiles(lessonKey) {
-    filesList.innerHTML = `
-      <div style="text-align: center; padding: 40px; color: #666;">
-        <span class="material-icons" style="font-size: 48px; color: #ddd; margin-bottom: 16px;">folder_open</span>
-        <div>No files available for this ${lessonKey ? 'lesson' : 'unit'}</div>
-        <div style="font-size: 12px; color: #999; margin-top: 8px;">Files will appear here once uploaded by your teacher</div>
-      </div>
-    `;
-  }
-  
-  // Helper function to display files
-  function displayMainPageFiles(files, unitKey, lessonKey) {
-    let html = '<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px;">';
-    
-    files.forEach(file => {
-      const fileIcon = getMainPageFileIcon(file.extension);
-      const fileSize = formatMainPageFileSize(file.size);
-      const uploadDate = new Date(file.uploadedAt).toLocaleDateString();
-      const canDownload = file.access === 'downloadable';
-      const canPreview = canMainPagePreviewFile(file.extension);
-      
-      html += `
-        <div class="main-page-file-card" style="background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 8px; padding: 16px; transition: all 0.2s ease;">
-          <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
-            <span class="material-icons" style="font-size: 32px; color: #6c4fc1;">${fileIcon}</span>
-            <div style="flex: 1; min-width: 0;">
-              <div style="font-weight: bold; font-size: 14px; color: #333; margin-bottom: 4px; word-break: break-word;">${file.name}</div>
-              <div style="font-size: 12px; color: #666;">${file.type} • ${fileSize}</div>
-            </div>
-          </div>
-          
-          ${file.description ? `<div style="font-size: 12px; color: #666; margin-bottom: 12px; line-height: 1.4;">${file.description}</div>` : ''}
-          
-          <div style="display: flex; align-items: center; justify-content: space-between; font-size: 11px; color: #888; margin-bottom: 12px;">
-            <span>Uploaded: ${uploadDate}</span>
-            <span class="main-page-access-badge ${file.access}">${file.access === 'view-only' ? 'View Only' : 'Downloadable'}</span>
-          </div>
-          
-          <div style="display: flex; gap: 8px;">
-            ${canPreview ? `<button onclick="previewMainPageFile('${file.id}', '${unitKey}', '${lessonKey}')" style="flex: 1; padding: 6px 12px; background: #6c4fc1; color: white; border: none; border-radius: 4px; font-size: 12px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 4px; transition: background 0.2s;">
-              <span class="material-icons" style="font-size: 14px;">visibility</span>
-              Preview
-            </button>` : ''}
-            
-            ${canDownload ? `<button onclick="downloadMainPageFile('${file.url}', '${file.name}')" style="flex: 1; padding: 6px 12px; background: #28a745; color: white; border: none; border-radius: 4px; font-size: 12px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 4px; transition: background 0.2s;">
-              <span class="material-icons" style="font-size: 14px;">download</span>
-              Download
-            </button>` : `<button disabled style="flex: 1; padding: 6px 12px; background: #6c757d; color: white; border: none; border-radius: 4px; font-size: 12px; cursor: not-allowed; display: flex; align-items: center; justify-content: center; gap: 4px;">
-              <span class="material-icons" style="font-size: 14px;">block</span>
-              No Download
-            </button>`}
-          </div>
-        </div>
-      `;
-    });
-    
-    html += '</div>';
-    filesList.innerHTML = html;
-  }
-  
-  // Start the file loading process
-  db.ref(dbPath).once('value').then(handleMainPageFilesSnapshot).catch(error => {
-    console.error('Error loading files:', error);
-    filesList.innerHTML = `
-      <div style="text-align: center; padding: 40px; color: #dc3545;">
-        <span class="material-icons" style="font-size: 48px; margin-bottom: 16px;">error</span>
-        <div>Error loading files</div>
-      </div>
-    `;
-  });
-}
-
-function getMainPageFileIcon(extension) {
+function getStudentFileIcon(extension) {
   const iconMap = {
     'pdf': 'picture_as_pdf',
     'doc': 'description',
@@ -1255,7 +985,7 @@ function getMainPageFileIcon(extension) {
   return iconMap[extension.toLowerCase()] || 'insert_drive_file';
 }
 
-function formatMainPageFileSize(bytes) {
+function formatStudentFileSize(bytes) {
   if (bytes === 0) return '0 Bytes';
   const k = 1024;
   const sizes = ['Bytes', 'KB', 'MB', 'GB'];
@@ -1263,60 +993,40 @@ function formatMainPageFileSize(bytes) {
   return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
 }
 
-function canMainPagePreviewFile(extension) {
+function canStudentPreviewFile(extension) {
   const previewableTypes = ['pdf', 'jpg', 'jpeg', 'png', 'gif', 'mp4', 'mp3', 'txt'];
   return previewableTypes.includes(extension.toLowerCase());
 }
 
-function previewMainPageFile(fileId, unitKey, lessonKey) {
-  const dbPath = lessonKey ? 
-    `units/${unitKey}/lessons/${lessonKey}/files/${fileId}` : 
-    `units/${unitKey}/files/${fileId}`;
-  
-  console.log('Loading main page file for preview from path:', dbPath); // Debug log
-  
-  db.ref(dbPath).once('value').then(snapshot => {
-    if (!snapshot.exists()) {
-      console.log('File not found at path:', dbPath); // Debug log
-      
-      // If it's a lesson file and not found, try the new structure
-      if (lessonKey && dbPath.includes('/lessons/')) {
-        console.log('Trying new structure for lesson file preview'); // Debug log
-        const newDbPath = `units/${unitKey}/lesson${lessonKey}/files/${fileId}`;
-        console.log('Loading file from new path:', newDbPath); // Debug log
-        
-        db.ref(newDbPath).once('value').then(newSnapshot => {
-          if (newSnapshot.exists()) {
-            console.log('Found file in new structure'); // Debug log
-            const file = newSnapshot.val();
-            showMainPageFilePreview(file);
-          } else {
-            console.log('File not found in new structure either'); // Debug log
-            alert('File not found');
-          }
-        }).catch(error => {
-          console.error('Error loading file from new structure:', error);
-          alert('Error loading file');
-        });
-        return;
-      }
-      
-      alert('File not found');
-      return;
-    }
-    
-    const file = snapshot.val();
-    showMainPageFilePreview(file);
-  }).catch(error => {
-    console.error('Error loading file:', error);
-    alert('Error loading file');
-  });
+function downloadStudentFile(url, filename) {
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.target = '_blank';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
 }
 
-function showMainPageFilePreview(file) {
-  // Simple implementation using viewer_readonly.html for PDFs
+function createSecureProxy(originalUrl) {
+  // Create a secure proxy to hide the original URL
+  const proxyData = {
+    url: originalUrl,
+    timestamp: Date.now(),
+    user: firebase.auth().currentUser?.email || 'anonymous'
+  };
+  
+  // Store in session storage with encrypted key
+  const proxyKey = btoa(Date.now().toString()).replace(/[^a-zA-Z0-9]/g, '');
+  sessionStorage.setItem('proxy_' + proxyKey, btoa(JSON.stringify(proxyData)));
+  
+  // Return obfuscated URL
+  return `viewer_readonly.html?p=${proxyKey}&t=${Date.now()}`;
+}
+
+function showStudentFilePreview(file) {
   const modal = document.createElement('div');
-  modal.id = 'mainPageFilePreviewModal';
+  modal.id = 'studentFilePreviewModal';
   modal.style.cssText = `
     position: fixed;
     top: 0;
@@ -1335,15 +1045,15 @@ function showMainPageFilePreview(file) {
   // Only handle PDF files with the readonly viewer
   if (file.extension.toLowerCase() === 'pdf') {
     // Use secure proxy to hide original URL
-    const secureViewerUrl = createMainPageSecureProxy(file.url);
+    const secureViewerUrl = createSecureProxy(file.url);
     
     modal.innerHTML = `
       <div style="background: #333; border-radius: 12px; max-width: 95vw; max-height: 95vh; width: 100%; height: 100%; position: relative; overflow: hidden;">
         <div style="background: #444; padding: 16px; display: flex; justify-content: space-between; align-items: center; border-radius: 12px 12px 0 0;">
           <h3 style="margin: 0; color: white; font-size: 18px;">📄 ${file.name}</h3>
           <div style="display: flex; gap: 10px;">
-            <button onclick="toggleMainPageFilePreviewFullscreen()" style="background: none; border: none; color: white; font-size: 24px; cursor: pointer; padding: 0; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; border-radius: 50%;" title="Toggle Fullscreen">⛶</button>
-            <button onclick="closeMainPageFilePreview()" style="background: none; border: none; color: white; font-size: 24px; cursor: pointer; padding: 0; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; border-radius: 50%;">&times;</button>
+            <button onclick="toggleStudentFilePreviewFullscreen()" style="background: none; border: none; color: white; font-size: 24px; cursor: pointer; padding: 0; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; border-radius: 50%;" title="Toggle Fullscreen">⛶</button>
+            <button onclick="closeStudentFilePreview()" style="background: none; border: none; color: white; font-size: 24px; cursor: pointer; padding: 0; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; border-radius: 50%;">&times;</button>
           </div>
         </div>
         <iframe src="${secureViewerUrl}" style="width: 100%; height: 85%; border: none; background: white;" sandbox="allow-same-origin allow-scripts allow-forms"></iframe>
@@ -1355,13 +1065,13 @@ function showMainPageFilePreview(file) {
       <div style="background: #333; border-radius: 12px; max-width: 90vw; max-height: 90vh; width: 100%; position: relative; overflow: hidden;">
         <div style="background: #444; padding: 16px; display: flex; justify-content: space-between; align-items: center; border-radius: 12px 12px 0 0;">
           <h3 style="margin: 0; color: white; font-size: 18px;">📄 ${file.name}</h3>
-          <button onclick="closeMainPageFilePreview()" style="background: none; border: none; color: white; font-size: 24px; cursor: pointer; padding: 0; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; border-radius: 50%;">&times;</button>
+          <button onclick="closeStudentFilePreview()" style="background: none; border: none; color: white; font-size: 24px; cursor: pointer; padding: 0; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; border-radius: 50%;">&times;</button>
         </div>
         <div style="padding: 40px; text-align: center; color: white;">
           <span class="material-icons" style="font-size: 48px; margin-bottom: 16px;">insert_drive_file</span>
           <div style="margin-bottom: 20px;">Preview not available for this file type</div>
           ${file.access === 'downloadable' ? `
-            <button onclick="downloadMainPageFile('${file.url}', '${file.name}')" style="padding: 12px 24px; background: #28a745; color: white; border: none; border-radius: 6px; font-size: 14px; cursor: pointer; display: inline-flex; align-items: center; gap: 8px;">
+            <button onclick="downloadStudentFile('${file.url}', '${file.name}')" style="padding: 12px 24px; background: #28a745; color: white; border: none; border-radius: 6px; font-size: 14px; cursor: pointer; display: inline-flex; align-items: center; gap: 8px;">
               <span class="material-icons" style="font-size: 18px;">download</span>
               Download File
             </button>
@@ -1375,40 +1085,23 @@ function showMainPageFilePreview(file) {
   document.body.style.overflow = 'hidden';
 }
 
-function closeMainPageFilePreview() {
-  const modal = document.getElementById('mainPageFilePreviewModal');
+function closeStudentFilePreview() {
+  const modal = document.getElementById('studentFilePreviewModal');
   if (modal) {
     modal.remove();
   }
   document.body.style.overflow = 'auto';
 }
 
-// Create secure proxy for mainpage
-function createMainPageSecureProxy(originalUrl) {
-  // Create a secure proxy to hide the original URL
-  const proxyData = {
-    url: originalUrl,
-    timestamp: Date.now(),
-    user: firebase.auth().currentUser?.email || 'anonymous'
-  };
-  
-  // Store in session storage with encrypted key
-  const proxyKey = btoa(Date.now().toString()).replace(/[^a-zA-Z0-9]/g, '');
-  sessionStorage.setItem('proxy_' + proxyKey, btoa(JSON.stringify(proxyData)));
-  
-  // Return obfuscated URL
-  return `viewer_readonly.html?p=${proxyKey}&t=${Date.now()}`;
-}
+// Fullscreen functionality
+let isStudentFilePreviewFullscreen = false;
 
-// Fullscreen functionality for mainpage
-let isMainPageFilePreviewFullscreen = false;
-
-function toggleMainPageFilePreviewFullscreen() {
-  const modal = document.getElementById('mainPageFilePreviewModal');
+function toggleStudentFilePreviewFullscreen() {
+  const modal = document.getElementById('studentFilePreviewModal');
   const appbar = document.querySelector('.appbar');
   const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
   
-  if (!isMainPageFilePreviewFullscreen) {
+  if (!isStudentFilePreviewFullscreen) {
     // Enter fullscreen
     if (isMobile) {
       // For mobile - force horizontal orientation
@@ -1440,25 +1133,10 @@ function toggleMainPageFilePreviewFullscreen() {
     // Remove modal padding in fullscreen
     modal.style.padding = '0%';
     
-    // Ensure controls are visible in fullscreen on all devices
-    const iframe = modal.querySelector('iframe');
-    if (iframe) {
-      // Add a small delay to ensure fullscreen is active
-      setTimeout(() => {
-        // Force landscape orientation on mobile after fullscreen
-        if (isMobile && screen.orientation && screen.orientation.lock) {
-          screen.orientation.lock('landscape').catch(e => console.log('Orientation lock retry failed:', e));
-        }
-        
-        // Add PDF navigation controls for fullscreen
-        addMainPagePDFNavigationControls(modal);
-      }, 500);
-    }
-    
-    isMainPageFilePreviewFullscreen = true;
+    isStudentFilePreviewFullscreen = true;
     
     // Update button text
-    const fullscreenBtn = modal.querySelector('button[onclick="toggleMainPageFilePreviewFullscreen()"]');
+    const fullscreenBtn = modal.querySelector('button[onclick="toggleStudentFilePreviewFullscreen()"]');
     if (fullscreenBtn) {
       fullscreenBtn.textContent = '❐';
     }
@@ -1491,185 +1169,14 @@ function toggleMainPageFilePreviewFullscreen() {
       screen.orientation.unlock();
     }
     
-    // Remove PDF navigation controls
-    removeMainPagePDFNavigationControls();
-    
-    isMainPageFilePreviewFullscreen = false;
-
-    modal.style.padding = '0%';
+    isStudentFilePreviewFullscreen = false;
     
     // Update button text
-    const fullscreenBtn = modal.querySelector('button[onclick="toggleMainPageFilePreviewFullscreen()"]');
+    const fullscreenBtn = modal.querySelector('button[onclick="toggleStudentFilePreviewFullscreen()"]');
     if (fullscreenBtn) {
       fullscreenBtn.textContent = '⛶';
     }
   }
-}
-
-// PDF Navigation Controls for mainpage
-function addMainPagePDFNavigationControls(modal) {
-  // Add controls for all devices when in fullscreen
-  if (!isMainPageFilePreviewFullscreen) {
-    return;
-  }
-  
-  // Remove existing controls if any
-  removeMainPagePDFNavigationControls();
-  
-  // Find the header section in the modal
-  const headerSection = modal.querySelector('div[style*="background: #444"]');
-  if (!headerSection) {
-    console.log('Header section not found');
-    return;
-  }
-  
-  // Find the button container in the header
-  const buttonContainer = headerSection.querySelector('div[style*="display: flex; gap: 10px"]');
-  if (!buttonContainer) {
-    console.log('Button container not found');
-    return;
-  }
-  
-  // Create navigation controls container
-  const navControls = document.createElement('div');
-  navControls.id = 'mainPagePdfNavigationControls';
-  navControls.style.cssText = `
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    margin-right: 10px;
-  `;
-  
-  // Create previous page button
-  const prevBtn = document.createElement('button');
-  prevBtn.id = 'mainPagePdfPrevBtn';
-  prevBtn.innerHTML = '◀';
-  prevBtn.style.cssText = `
-    background: rgba(255, 255, 255, 0.2);
-    color: white;
-    border: none;
-    border-radius: 50%;
-    font-size: 16px;
-    cursor: pointer;
-    padding: 0;
-    width: 30px;
-    height: 30px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: all 0.3s ease;
-  `;
-  
-  // Create next page button
-  const nextBtn = document.createElement('button');
-  nextBtn.id = 'mainPagePdfNextBtn';
-  nextBtn.innerHTML = '▶';
-  nextBtn.style.cssText = `
-    background: rgba(255, 255, 255, 0.2);
-    color: white;
-    border: none;
-    border-radius: 50%;
-    font-size: 16px;
-    cursor: pointer;
-    padding: 0;
-    width: 30px;
-    height: 30px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: all 0.3s ease;
-  `;
-  
-  // Add hover effects
-  const addHoverEffects = (btn) => {
-    btn.addEventListener('mouseenter', () => {
-      btn.style.background = 'rgba(255, 255, 255, 0.3)';
-      btn.style.transform = 'scale(1.1)';
-    });
-    
-    btn.addEventListener('mouseleave', () => {
-      btn.style.background = 'rgba(255, 255, 255, 0.2)';
-      btn.style.transform = 'scale(1)';
-    });
-  };
-  
-  addHoverEffects(prevBtn);
-  addHoverEffects(nextBtn);
-  
-  // Add click handlers that trigger the iframe's navigation
-  prevBtn.addEventListener('click', () => {
-    const iframe = modal.querySelector('iframe');
-    if (iframe) {
-      try {
-        // Try to trigger the previous button in the iframe
-        iframe.contentWindow.postMessage({ 
-          type: 'navigate', 
-          action: 'previous' 
-        }, '*');
-      } catch (e) {
-        console.log('Failed to navigate to previous page:', e);
-      }
-    }
-  });
-  
-  nextBtn.addEventListener('click', () => {
-    const iframe = modal.querySelector('iframe');
-    if (iframe) {
-      try {
-        // Try to trigger the next button in the iframe
-        iframe.contentWindow.postMessage({ 
-          type: 'navigate', 
-          action: 'next' 
-        }, '*');
-      } catch (e) {
-        console.log('Failed to navigate to next page:', e);
-      }
-    }
-  });
-  
-  // Add touch handlers for mobile
-  const addTouchHandlers = (btn, action) => {
-    btn.addEventListener('touchstart', (e) => {
-      e.preventDefault();
-      btn.style.background = 'rgba(255, 255, 255, 0.3)';
-      btn.style.transform = 'scale(1.1)';
-      btn.click();
-    });
-    
-    btn.addEventListener('touchend', (e) => {
-      e.preventDefault();
-      btn.style.background = 'rgba(255, 255, 255, 0.2)';
-      btn.style.transform = 'scale(1)';
-    });
-  };
-  
-  addTouchHandlers(prevBtn, 'prev');
-  addTouchHandlers(nextBtn, 'next');
-  
-  // Add buttons to navigation controls
-  navControls.appendChild(prevBtn);
-  navControls.appendChild(nextBtn);
-  
-  // Insert navigation controls before the existing button container
-  headerSection.insertBefore(navControls, buttonContainer);
-}
-
-function removeMainPagePDFNavigationControls() {
-  const navControls = document.getElementById('mainPagePdfNavigationControls');
-  if (navControls) {
-    navControls.remove();
-  }
-}
-
-// Download function for mainpage
-function downloadMainPageFile(url, filename) {
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = filename;
-  a.target = '_blank';
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
 }
 
 // Open assignments and quizzes page
