@@ -323,40 +323,77 @@ const PDFViewerApplication = {
   },
   
   setupEventListeners() {
-    // Navigation buttons
-    document.getElementById('previous').addEventListener('click', () => {
-      if (this.currentPageNumber > 1) {
-        this.renderPage(this.currentPageNumber - 1);
-      }
-    });
+    // Navigation buttons - check if they exist before adding listeners
+    const prevBtn = document.getElementById('previous');
+    const nextBtn = document.getElementById('next');
     
-    document.getElementById('next').addEventListener('click', () => {
-      if (this.currentPageNumber < this.numPages) {
-        this.renderPage(this.currentPageNumber + 1);
+    if (prevBtn) {
+      prevBtn.addEventListener('click', () => {
+        if (this.currentPageNumber > 1) {
+          this.renderPage(this.currentPageNumber - 1);
+        }
+      });
+    }
+    
+    if (nextBtn) {
+      nextBtn.addEventListener('click', () => {
+        if (this.currentPageNumber < this.numPages) {
+          this.renderPage(this.currentPageNumber + 1);
+        }
+      });
+    }
+    
+    // Listen for navigation messages from parent window
+    window.addEventListener('message', (event) => {
+      if (event.data && event.data.type === 'navigate') {
+        switch (event.data.action) {
+          case 'previous':
+            if (this.currentPageNumber > 1) {
+              this.renderPage(this.currentPageNumber - 1);
+            }
+            break;
+          case 'next':
+            if (this.currentPageNumber < this.numPages) {
+              this.renderPage(this.currentPageNumber + 1);
+            }
+            break;
+        }
       }
     });
     
     // Page number input
-    this.pageNumber.addEventListener('change', (e) => {
-      const pageNum = parseInt(e.target.value);
-      if (pageNum >= 1 && pageNum <= this.numPages) {
-        this.renderPage(pageNum);
-      }
-    });
+    if (this.pageNumber) {
+      this.pageNumber.addEventListener('change', (e) => {
+        const pageNum = parseInt(e.target.value);
+        if (pageNum >= 1 && pageNum <= this.numPages) {
+          this.renderPage(pageNum);
+        }
+      });
+    }
     
     // Zoom buttons
-    document.getElementById('zoomIn').addEventListener('click', () => {
-      this.scale *= 1.2;
-      this.renderPage(this.currentPageNumber);
-    });
+    const zoomInBtn = document.getElementById('zoomIn');
+    const zoomOutBtn = document.getElementById('zoomOut');
     
-    document.getElementById('zoomOut').addEventListener('click', () => {
-      this.scale /= 1.2;
-      this.renderPage(this.currentPageNumber);
-    });
+    if (zoomInBtn) {
+      zoomInBtn.addEventListener('click', () => {
+        this.scale *= 1.2;
+        this.renderPage(this.currentPageNumber);
+      });
+    }
+    
+    if (zoomOutBtn) {
+      zoomOutBtn.addEventListener('click', () => {
+        this.scale /= 1.2;
+        this.renderPage(this.currentPageNumber);
+      });
+    }
     
     // Fullscreen button
-    document.getElementById('fullscreenBtn').addEventListener('click', toggleFullscreen);
+    const fullscreenBtn = document.getElementById('fullscreenBtn');
+    if (fullscreenBtn) {
+      fullscreenBtn.addEventListener('click', toggleFullscreen);
+    }
     
     // Keyboard navigation
     document.addEventListener('keydown', (e) => {
@@ -384,9 +421,12 @@ const PDFViewerApplication = {
     });
     
     // Error close button
-    document.getElementById('errorClose').addEventListener('click', () => {
-      this.showError('');
-    });
+    const errorCloseBtn = document.getElementById('errorClose');
+    if (errorCloseBtn) {
+      errorCloseBtn.addEventListener('click', () => {
+        this.showError('');
+      });
+    }
   },
   
   showProgress(show) {

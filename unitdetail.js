@@ -2348,14 +2348,18 @@ function addPDFNavigationControls(modal) {
   addHoverEffects(prevBtn);
   addHoverEffects(nextBtn);
   
-  // Add click handlers for PDF navigation
+  // Add click handlers that trigger the iframe's navigation
   prevBtn.addEventListener('click', () => {
     const iframe = modal.querySelector('iframe');
     if (iframe) {
       try {
-        iframe.contentWindow.postMessage({ type: 'pdf-prev-page' }, '*');
+        // Try to trigger the previous button in the iframe
+        iframe.contentWindow.postMessage({ 
+          type: 'navigate', 
+          action: 'previous' 
+        }, '*');
       } catch (e) {
-        console.log('Failed to send prev page message:', e);
+        console.log('Failed to navigate to previous page:', e);
       }
     }
   });
@@ -2364,9 +2368,13 @@ function addPDFNavigationControls(modal) {
     const iframe = modal.querySelector('iframe');
     if (iframe) {
       try {
-        iframe.contentWindow.postMessage({ type: 'pdf-next-page' }, '*');
+        // Try to trigger the next button in the iframe
+        iframe.contentWindow.postMessage({ 
+          type: 'navigate', 
+          action: 'next' 
+        }, '*');
       } catch (e) {
-        console.log('Failed to send next page message:', e);
+        console.log('Failed to navigate to next page:', e);
       }
     }
   });
