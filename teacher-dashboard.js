@@ -5467,50 +5467,60 @@ document.getElementById('createQuizForm').addEventListener('submit', function(e)
 
 // Assignment Creation Functions
 function loadUnitsForAssignment() {
-  const select = document.getElementById('assignmentUnit');
-  if (!select) {
-    console.error('Assignment unit select element not found');
-    return;
-  }
-  
-  select.innerHTML = '<option value="">Choose a unit...</option>';
-  
-  db.ref('units').once('value').then(snapshot => {
-    if (snapshot.exists()) {
-      snapshot.forEach(child => {
-        const unit = child.val();
-        const option = document.createElement('option');
-        option.value = child.key;
-        option.textContent = unit.name || unit.title || child.key;
-        select.appendChild(option);
-      });
+  return new Promise((resolve, reject) => {
+    const select = document.getElementById('assignmentUnit');
+    if (!select) {
+      console.error('Assignment unit select element not found');
+      reject(new Error('Assignment unit select element not found'));
+      return;
     }
-  }).catch(error => {
-    console.error('Error loading units for assignment:', error);
+    
+    select.innerHTML = '<option value="">Choose a unit...</option>';
+    
+    db.ref('units').once('value').then(snapshot => {
+      if (snapshot.exists()) {
+        snapshot.forEach(child => {
+          const unit = child.val();
+          const option = document.createElement('option');
+          option.value = child.key;
+          option.textContent = unit.name || unit.title || child.key;
+          select.appendChild(option);
+        });
+      }
+      resolve();
+    }).catch(error => {
+      console.error('Error loading units for assignment:', error);
+      reject(error);
+    });
   });
 }
 
 function loadRubricsForAssignment() {
-  const select = document.getElementById('assignmentRubric');
-  if (!select) {
-    console.error('Assignment rubric select element not found');
-    return;
-  }
-  
-  select.innerHTML = '<option value="">Select existing rubric (optional)</option>';
-  
-  db.ref('rubrics').once('value').then(snapshot => {
-    if (snapshot.exists()) {
-      snapshot.forEach(child => {
-        const rubric = child.val();
-        const option = document.createElement('option');
-        option.value = child.key;
-        option.textContent = rubric.name || rubric.title || child.key;
-        select.appendChild(option);
-      });
+  return new Promise((resolve, reject) => {
+    const select = document.getElementById('assignmentRubric');
+    if (!select) {
+      console.error('Assignment rubric select element not found');
+      reject(new Error('Assignment rubric select element not found'));
+      return;
     }
-  }).catch(error => {
-    console.error('Error loading rubrics for assignment:', error);
+    
+    select.innerHTML = '<option value="">Select existing rubric (optional)</option>';
+    
+    db.ref('rubrics').once('value').then(snapshot => {
+      if (snapshot.exists()) {
+        snapshot.forEach(child => {
+          const rubric = child.val();
+          const option = document.createElement('option');
+          option.value = child.key;
+          option.textContent = rubric.name || rubric.title || child.key;
+          select.appendChild(option);
+        });
+      }
+      resolve();
+    }).catch(error => {
+      console.error('Error loading rubrics for assignment:', error);
+      reject(error);
+    });
   });
 }
 
@@ -7381,6 +7391,61 @@ function viewQuizDetails(quizId) {
   });
 }
 
+function viewAssignmentDetails(assignmentId) {
+  db.ref(`assignments/${assignmentId}`).once('value').then(snapshot => {
+    if (snapshot.exists()) {
+      const assignment = snapshot.val();
+      
+      // Create assignment details modal
+      const modal = document.createElement('div');
+      modal.className = 'modal';
+      modal.id = 'assignmentDetailsModal';
+      modal.style.display = 'flex';
+      
+      const dueDate = assignment.dueDate ? new Date(assignment.dueDate).toLocaleDateString() : 'No due date';
+      const createdDate = assignment.createdAt ? new Date(assignment.createdAt).toLocaleDateString() : 'Unknown';
+      
+      modal.innerHTML = `
+        <div class="modal-content" style="max-width: 700px;">
+          <div class="modal-header">
+            <h3 class="modal-title">Assignment Details: ${assignment.title}</h3>
+            <button class="modal-close" onclick="closeModal('assignmentDetailsModal'); this.parentElement.parentElement.parentElement.remove();">&times;</button>
+          </div>
+          
+          <div style="padding: 20px;">
+            <div style="margin-bottom: 20px;">
+              <h4 style="color: #6c4fc1; margin-bottom: 8px;">Assignment Information</h4>
+              <p><strong>Title:</strong> ${assignment.title}</p>
+              <p><strong>Description:</strong> ${assignment.description || 'No description'}</p>
+              <p><strong>Unit:</strong> ${assignment.unit || 'No unit assigned'}</p>
+              <p><strong>Max Points:</strong> ${assignment.maxPoints || 'Not specified'}</p>
+              <p><strong>Due Date:</strong> ${dueDate}</p>
+              <p><strong>Submission Type:</strong> ${assignment.submissionType || 'Text'}</p>
+              <p><strong>Allowed File Types:</strong> ${assignment.allowedFileTypes ? assignment.allowedFileTypes.join(', ') : 'None'}</p>
+              <p><strong>Created:</strong> ${createdDate}</p>
+            </div>
+            
+            <div class="feature-actions">
+              <button class="action-btn" onclick="editAssignment('${assignmentId}')">Edit Assignment</button>
+              <button class="action-btn" onclick="testAssignment('${assignmentId}')">Preview Assignment</button>
+              <button class="action-btn secondary" onclick="closeModal('assignmentDetailsModal'); this.parentElement.parentElement.parentElement.remove();">Close</button>
+            </div>
+          </div>
+        </div>
+      `;
+      
+      document.body.appendChild(modal);
+    }
+  }).catch(error => {
+    console.error('Error loading assignment details:', error);
+    showNotification(
+      'Failed to load assignment details.',
+      'error',
+      'Error'
+    );
+  });
+}
+
 function toggleQuizAnswerView(quizId, currentState) {
   const newState = !currentState;
   db.ref(`quizzes/${quizId}/allowViewAnswers`).set(newState).then(() => {
@@ -7626,6 +7691,107 @@ async function editQuiz(quizId) {
   } catch (error) {
     console.error('Failed to load quiz:', error);
   }
+}
+
+async function editAssignment(assignmentId) {
+  // Close existing modals first to prevent layering issues
+  const existingModals = ['assessmentsListModal', 'assignmentDetailsModal'];
+  existingModals.forEach(modalId => {
+    const modal = document.getElementById(modalId);
+    if (modal) {
+      modal.remove();
+    }
+  });
+
+  try {
+    // Wait for assignment data
+    const snapshot = await db.ref(`assignments/${assignmentId}`).once('value');
+
+    if (!snapshot.exists()) {
+      console.warn('Assignment does not exist.');
+      return;
+    }
+
+    const assignment = snapshot.val();
+
+    // First, open the create assignment modal to ensure it exists in the DOM
+    openModal('createAssignmentModal');
+
+    // Reset form to ensure clean state
+    resetAssignmentForm();
+
+    // Populate the form with assignment data
+    document.getElementById('assignmentTitle').value = assignment.title || '';
+    document.getElementById('assignmentDescription').value = assignment.description || '';
+    document.getElementById('assignmentDueDate').value = assignment.dueDate || '';
+    document.getElementById('assignmentMaxPoints').value = assignment.maxPoints || '';
+    document.getElementById('assignmentSubmissionType').value = assignment.submissionType || 'text';
+    document.getElementById('assignmentFileTypes').value = assignment.allowedFileTypes ? assignment.allowedFileTypes.join(', ') : '';
+
+    // Store the assignment ID for updating
+    window.editingAssignmentId = assignmentId;
+
+    // Update form for editing
+    updateAssignmentFormForEditing();
+
+    // Load units and set selection
+    await loadUnitsForAssignment();
+    document.getElementById('assignmentUnit').value = assignment.unit || '';
+
+    // Load rubrics and set selection
+    await loadRubricsForAssignment();
+    document.getElementById('assignmentRubric').value = assignment.rubric || '';
+
+  } catch (error) {
+    console.error('Failed to load assignment:', error);
+  }
+}
+
+function updateAssignmentFormForEditing() {
+  const form = document.getElementById('createAssignmentForm');
+  const existingHandler = form.cloneNode(true);
+  form.parentNode.replaceChild(existingHandler, form);
+  
+  existingHandler.addEventListener('submit', function(e) {
+    e.preventDefault();
+    updateAssignment();
+  });
+}
+
+function updateAssignment() {
+  const assignmentId = window.editingAssignmentId;
+  
+  const assignmentData = {
+    title: document.getElementById('assignmentTitle').value,
+    description: document.getElementById('assignmentDescription').value,
+    unit: document.getElementById('assignmentUnit').value,
+    dueDate: document.getElementById('assignmentDueDate').value,
+    maxPoints: parseInt(document.getElementById('assignmentMaxPoints').value),
+    submissionType: document.getElementById('assignmentSubmissionType').value,
+    allowedFileTypes: document.getElementById('assignmentFileTypes').value.split(',').map(type => type.trim()),
+    rubric: document.getElementById('assignmentRubric').value,
+    updatedAt: Date.now()
+  };
+  
+  // Update assignment in database
+  db.ref(`assignments/${assignmentId}`).update(assignmentData).then(() => {
+    showNotification(
+      'Your assignment has been updated successfully!',
+      'success',
+      'Assignment Updated'
+    );
+    closeModal('createAssignmentModal');
+    delete window.editingAssignmentId;
+    // Refresh the assessments list
+    loadAllAssessments();
+  }).catch(error => {
+    console.error('Error updating assignment:', error);
+    showNotification(
+      'Please try again or contact support if the problem persists.',
+      'error',
+      'Update Failed'
+    );
+  });
 }
 
 
