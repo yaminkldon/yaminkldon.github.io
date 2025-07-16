@@ -89,7 +89,7 @@ function loadUnits() {
                   ${progress.percentage > 0 ? `(${progress.percentage}%)` : ''}
                 </div>
               </div>
-              <button onclick="event.stopPropagation(); openMainPageFileViewer('${unitName}', null)" style="padding: 4px 8px; background: #17a2b8; color: white; border: none; border-radius: 4px; font-size: 10px; cursor: pointer; display: flex; align-items: center; gap: 4px;">
+              <button onclick="event.stopPropagation(); openMainPageFileViewer('${unitName}', null)" style="padding: 4px 8px; background: #17a2b8; color: white; border: none; border-radius: 4px; font-size: 10px; cursor: pointer; margin: 0%; align-items: center; gap: 4px;">
                 <span class="material-icons" style="font-size: 12px;">folder</span>
                 Files
               </button>
@@ -132,7 +132,7 @@ function loadUnitsWithoutProgress() {
           <div style="flex: 1; cursor: pointer;" onclick="goToUnit('${unitName}')">
             <span>${unitName}</span>
           </div>
-          <button onclick="event.stopPropagation(); openMainPageFileViewer('${unitName}', null)" style="padding: 4px 8px; background: #17a2b8; color: white; border: none; border-radius: 4px; font-size: 10px; cursor: pointer; display: flex; align-items: center; gap: 4px;">
+          <button onclick="event.stopPropagation(); openMainPageFileViewer('${unitName}', null)" style="padding: 4px 8px; background: #17a2b8; color: white; border: none; border-radius: 4px; font-size: 10px; cursor: pointer; margin: 0%; align-items: center; gap: 4px;">
             <span class="material-icons" style="font-size: 12px;">folder</span>
             Files
           </button>
@@ -609,6 +609,39 @@ document.addEventListener('DOMContentLoaded', function() {
   // Initialize security measures for file viewing
   addMainPageSecurityMeasures();
 });
+
+// Function to add additional security overlay to PDF iframe on main page
+function addMainPagePDFSecurityOverlay(iframe) {
+  try {
+    // Try to access iframe content to add security measures
+    const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
+    
+    // Add CSS to hide download buttons and toolbar
+    const style = document.createElement('style');
+    style.textContent = `
+      #toolbar, #toolbarContainer, #downloadButton, #printButton, #openFileButton {
+        display: none !important;
+      }
+      #viewerContainer {
+        top: 0 !important;
+      }
+      * {
+        -webkit-user-select: none;
+        -moz-user-select: none;
+        -ms-user-select: none;
+        user-select: none;
+      }
+    `;
+    
+    if (iframeDoc && iframeDoc.head) {
+      iframeDoc.head.appendChild(style);
+    }
+  } catch (e) {
+    // Cross-origin restrictions prevent direct access
+    // PDF will still display but with basic restrictions
+    console.log('Main page PDF security overlay applied with basic restrictions');
+  }
+}
 
 // Security measures for file viewing
 function addMainPageSecurityMeasures() {
@@ -1147,22 +1180,22 @@ function loadMainPageSecurePDFContent(url, userEmail) {
   if (!viewer) return;
   
   viewer.innerHTML = `
-    <div style="text-align: center; padding: 40px; color: #666;">
-      <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px auto; max-width: 600px; border-left: 4px solid #6c4fc1;">
-        <h3 style="color: #6c4fc1; margin-top: 0;">Secure Document Viewer</h3>
-        <p style="color: #666; margin-bottom: 20px;">This document is being viewed in secure mode. The original file cannot be downloaded or copied.</p>
-        <div style="background: white; padding: 15px; border-radius: 4px; text-align: left; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-          <div style="font-size: 14px; color: #333; line-height: 1.6;">
-            <strong>Document: ${url.split('/').pop()}</strong><br>
-            <em>Content preview is not available in this demo version.</em><br><br>
-            In a production environment, this would show the actual document content<br>
-            processed through a secure server-side renderer that prevents direct<br>
-            access to the original file while displaying the content.
-          </div>
-        </div>
-        <div style="margin-top: 20px; font-size: 12px; color: #999;">
-          Viewed by: ${userEmail} | ${new Date().toLocaleString()}
-        </div>
+    <div style="position: relative; width: 100%; height: 600px; border: 1px solid #ddd; border-radius: 8px; overflow: hidden;">
+      <div style="position: absolute; top: 10px; right: 10px; background: rgba(0,0,0,0.7); color: white; padding: 4px 8px; border-radius: 4px; font-size: 11px; z-index: 1000;">
+        ${userEmail} | ${new Date().toLocaleString()}
+      </div>
+      <div style="position: absolute; top: 10px; left: 10px; background: rgba(0,0,0,0.7); color: white; padding: 4px 8px; border-radius: 4px; font-size: 11px; z-index: 1000;">
+        🔒 Secure View
+      </div>
+      <iframe 
+        src="${url}#toolbar=0&navpanes=0&scrollbar=0" 
+        style="width: 100%; height: 100%; border: none; pointer-events: auto;"
+        onload="addMainPagePDFSecurityOverlay(this)"
+        oncontextmenu="return false;"
+        sandbox="allow-same-origin allow-scripts"
+      ></iframe>
+      <div style="position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.7); color: white; padding: 4px 8px; border-radius: 4px; font-size: 10px; z-index: 1000;">
+        Viewed by: ${userEmail} | ${new Date().toLocaleString()}
       </div>
     </div>
   `;

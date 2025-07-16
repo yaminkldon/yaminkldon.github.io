@@ -223,6 +223,10 @@ function closeVideoModal() {
   // Remove watermark overlay
   const watermarkOverlay = document.getElementById('videoWatermarkOverlay');
   if (watermarkOverlay) {
+    // Call cleanup function if it exists
+    if (watermarkOverlay.cleanup) {
+      watermarkOverlay.cleanup();
+    }
     watermarkOverlay.remove();
   }
   
@@ -251,81 +255,119 @@ function addVideoWatermark(userEmail, lessonKey) {
   const watermarkOverlay = document.createElement('div');
   watermarkOverlay.id = 'videoWatermarkOverlay';
   watermarkOverlay.style.cssText = `
-    position: absolute;
+    position: fixed;
     top: 0;
     left: 0;
-    width: 100%;
-    height: 100%;
+    width: 100vw;
+    height: 100vh;
     pointer-events: none;
-    z-index: 1000;
+    z-index: 9999;
     background: repeating-linear-gradient(
       45deg,
       transparent,
-      transparent 300px,
-      rgba(255, 255, 255, 0.03) 300px,
-      rgba(255, 255, 255, 0.03) 350px
+      transparent 400px,
+      rgba(255, 255, 255, 0.02) 400px,
+      rgba(255, 255, 255, 0.02) 450px
     );
+    mix-blend-mode: overlay;
   `;
   
-  // Add watermark elements
-  watermarkOverlay.innerHTML = `
-    <!-- Top right watermark -->
-    <div style="
+  // Create moving watermark elements
+  const movingWatermark = document.createElement('div');
+  movingWatermark.id = 'movingWatermark';
+  movingWatermark.style.cssText = `
+    position: absolute;
+    color: rgba(255, 255, 255, 0.4);
+    font-size: 14px;
+    font-weight: bold;
+    background: rgba(0, 0, 0, 0.3);
+    padding: 6px 12px;
+    border-radius: 6px;
+    backdrop-filter: blur(2px);
+    font-family: 'Segoe UI', Arial, sans-serif;
+    white-space: nowrap;
+    text-shadow: 0 0 10px rgba(0, 0, 0, 0.8);
+    animation: moveWatermark 15s linear infinite;
+  `;
+  movingWatermark.textContent = `🔒 ${userEmail}`;
+  
+  // Add additional static watermarks
+  const staticWatermarks = [
+    { position: 'top: 20px; right: 20px;', text: userEmail, size: '11px' },
+    { position: 'bottom: 60px; left: 20px;', text: new Date().toLocaleString(), size: '9px' },
+    { position: 'top: 50%; left: 50%; transform: translate(-50%, -50%) rotate(-25deg);', text: lessonKey, size: '16px', opacity: '0.06' }
+  ];
+  
+  staticWatermarks.forEach(watermark => {
+    const element = document.createElement('div');
+    element.style.cssText = `
       position: absolute;
-      top: 15px;
-      right: 15px;
-      color: rgba(255, 255, 255, 0.6);
-      font-size: 11px;
+      ${watermark.position}
+      color: rgba(255, 255, 255, ${watermark.opacity || '0.3'});
+      font-size: ${watermark.size};
       font-weight: bold;
-      background: rgba(0, 0, 0, 0.4);
+      background: rgba(0, 0, 0, 0.3);
       padding: 4px 8px;
       border-radius: 4px;
       backdrop-filter: blur(2px);
       font-family: 'Segoe UI', Arial, sans-serif;
-    ">
-      ${userEmail}
-    </div>
-    
-    <!-- Bottom left watermark -->
-    <div style="
-      position: absolute;
-      bottom: 40px;
-      left: 15px;
-      color: rgba(255, 255, 255, 0.4);
-      font-size: 9px;
-      background: rgba(0, 0, 0, 0.3);
-      padding: 2px 6px;
-      border-radius: 3px;
-      backdrop-filter: blur(1px);
-      font-family: 'Segoe UI', Arial, sans-serif;
-    ">
-      ${new Date().toLocaleString()}
-    </div>
-    
-    <!-- Center subtle watermark -->
-    <div style="
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%) rotate(-25deg);
-      color: rgba(255, 255, 255, 0.08);
-      font-size: 24px;
-      font-weight: bold;
-      font-family: 'Segoe UI', Arial, sans-serif;
-      text-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
       user-select: none;
       pointer-events: none;
-    ">
-      ${lessonKey}
-    </div>
-  `;
+      text-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+    `;
+    element.textContent = watermark.text;
+    watermarkOverlay.appendChild(element);
+  });
   
-  // Find the video container and add watermark
-  const videoContainer = document.querySelector('.video-modal-content');
-  if (videoContainer) {
-    videoContainer.style.position = 'relative';
-    videoContainer.appendChild(watermarkOverlay);
-  }
+  // Add the moving watermark
+  watermarkOverlay.appendChild(movingWatermark);
+  
+  // Add watermark to document body (so it appears over fullscreen)
+  document.body.appendChild(watermarkOverlay);
+  
+  // Add CSS animation for moving watermark
+  const style = document.createElement('style');
+  style.textContent = `
+    @keyframes moveWatermark {
+      0% { top: 10%; left: 10%; }
+      12.5% { top: 10%; left: 80%; }
+      25% { top: 80%; left: 80%; }
+      37.5% { top: 80%; left: 10%; }
+      50% { top: 40%; left: 70%; }
+      62.5% { top: 70%; left: 40%; }
+      75% { top: 20%; left: 60%; }
+      87.5% { top: 60%; left: 20%; }
+      100% { top: 10%; left: 10%; }
+    }
+  `;
+  document.head.appendChild(style);
+  
+  // Update watermark position on fullscreen change
+  const updateWatermarkForFullscreen = () => {
+    const isFullscreen = !!document.fullscreenElement;
+    if (isFullscreen) {
+      watermarkOverlay.style.position = 'fixed';
+      watermarkOverlay.style.width = '100vw';
+      watermarkOverlay.style.height = '100vh';
+      watermarkOverlay.style.zIndex = '9999';
+    } else {
+      watermarkOverlay.style.position = 'absolute';
+      watermarkOverlay.style.width = '100%';
+      watermarkOverlay.style.height = '100%';
+      watermarkOverlay.style.zIndex = '1000';
+    }
+  };
+  
+  // Listen for fullscreen changes
+  document.addEventListener('fullscreenchange', updateWatermarkForFullscreen);
+  
+  // Store cleanup function
+  watermarkOverlay.cleanup = () => {
+    document.removeEventListener('fullscreenchange', updateWatermarkForFullscreen);
+    if (style.parentNode) {
+      style.parentNode.removeChild(style);
+    }
+  };
 }
 
 function goBack() {
@@ -1431,29 +1473,28 @@ function closeStudentFilePreview() {
 
 // Secure content loading functions
 function loadSecurePDFContent(url, userEmail) {
-  // This is a simplified secure PDF viewer
-  // In a real implementation, you would process the PDF server-side
-  // and return only the text content or rendered images
+  // This creates a secure PDF viewer using iframe with restrictions
+  // The PDF is displayed but download options are hidden/disabled
   const viewer = document.getElementById('secureDocViewer');
   if (!viewer) return;
   
   viewer.innerHTML = `
-    <div style="text-align: center; padding: 40px; color: #666;">
-      <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px auto; max-width: 600px; border-left: 4px solid #6c4fc1;">
-        <h3 style="color: #6c4fc1; margin-top: 0;">Secure Document Viewer</h3>
-        <p style="color: #666; margin-bottom: 20px;">This document is being viewed in secure mode. The original file cannot be downloaded or copied.</p>
-        <div style="background: white; padding: 15px; border-radius: 4px; text-align: left; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-          <div style="font-size: 14px; color: #333; line-height: 1.6;">
-            <strong>Document: ${url.split('/').pop()}</strong><br>
-            <em>Content preview is not available in this demo version.</em><br><br>
-            In a production environment, this would show the actual document content<br>
-            processed through a secure server-side renderer that prevents direct<br>
-            access to the original file while displaying the content.
-          </div>
-        </div>
-        <div style="margin-top: 20px; font-size: 12px; color: #999;">
-          Viewed by: ${userEmail} | ${new Date().toLocaleString()}
-        </div>
+    <div style="position: relative; width: 100%; height: 600px; border: 1px solid #ddd; border-radius: 8px; overflow: hidden;">
+      <div style="position: absolute; top: 10px; right: 10px; background: rgba(0,0,0,0.7); color: white; padding: 4px 8px; border-radius: 4px; font-size: 11px; z-index: 1000;">
+        ${userEmail} | ${new Date().toLocaleString()}
+      </div>
+      <div style="position: absolute; top: 10px; left: 10px; background: rgba(0,0,0,0.7); color: white; padding: 4px 8px; border-radius: 4px; font-size: 11px; z-index: 1000;">
+        🔒 Secure View
+      </div>
+      <iframe 
+        src="${url}#toolbar=0&navpanes=0&scrollbar=0" 
+        style="width: 100%; height: 100%; border: none; pointer-events: auto;"
+        onload="addPDFSecurityOverlay(this)"
+        oncontextmenu="return false;"
+        sandbox="allow-same-origin allow-scripts"
+      ></iframe>
+      <div style="position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.7); color: white; padding: 4px 8px; border-radius: 4px; font-size: 10px; z-index: 1000;">
+        Viewed by: ${userEmail} | ${new Date().toLocaleString()}
       </div>
     </div>
   `;
@@ -1594,6 +1635,39 @@ document.addEventListener('DOMContentLoaded', function() {
   // Initialize security measures
   addSecurityMeasures();
 });
+
+// Function to add additional security overlay to PDF iframe
+function addPDFSecurityOverlay(iframe) {
+  try {
+    // Try to access iframe content to add security measures
+    const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
+    
+    // Add CSS to hide download buttons and toolbar
+    const style = document.createElement('style');
+    style.textContent = `
+      #toolbar, #toolbarContainer, #downloadButton, #printButton, #openFileButton {
+        display: none !important;
+      }
+      #viewerContainer {
+        top: 0 !important;
+      }
+      * {
+        -webkit-user-select: none;
+        -moz-user-select: none;
+        -ms-user-select: none;
+        user-select: none;
+      }
+    `;
+    
+    if (iframeDoc && iframeDoc.head) {
+      iframeDoc.head.appendChild(style);
+    }
+  } catch (e) {
+    // Cross-origin restrictions prevent direct access
+    // PDF will still display but with basic restrictions
+    console.log('PDF security overlay applied with basic restrictions');
+  }
+}
 
 // Security measures for file viewing
 function addSecurityMeasures() {

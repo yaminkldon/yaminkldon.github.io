@@ -832,6 +832,9 @@ function createUnitCard(unit) {
         </div>
       </div>
       <div style="display: flex; gap: 8px;">
+        <button onclick="openFileManager('${unit.id}', null)" style="padding: 6px 12px; background: #ffc107; color: #212529; border: none; border-radius: 4px; font-size: 12px; cursor: pointer;">
+          <span class="material-icons" style="font-size: 14px;">folder</span> Files
+        </button>
         <button onclick="editUnit('${unit.id}', '${unit.name}')" style="padding: 6px 12px; background: #28a745; color: white; border: none; border-radius: 4px; font-size: 12px; cursor: pointer;">
           <span class="material-icons" style="font-size: 14px;">edit</span> Edit
         </button>
@@ -3900,6 +3903,7 @@ function createVideoCard(container, unitKey, lessonKey, lessonData, type) {
         ${videoFile ? `<button onclick="previewVideo('${unitKey}', '${lessonKey}', '${type}')" style="padding: 4px 8px; background: #6c4fc1; color: white; border: none; border-radius: 4px; font-size: 11px;">Preview</button>` : ''}
         <button onclick="editVideo('${unitKey}', '${lessonKey}', '${type}')" style="padding: 4px 8px; background: #28a745; color: white; border: none; border-radius: 4px; font-size: 11px;">Edit</button>
         <button onclick="openFileManager('${unitKey}', '${lessonKey}')" style="padding: 4px 8px; background: #ffc107; color: #212529; border: none; border-radius: 4px; font-size: 11px;">Files</button>
+        ${type === 'direct' ? `<button onclick="openFileManager('${unitKey}', null)" style="padding: 4px 8px; background: #17a2b8; color: white; border: none; border-radius: 4px; font-size: 11px;">Unit Files</button>` : ''}
         <button onclick="deleteVideo('${unitKey}', '${lessonKey}', '${type}')" style="padding: 4px 8px; background: #dc3545; color: white; border: none; border-radius: 4px; font-size: 11px;">Delete</button>
       </div>
     </div>
