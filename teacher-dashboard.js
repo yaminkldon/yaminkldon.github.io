@@ -4035,7 +4035,7 @@ function createVideoCard(container, unitKey, lessonKey, lessonData, type) {
         ${videoFile ? `<button onclick="previewVideo('${unitKey}', '${lessonKey}', '${type}')" style="padding: 4px 8px; background: #6c4fc1; color: white; border: none; border-radius: 4px; font-size: 11px;">Preview</button>` : ''}
         <button onclick="editVideo('${unitKey}', '${lessonKey}', '${type}')" style="padding: 4px 8px; background: #28a745; color: white; border: none; border-radius: 4px; font-size: 11px;">Edit</button>
         <button onclick="openFileManager('${unitKey}', '${lessonKey}')" style="padding: 4px 8px; background: #ffc107; color: #212529; border: none; border-radius: 4px; font-size: 11px;">Lesson Files</button>
-        ${type === 'direct' ? `<button onclick="openUnitFileManager('${unitKey}')" style="padding: 4px 8px; background: #17a2b8; color: white; border: none; border-radius: 4px; font-size: 11px;">Unit Files</button>` : ''}
+        <button onclick="openUnitFileManager('${unitKey}')" style="padding: 4px 8px; background: #17a2b8; color: white; border: none; border-radius: 4px; font-size: 11px;">Unit Files</button>
         <button onclick="deleteVideo('${unitKey}', '${lessonKey}', '${type}')" style="padding: 4px 8px; background: #dc3545; color: white; border: none; border-radius: 4px; font-size: 11px;">Delete</button>
       </div>
     </div>
@@ -5128,8 +5128,9 @@ function openUnitFileManager(unitKey) {
           <h4 style="margin-top: 0; color: #6c4fc1;">Upload New Unit File</h4>
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px;">
             <div>
-              <label style="display: block; margin-bottom: 8px; font-weight: bold;">File</label>
-              <input type="file" id="unitFileUpload" class="form-input" accept=".pdf,.doc,.docx,.txt,.jpg,.jpeg,.png,.gif,.mp4,.mp3,.ppt,.pptx,.xls,.xlsx" style="padding: 8px;">
+              <label style="display: block; margin-bottom: 8px; font-weight: bold;">File (PDF Only)</label>
+              <input type="file" id="unitFileUpload" class="form-input" accept=".pdf" style="padding: 8px;">
+              <small style="color: #666; font-size: 12px;">Only PDF files are allowed for unit files</small>
             </div>
             <div>
               <label style="display: block; margin-bottom: 8px; font-weight: bold;">File Name (Optional)</label>
@@ -5140,13 +5141,7 @@ function openUnitFileManager(unitKey) {
             <div>
               <label style="display: block; margin-bottom: 8px; font-weight: bold;">File Type</label>
               <select id="unitFileType" class="form-input">
-                <option value="document">Document</option>
-                <option value="image">Image</option>
-                <option value="video">Video</option>
-                <option value="audio">Audio</option>
-                <option value="presentation">Presentation</option>
-                <option value="spreadsheet">Spreadsheet</option>
-                <option value="other">Other</option>
+                <option value="document">Document (PDF)</option>
               </select>
             </div>
             <div>
@@ -5209,6 +5204,12 @@ function uploadUnitFile(unitKey) {
   const file = fileInput.files[0];
   const fileName = displayName || file.name;
   const fileExtension = file.name.split('.').pop().toLowerCase();
+  
+  // Validate file type - only PDF allowed
+  if (fileExtension !== 'pdf') {
+    alert('Only PDF files are allowed for unit files');
+    return;
+  }
   
   // Validate file size (max 50MB)
   if (file.size > 50 * 1024 * 1024) {
@@ -5594,8 +5595,9 @@ function openFileManager(unitKey, lessonKey = null) {
           <h4 style="margin-top: 0; color: #6c4fc1;">Upload New File</h4>
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px;">
             <div>
-              <label style="display: block; margin-bottom: 8px; font-weight: bold;">File</label>
-              <input type="file" id="fileUpload" class="form-input" accept=".pdf,.doc,.docx,.txt,.jpg,.jpeg,.png,.gif,.mp4,.mp3,.ppt,.pptx,.xls,.xlsx" style="padding: 8px;">
+              <label style="display: block; margin-bottom: 8px; font-weight: bold;">File (PDF Only)</label>
+              <input type="file" id="fileUpload" class="form-input" accept=".pdf" style="padding: 8px;">
+              <small style="color: #666; font-size: 12px;">Only PDF files are allowed for lesson files</small>
             </div>
             <div>
               <label style="display: block; margin-bottom: 8px; font-weight: bold;">File Name (Optional)</label>
@@ -5606,13 +5608,7 @@ function openFileManager(unitKey, lessonKey = null) {
             <div>
               <label style="display: block; margin-bottom: 8px; font-weight: bold;">File Type</label>
               <select id="fileType" class="form-input">
-                <option value="document">Document</option>
-                <option value="image">Image</option>
-                <option value="video">Video</option>
-                <option value="audio">Audio</option>
-                <option value="presentation">Presentation</option>
-                <option value="spreadsheet">Spreadsheet</option>
-                <option value="other">Other</option>
+                <option value="document">Document (PDF)</option>
               </select>
             </div>
             <div>
@@ -5675,6 +5671,12 @@ function uploadFile(unitKey, lessonKey) {
   const file = fileInput.files[0];
   const fileName = displayName || file.name;
   const fileExtension = file.name.split('.').pop().toLowerCase();
+  
+  // Validate file type - only PDF allowed
+  if (fileExtension !== 'pdf') {
+    alert('Only PDF files are allowed for lesson files');
+    return;
+  }
   
   // Validate file size (max 50MB)
   if (file.size > 50 * 1024 * 1024) {
