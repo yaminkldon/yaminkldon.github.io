@@ -4996,7 +4996,7 @@ function viewAssessments() {
 }
 
 // Quiz Creation Functions
-function loadUnitsForQuiz() {
+function loadUnitsForQuiz(selectedUnitId = null) {
   const unitSelect = document.getElementById('quizUnit');
   if (!unitSelect) {
     console.error('Quiz unit select element not found');
@@ -5028,6 +5028,19 @@ function loadUnitsForQuiz() {
           option.textContent = unit.name || unit.title || unitId;
           unitSelect.appendChild(option);
         });
+      }
+
+      // If editing, set the selected unit after options are loaded
+      if (selectedUnitId) {
+        console.log('Setting unit to:', selectedUnitId);
+        unitSelect.value = selectedUnitId;
+        
+        // Verify it was set correctly
+        if (unitSelect.value === selectedUnitId) {
+          console.log('Unit successfully set to:', selectedUnitId);
+        } else {
+          console.warn('Failed to set unit. Available options:', Array.from(unitSelect.options).map(opt => opt.value));
+        }
       }
 
       return availableUnits;
@@ -7359,31 +7372,13 @@ async function editQuiz(quizId) {
 
     // Wait for loadUnitsForQuiz to complete and get the available units
     console.log('Waiting for units to load...');
-    const availableUnits = await loadUnitsForQuiz();
+    const availableUnits = await loadUnitsForQuiz(quiz.unit);
     console.log('Units loaded:', availableUnits);
 
     // Reset form to ensure clean state
     resetQuizForm();
 
-    // Now get the unit dropdown and set it to the quiz's unit
-    const unitSelect = document.getElementById('quizUnit');
-    if (unitSelect && quiz.unit) {
-      console.log('Quiz unit found:', quiz.unit);
-      console.log('Setting unit dropdown to:', quiz.unit);
-      
-      // Set the unit value directly
-      unitSelect.value = quiz.unit;
-      
-      // Verify it was set correctly
-      if (unitSelect.value === quiz.unit) {
-        console.log('Unit successfully set to:', quiz.unit);
-      } else {
-        console.warn('Failed to set unit. Available options:', Array.from(unitSelect.options).map(opt => opt.value));
-        console.warn('Available units data:', availableUnits);
-      }
-    }
-
-    // Now populate the form
+    // Now populate the form (unit is already set by loadUnitsForQuiz)
     document.getElementById('quizTitle').value = quiz.title || '';
     document.getElementById('quizDescription').value = quiz.description || '';
     console.log('Quiz unit:', (quiz.unit || '').trim());
