@@ -5095,6 +5095,73 @@ document.head.appendChild(styleSheet);
 document.addEventListener('DOMContentLoaded', function() {
   const savedTheme = localStorage.getItem('teacherTheme') || 'light';
   applyTheme(savedTheme);
+  
+  // Add debug test function to window for manual testing
+  window.testDatabaseConnection = function() {
+    console.log('=== TESTING DATABASE CONNECTION ===');
+    
+    // Test 1: Check if database is accessible
+    db.ref('.info/connected').once('value', function(snapshot) {
+      console.log('Database connected:', snapshot.val());
+    });
+    
+    // Test 2: Check users structure
+    db.ref('users').limitToFirst(3).once('value').then(snapshot => {
+      console.log('Users sample:', snapshot.val());
+      
+      if (snapshot.exists()) {
+        snapshot.forEach(child => {
+          console.log('User:', child.key, child.val());
+        });
+      }
+    });
+    
+    // Test 3: Check assignments structure
+    db.ref('assignments').limitToFirst(3).once('value').then(snapshot => {
+      console.log('Assignments sample:', snapshot.val());
+      
+      if (snapshot.exists()) {
+        snapshot.forEach(child => {
+          console.log('Assignment:', child.key, child.val());
+        });
+      }
+    });
+    
+    // Test 4: Check submissions structure
+    db.ref('submissions').limitToFirst(3).once('value').then(snapshot => {
+      console.log('Submissions sample:', snapshot.val());
+      
+      if (snapshot.exists()) {
+        snapshot.forEach(child => {
+          console.log('Submission:', child.key, child.val());
+        });
+      }
+    });
+    
+    // Test 5: Check quizzes structure
+    db.ref('quizzes').limitToFirst(3).once('value').then(snapshot => {
+      console.log('Quizzes sample:', snapshot.val());
+      
+      if (snapshot.exists()) {
+        snapshot.forEach(child => {
+          console.log('Quiz:', child.key, child.val());
+        });
+      }
+    });
+    
+    // Test 6: Check quizSubmissions structure
+    db.ref('quizSubmissions').limitToFirst(3).once('value').then(snapshot => {
+      console.log('Quiz Submissions sample:', snapshot.val());
+      
+      if (snapshot.exists()) {
+        snapshot.forEach(child => {
+          console.log('Quiz Submission:', child.key, child.val());
+        });
+      }
+    });
+    
+    console.log('=== DATABASE TEST COMPLETE ===');
+  };
 });
 
 // ========= ASSESSMENT MANAGEMENT FUNCTIONS =========
@@ -5979,55 +6046,113 @@ function loadStudentSubmissions(assessmentId, type) {
 }
 
 function loadQuizSubmissionsForStudents(quizId, quiz, students, container) {
-  db.ref('quizSubmissions').orderByChild('quizId').equalTo(quizId).once('value').then(snapshot => {
-    const submissions = {};
+  console.log('Loading quiz submissions for quiz ID:', quizId);
+  
+  // First, let's check what's in the quizSubmissions database
+  db.ref('quizSubmissions').once('value').then(allSubmissionsSnapshot => {
+    console.log('All quiz submissions in database:', allSubmissionsSnapshot.exists());
     
-    if (snapshot.exists()) {
-      snapshot.forEach(child => {
-        const submission = child.val();
-        const studentId = submission.studentId;
-        
-        if (!submissions[studentId]) {
-          submissions[studentId] = [];
-        }
-        
-        submissions[studentId].push({
-          id: child.key,
-          ...submission
-        });
+    if (allSubmissionsSnapshot.exists()) {
+      console.log('All quiz submissions data:', allSubmissionsSnapshot.val());
+      
+      // Count total quiz submissions
+      let totalSubmissions = 0;
+      allSubmissionsSnapshot.forEach(child => {
+        totalSubmissions++;
+        const sub = child.val();
+        console.log('Quiz submission key:', child.key, 'quizId:', sub.quizId, 'studentId:', sub.studentId);
       });
+      console.log('Total quiz submissions found:', totalSubmissions);
     }
     
-    displayStudentSubmissions(quizId, quiz, 'quiz', students, submissions, container);
+    // Now try the filtered query
+    db.ref('quizSubmissions').orderByChild('quizId').equalTo(quizId).once('value').then(snapshot => {
+      const submissions = {};
+      
+      console.log('Filtered quiz submissions snapshot exists:', snapshot.exists());
+      
+      if (snapshot.exists()) {
+        snapshot.forEach(child => {
+          const submission = child.val();
+          const studentId = submission.studentId;
+          
+          console.log('Found quiz submission for student:', studentId, submission);
+          
+          if (!submissions[studentId]) {
+            submissions[studentId] = [];
+          }
+          
+          submissions[studentId].push({
+            id: child.key,
+            ...submission
+          });
+        });
+      }
+      
+      console.log('Final quiz submissions object:', submissions);
+      console.log('Number of quiz submissions found:', Object.keys(submissions).length);
+      
+      displayStudentSubmissions(quizId, quiz, 'quiz', students, submissions, container);
+    }).catch(error => {
+      console.error('Error loading filtered quiz submissions:', error);
+      container.innerHTML = '<div style="text-align: center; padding: 20px; color: #ff5722;">Error loading quiz submissions</div>';
+    });
+  }).catch(error => {
+    console.error('Error loading all quiz submissions:', error);
+    container.innerHTML = '<div style="text-align: center; padding: 20px; color: #ff5722;">Error loading quiz submissions</div>';
   });
 }
 
 function loadAssignmentSubmissionsForStudents(assignmentId, assignment, students, container) {
-  db.ref('submissions').orderByChild('assignmentId').equalTo(assignmentId).once('value').then(snapshot => {
-    const submissions = {};
+  console.log('Loading assignment submissions for assignment ID:', assignmentId);
+  
+  // First, let's check what's in the submissions database
+  db.ref('submissions').once('value').then(allSubmissionsSnapshot => {
+    console.log('All submissions in database:', allSubmissionsSnapshot.exists());
     
-    console.log('Loading assignment submissions for:', assignmentId);
-    console.log('Snapshot exists:', snapshot.exists());
-    
-    if (snapshot.exists()) {
-      snapshot.forEach(child => {
-        const submission = child.val();
-        const studentId = submission.studentId;
-        
-        console.log('Found submission for student:', studentId, submission);
-        
-        submissions[studentId] = {
-          id: child.key,
-          ...submission
-        };
+    if (allSubmissionsSnapshot.exists()) {
+      console.log('All submissions data:', allSubmissionsSnapshot.val());
+      
+      // Count total submissions
+      let totalSubmissions = 0;
+      allSubmissionsSnapshot.forEach(child => {
+        totalSubmissions++;
+        const sub = child.val();
+        console.log('Submission key:', child.key, 'assignmentId:', sub.assignmentId, 'studentId:', sub.studentId);
       });
+      console.log('Total submissions found:', totalSubmissions);
     }
     
-    console.log('Final submissions object:', submissions);
-    
-    displayStudentSubmissions(assignmentId, assignment, 'assignment', students, submissions, container);
+    // Now try the filtered query
+    db.ref('submissions').orderByChild('assignmentId').equalTo(assignmentId).once('value').then(snapshot => {
+      const submissions = {};
+      
+      console.log('Filtered submissions snapshot exists:', snapshot.exists());
+      
+      if (snapshot.exists()) {
+        snapshot.forEach(child => {
+          const submission = child.val();
+          const studentId = submission.studentId;
+          
+          console.log('Found submission for student:', studentId, submission);
+          
+          submissions[studentId] = {
+            id: child.key,
+            ...submission
+          };
+        });
+      }
+      
+      console.log('Final submissions object:', submissions);
+      console.log('Number of submissions found:', Object.keys(submissions).length);
+      
+      displayStudentSubmissions(assignmentId, assignment, 'assignment', students, submissions, container);
+    }).catch(error => {
+      console.error('Error loading filtered assignment submissions:', error);
+      container.innerHTML = '<div style="text-align: center; padding: 20px; color: #ff5722;">Error loading submissions</div>';
+    });
   }).catch(error => {
-    console.error('Error loading assignment submissions:', error);
+    console.error('Error loading all submissions:', error);
     container.innerHTML = '<div style="text-align: center; padding: 20px; color: #ff5722;">Error loading submissions</div>';
   });
 }
@@ -6035,19 +6160,21 @@ function loadAssignmentSubmissionsForStudents(assignmentId, assignment, students
 function displayStudentSubmissions(assessmentId, assessment, type, students, submissions, container) {
   const typeLabel = type === 'quiz' ? 'Quiz' : 'Assignment';
   
-  console.log('Displaying student submissions:', {
-    assessmentId,
-    type,
-    studentsCount: students.length,
-    submissions,
-    submissionsCount: Object.keys(submissions).length
-  });
+  console.log('=== DISPLAYING STUDENT SUBMISSIONS ===');
+  console.log('Assessment ID:', assessmentId);
+  console.log('Type:', type);
+  console.log('Students count:', students.length);
+  console.log('Students:', students);
+  console.log('Submissions object:', submissions);
+  console.log('Submissions count:', Object.keys(submissions).length);
   
   // If no students found but we have submissions, create student objects from submissions
   if (students.length === 0 && Object.keys(submissions).length > 0) {
     console.log('No students found, creating student objects from submissions...');
     Object.keys(submissions).forEach(studentId => {
-      const submissionData = submissions[studentId];
+      const submissionData = type === 'quiz' ? submissions[studentId][0] : submissions[studentId];
+      console.log('Processing submission data for student creation:', submissionData);
+      
       if (submissionData && submissionData.studentEmail) {
         students.push({
           id: studentId,
@@ -6069,23 +6196,41 @@ function displayStudentSubmissions(assessmentId, assessment, type, students, sub
     <div class="assessment-grading-header">
       <h2>${typeLabel}: ${assessment.title}</h2>
       <p>Student submissions for this ${type.toLowerCase()}</p>
+      <div class="debug-info" style="background: #f0f0f0; padding: 10px; margin: 10px 0; border-radius: 5px; font-size: 12px;">
+        <strong>Debug Info:</strong> Students: ${students.length}, Submissions: ${Object.keys(submissions).length}
+      </div>
     </div>
     
     <div class="students-list">
   `;
   
   if (students.length === 0) {
-    html += '<p>No students found</p>';
+    html += `
+      <div style="text-align: center; padding: 40px; color: #666;">
+        <span class="material-icons" style="font-size: 48px; margin-bottom: 16px;">person_outline</span>
+        <p>No students found in the system</p>
+        <p style="font-size: 14px; color: #999;">This could mean:</p>
+        <ul style="text-align: left; display: inline-block; color: #999; font-size: 14px;">
+          <li>No students are registered in the system</li>
+          <li>Students don't have the correct 'role' field set</li>
+          <li>Database query issue</li>
+        </ul>
+      </div>
+    `;
   } else {
+    console.log('Processing students for display...');
+    
     students.forEach(student => {
+      console.log(`Processing student: ${student.name} (${student.id})`);
       const studentSubmissions = submissions[student.id];
+      console.log('Student submissions:', studentSubmissions);
+      
       let statusHtml = '';
       let actionHtml = '';
       
-      console.log(`Processing student ${student.name} (${student.id}):`, studentSubmissions);
-      
       if (type === 'quiz') {
         if (studentSubmissions && studentSubmissions.length > 0) {
+          console.log('Quiz submissions found:', studentSubmissions.length);
           const latestSubmission = studentSubmissions.sort((a, b) => b.submittedAt - a.submittedAt)[0];
           const score = latestSubmission.score !== undefined ? latestSubmission.score.toFixed(1) : '0';
           
@@ -6096,16 +6241,18 @@ function displayStudentSubmissions(assessmentId, assessment, type, students, sub
           `;
           
           actionHtml = `
-            <button class="action-btn" onclick="viewStudentQuizAttempts('${quizId}', '${student.id}', '${student.name}')">
+            <button class="action-btn" onclick="viewStudentQuizAttempts('${assessmentId}', '${student.id}', '${student.name}')">
               View Attempts
             </button>
           `;
         } else {
+          console.log('No quiz submissions found for student');
           statusHtml = '<div class="submission-status no-submission">No attempts</div>';
           actionHtml = '<span style="color: #666;">No submission</span>';
         }
       } else {
         if (studentSubmissions) {
+          console.log('Assignment submission found:', studentSubmissions);
           const isGraded = studentSubmissions.graded;
           const statusClass = isGraded ? 'graded' : 'pending';
           const statusText = isGraded ? `Graded: ${studentSubmissions.grade}/${studentSubmissions.maxPoints}` : 'Pending grading';
@@ -6118,6 +6265,7 @@ function displayStudentSubmissions(assessmentId, assessment, type, students, sub
             </button>
           `;
         } else {
+          console.log('No assignment submission found for student');
           statusHtml = '<div class="submission-status no-submission">No submission</div>';
           actionHtml = '<span style="color: #666;">No submission</span>';
         }
@@ -6140,6 +6288,8 @@ function displayStudentSubmissions(assessmentId, assessment, type, students, sub
   html += '</div>';
   
   container.innerHTML = html;
+  
+  console.log('=== FINISHED DISPLAYING STUDENT SUBMISSIONS ===');
 }
 
 function viewStudentQuizAttempts(quizId, studentId, studentName) {
