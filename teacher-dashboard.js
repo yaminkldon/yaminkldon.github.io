@@ -7154,12 +7154,20 @@ function viewAssessments() {
       </div>
       
       <div class="assessment-filters" style="margin-bottom: 20px;">
-        <select class="form-input" id="assessmentTypeFilter" onchange="filterAssessments()" style="width: 200px; display: inline-block;">
-          <option value="all">All Types</option>
-          <option value="quiz">Quizzes</option>
-          <option value="assignment">Assignments</option>
-        </select>
-        <input type="text" class="form-input" id="assessmentSearchFilter" onkeyup="filterAssessments()" placeholder="Search assessments..." style="width: 300px; display: inline-block; margin-left: 10px;">
+        <div style="display: flex; gap: 10px; margin-bottom: 10px; flex-wrap: wrap;">
+          <select class="form-input" id="assessmentTypeFilter" onchange="filterAssessments()" style="width: 150px;">
+            <option value="all">All Types</option>
+            <option value="quiz">Quizzes</option>
+            <option value="assignment">Assignments</option>
+          </select>
+          <select class="form-input" id="assessmentSortFilter" onchange="filterAssessments()" style="width: 180px;">
+            <option value="date-desc">Newest First</option>
+            <option value="date-asc">Oldest First</option>
+            <option value="type-asc">Type (A-Z)</option>
+            <option value="type-desc">Type (Z-A)</option>
+          </select>
+          <input type="text" class="form-input" id="assessmentSearchFilter" onkeyup="filterAssessments()" placeholder="Search assessments..." style="width: 300px;">
+        </div>
       </div>
       
       <div id="assessmentsList" style="max-height: 500px; overflow-y: auto;">
@@ -7183,6 +7191,9 @@ function viewAssessments() {
   loadAllAssessments();
 }
 
+// Global variable to store all assessments for filtering
+let allAssessments = [];
+
 function loadAllAssessments() {
   if (typeof firebase !== 'undefined' && firebase.apps && firebase.apps.length > 0) {
     const db = firebase.database();
@@ -7190,17 +7201,18 @@ function loadAllAssessments() {
     
     if (!assessmentsList) return;
     
-    const assessments = [];
+    allAssessments = [];
     
     // Load quizzes
     db.ref('quizzes').once('value', (snapshot) => {
       const quizzes = snapshot.val() || {};
       Object.keys(quizzes).forEach(key => {
-        assessments.push({
+        allAssessments.push({
           id: key,
           type: 'quiz',
           title: quizzes[key].title,
           unit: quizzes[key].unit,
+          description: quizzes[key].description || '',
           created: quizzes[key].createdAt || Date.now(),
           questions: quizzes[key].questions ? quizzes[key].questions.length : 0,
           timeLimit: quizzes[key].timeLimit,
@@ -7214,19 +7226,20 @@ function loadAllAssessments() {
       db.ref('assignments').once('value', (snapshot) => {
         const assignments = snapshot.val() || {};
         Object.keys(assignments).forEach(key => {
-          assessments.push({
+          allAssessments.push({
             id: key,
             type: 'assignment',
             title: assignments[key].title,
             unit: assignments[key].unit,
+            description: assignments[key].description || '',
             created: assignments[key].createdAt || Date.now(),
             dueDate: assignments[key].dueDate,
             maxPoints: assignments[key].maxPoints
           });
         });
         
-        // Display assessments
-        displayAssessmentsList(assessments);
+        // Display assessments with initial filter
+        filterAssessments();
       });
     });
   } else {
@@ -7724,8 +7737,52 @@ function deleteAssessment(assessmentId, type) {
 }
 
 function filterAssessments() {
-  // Filter functionality would go here
-  console.log('Filtering assessments...');
+  const typeFilter = document.getElementById('assessmentTypeFilter')?.value || 'all';
+  const sortFilter = document.getElementById('assessmentSortFilter')?.value || 'date-desc';
+  const searchFilter = document.getElementById('assessmentSearchFilter')?.value?.toLowerCase() || '';
+  
+  // Start with all assessments
+  let filteredAssessments = [...allAssessments];
+  
+  // Apply type filter
+  if (typeFilter !== 'all') {
+    filteredAssessments = filteredAssessments.filter(assessment => assessment.type === typeFilter);
+  }
+  
+  // Apply search filter
+  if (searchFilter) {
+    filteredAssessments = filteredAssessments.filter(assessment => {
+      const searchableText = [
+        assessment.title || '',
+        assessment.unit || '',
+        assessment.description || '',
+        assessment.type || ''
+      ].join(' ').toLowerCase();
+      
+      return searchableText.includes(searchFilter);
+    });
+  }
+  
+  // Apply sorting
+  switch (sortFilter) {
+    case 'date-asc':
+      filteredAssessments.sort((a, b) => a.created - b.created);
+      break;
+    case 'date-desc':
+      filteredAssessments.sort((a, b) => b.created - a.created);
+      break;
+    case 'type-asc':
+      filteredAssessments.sort((a, b) => a.type.localeCompare(b.type));
+      break;
+    case 'type-desc':
+      filteredAssessments.sort((a, b) => b.type.localeCompare(a.type));
+      break;
+    default:
+      filteredAssessments.sort((a, b) => b.created - a.created);
+  }
+  
+  // Display filtered assessments
+  displayAssessmentsList(filteredAssessments);
 }
 
 // Quiz testing functionality for teachers
