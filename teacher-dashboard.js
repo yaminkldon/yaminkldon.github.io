@@ -4997,22 +4997,18 @@ function viewAssessments() {
 
 // Quiz Creation Functions
 function loadUnitsForQuiz(selectedUnitId = null) {
-  return new Promise((resolve) => {
-    const unitSelect = document.getElementById('quizUnit');
-    if (!unitSelect) {
-      console.error('Quiz unit select element not found');
-      return resolve([]);
-    }
+  const unitSelect = document.getElementById('quizUnit');
+  if (!unitSelect) {
+    console.error('Quiz unit select element not found');
+    return Promise.resolve([]);
+  }
 
-    // Remember the current value before clearing
-    const currentValue = unitSelect.value;
-    
-    unitSelect.innerHTML = '';
+  unitSelect.innerHTML = '';
 
-    const defaultOption = document.createElement('option');
-    defaultOption.value = '';
-    defaultOption.textContent = 'Choose a unit...';
-    unitSelect.appendChild(defaultOption);
+  const defaultOption = document.createElement('option');
+  defaultOption.value = '';
+  defaultOption.textContent = 'Choose a unit...';
+  unitSelect.appendChild(defaultOption);
 
   return db.ref('units').once('value')
     .then(snapshot => {
