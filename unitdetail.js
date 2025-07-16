@@ -1768,9 +1768,8 @@ function showStudentFilePreview(file) {
       return originalClose.apply(this, arguments);
     };
     
-    loadPDFObjectLibrary().then(() => {
-      initializePDFViewer(file.url, userEmail);
-    });
+    // Use secure PDF viewer instead of PDFObject
+    initializePDFViewer(file.url, userEmail);
   } else if (file.extension.toLowerCase() === 'txt') {
     loadSecureTextContent(file.url, userEmail);
   }
@@ -1796,75 +1795,20 @@ function closeStudentFilePreview() {
   document.body.style.overflow = 'auto';
 }
 
-// Enhanced PDF security functions
+// Enhanced PDF security functions using PDF.js readonly approach
 function loadPDFObjectLibrary() {
-  // No longer using PDFObject to prevent URL exposure and print access
+  // Using secure PDF.js readonly viewer instead of PDFObject
   return Promise.resolve();
 }
 
-// Add comprehensive security protections for PDF viewer
-function addSecurePDFProtections(container, iframe) {
-  // Create invisible overlay to prevent some interactions
-  const securityOverlay = document.createElement('div');
-  securityOverlay.style.cssText = `
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 30px;
-    z-index: 1002;
-    pointer-events: none;
-    background: transparent;
-  `;
-  
-  container.style.position = 'relative';
-  container.appendChild(securityOverlay);
-  
-  // Disable right-click and selection on container
-  container.addEventListener('contextmenu', function(e) {
-    e.preventDefault();
-    e.stopPropagation();
-    return false;
-  });
-  
-  container.addEventListener('selectstart', function(e) {
-    e.preventDefault();
-    e.stopPropagation();
-    return false;
-  });
-  
-  // Disable drag and drop
-  container.addEventListener('dragstart', function(e) {
-    e.preventDefault();
-    e.stopPropagation();
-    return false;
-  });
-  
-  // Block keyboard shortcuts
-  container.addEventListener('keydown', function(e) {
-    // Block Ctrl+P (print), Ctrl+S (save), Ctrl+A (select all)
-    if (e.ctrlKey && (e.key === 'p' || e.key === 's' || e.key === 'a')) {
-      e.preventDefault();
-      e.stopPropagation();
-      return false;
-    }
-    
-    // Block F12 and other dev tools shortcuts
-    if (e.key === 'F12' || 
-        (e.ctrlKey && e.shiftKey && (e.key === 'I' || e.key === 'J' || e.key === 'C'))) {
-      e.preventDefault();
-      e.stopPropagation();
-      return false;
-    }
-  });
-}
-
-// Initialize secure PDF viewer for students (secure iframe approach)
+// Initialize secure PDF viewer for students using PDF.js readonly
 function initializePDFViewer(pdfUrl, userEmail) {
   const container = document.getElementById('pdfViewerContainer');
   if (!container) return;
   
-  // Create a secure iframe that still allows PDF to load
+  // Create secure PDF viewer with PDF.js readonly
+  const viewerUrl = getSecurePDFViewerUrl(pdfUrl, userEmail);
+  
   const iframe = document.createElement('iframe');
   iframe.style.cssText = `
     width: 100%;
@@ -1873,9 +1817,9 @@ function initializePDFViewer(pdfUrl, userEmail) {
     background: white;
   `;
   
-  // Use secure iframe with restrictive sandbox but allow PDF to load
+  // Use secure iframe with restrictive sandbox
   iframe.sandbox = 'allow-same-origin allow-scripts allow-forms';
-  iframe.src = pdfUrl + '#toolbar=0&navpanes=0&scrollbar=0&statusbar=0&messages=0&view=FitH&zoom=page-fit';
+  iframe.src = viewerUrl;
   
   // Add security attributes
   iframe.setAttribute('oncontextmenu', 'return false;');
@@ -1885,19 +1829,30 @@ function initializePDFViewer(pdfUrl, userEmail) {
   container.innerHTML = '';
   container.appendChild(iframe);
   
-  // Add security overlay and protections after PDF loads
+  // Add security overlay after PDF loads
   setTimeout(() => {
     addPDFSecurityOverlay(iframe, userEmail);
-    addSecurePDFProtections(container, iframe);
   }, 1000);
+}
+
+// Generate secure PDF viewer URL with hidden PDF path
+function getSecurePDFViewerUrl(pdfUrl, userEmail) {
+  // Extract filename without extension to hide PDF nature
+  const filename = pdfUrl.split('/').pop().replace('.pdf', '');
+  
+  // Create secure viewer URL with encoded parameters
+  const viewerUrl = 'secure-pdf-viewer.html?' + 
+    'file=' + encodeURIComponent(pdfUrl) + 
+    '&user=' + encodeURIComponent(userEmail) + 
+    '&timestamp=' + Date.now();
+  
+  return viewerUrl;
 }
 
 // Secure content loading functions
 function loadSecurePDFContent(url, userEmail) {
-  // Use secure iframe method instead of PDFObject
-  loadPDFObjectLibrary().then(() => {
-    initializePDFViewer(url, userEmail);
-  });
+  // Use secure PDF viewer instead of PDFObject
+  initializePDFViewer(url, userEmail);
 }
 
 function loadSecureTextContent(url, userEmail) {

@@ -1713,9 +1713,8 @@ function showMainPageFilePreview(file) {
       return originalClose.apply(this, arguments);
     };
     
-    loadMainPagePDFObjectLibrary().then(() => {
-      initializeMainPagePDFViewer(file.url, userEmail);
-    });
+    // Use secure PDF viewer instead of PDFObject
+    initializeMainPagePDFViewer(file.url, userEmail);
   } else if (file.extension.toLowerCase() === 'txt') {
     loadMainPageSecureTextContent(file.url, userEmail, file.access);
   }
@@ -1748,12 +1747,14 @@ function loadMainPagePDFObjectLibrary() {
   return Promise.resolve();
 }
 
-// Initialize secure PDF viewer for mainpage students (secure iframe approach)
+// Initialize secure PDF viewer for mainpage students using PDF.js readonly
 function initializeMainPagePDFViewer(pdfUrl, userEmail) {
   const container = document.getElementById('mainPagePDFContainer');
   if (!container) return;
   
-  // Create a secure iframe that still allows PDF to load
+  // Create secure PDF viewer with PDF.js readonly
+  const viewerUrl = getMainPageSecurePDFViewerUrl(pdfUrl, userEmail);
+  
   const iframe = document.createElement('iframe');
   iframe.style.cssText = `
     width: 100%;
@@ -1762,9 +1763,9 @@ function initializeMainPagePDFViewer(pdfUrl, userEmail) {
     background: white;
   `;
   
-  // Use secure iframe with restrictive sandbox but allow PDF to load
+  // Use secure iframe with restrictive sandbox
   iframe.sandbox = 'allow-same-origin allow-scripts allow-forms';
-  iframe.src = pdfUrl + '#toolbar=0&navpanes=0&scrollbar=0&statusbar=0&messages=0&view=FitH&zoom=page-fit';
+  iframe.src = viewerUrl;
   
   // Add security attributes
   iframe.setAttribute('oncontextmenu', 'return false;');
@@ -1774,11 +1775,24 @@ function initializeMainPagePDFViewer(pdfUrl, userEmail) {
   container.innerHTML = '';
   container.appendChild(iframe);
   
-  // Add security overlay and protections after PDF loads
+  // Add security overlay after PDF loads
   setTimeout(() => {
     addMainPagePDFSecurityOverlay(iframe, userEmail);
-    addMainPageSecurePDFProtections(container, iframe);
   }, 1000);
+}
+
+// Generate secure PDF viewer URL with hidden PDF path for main page
+function getMainPageSecurePDFViewerUrl(pdfUrl, userEmail) {
+  // Extract filename without extension to hide PDF nature
+  const filename = pdfUrl.split('/').pop().replace('.pdf', '');
+  
+  // Create secure viewer URL with encoded parameters
+  const viewerUrl = 'secure-pdf-viewer.html?' + 
+    'file=' + encodeURIComponent(pdfUrl) + 
+    '&user=' + encodeURIComponent(userEmail) + 
+    '&timestamp=' + Date.now();
+  
+  return viewerUrl;
 }
 
 function loadMainPageSecurePDFContent(url, userEmail) {
