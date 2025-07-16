@@ -4944,7 +4944,7 @@ function openFileManager(unitKey, lessonKey = null) {
       
       <div style="padding: 20px;">
         <!-- File Upload Section -->
-        <div class="file-upload-section" style="margin-bottom: 30px; padding: 20px; border: 2px dashed #ddd; border-radius: 8px; background: #f9f9f9;">
+        <div class="file-upload-section" style="margin-bottom: 30px; padding: 20px; border: 2px dashed #ddd; border-radius: 8px; background: #f9f9f9; color: #333;">
           <h4 style="margin-top: 0; color: #6c4fc1;">Upload New File</h4>
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px;">
             <div>
