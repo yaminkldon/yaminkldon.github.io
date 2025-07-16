@@ -70,7 +70,6 @@
         <input type="number" id="pageNumber" class="toolbarField pageNumber" value="1" size="4" min="1">
         <button class="toolbarButton zoomOut" title="Zoom Out" id="zoomOut"></button>
         <button class="toolbarButton zoomIn" title="Zoom In" id="zoomIn"></button>
-        <button class="toolbarButton zoomReset" title="Reset Zoom" id="zoomReset" style="display: none;">🔍</button>
     </footer>
 
     <style>
@@ -90,66 +89,34 @@
             transform-origin: 0 0;
             transition: transform 0.3s ease;
         }
-        
-        .zoomReset {
-            background: none !important;
-            border: none !important;
-            color: #fff !important;
-            font-size: 16px !important;
-            padding: 4px 8px !important;
-            margin: 0 4px !important;
-            cursor: pointer !important;
-            border-radius: 3px !important;
-            background: rgba(0, 0, 0, 0.3) !important;
-        }
-        
-        .zoomReset:hover {
-            background: rgba(0, 0, 0, 0.5) !important;
-        }
     </style>
 
     <script>
-        // Mobile pinch-to-zoom functionality for PDF viewer
+        // Mobile-only pinch-to-zoom functionality for PDF viewer
         (function() {
             let pdfZoomState = {
                 scale: 1,
-                originX: 0,
-                originY: 0,
+                translateX: 0,
+                translateY: 0,
+                lastPanX: 0,
+                lastPanY: 0,
                 initialDistance: 0,
                 isZooming: false,
-                startX: 0,
-                startY: 0,
-                currentX: 0,
-                currentY: 0,
                 isDragging: false,
                 minScale: 0.5,
-                maxScale: 4,
-                initialScale: 1
+                maxScale: 4
             };
 
             function initializePDFZoom() {
                 const viewerContainer = document.getElementById('viewerContainer');
                 const viewer = document.getElementById('viewer');
-                const zoomResetBtn = document.getElementById('zoomReset');
                 
                 if (!viewerContainer || !viewer) return;
 
-                // Store initial scale
-                pdfZoomState.initialScale = 1;
-                
-                // Show reset button initially hidden
-                if (zoomResetBtn) {
-                    zoomResetBtn.style.display = 'inline-block';
-                    zoomResetBtn.addEventListener('click', resetPDFZoom);
-                }
-
-                // Touch event handlers
+                // Touch event handlers for mobile only
                 viewerContainer.addEventListener('touchstart', handlePDFZoomStart, { passive: false });
                 viewerContainer.addEventListener('touchmove', handlePDFZoomMove, { passive: false });
                 viewerContainer.addEventListener('touchend', handlePDFZoomEnd, { passive: false });
-
-                // Mouse wheel support for desktop
-                viewerContainer.addEventListener('wheel', handlePDFWheel, { passive: false });
 
                 // Prevent default touch behaviors that might interfere
                 viewerContainer.addEventListener('touchstart', (e) => {
@@ -191,24 +158,15 @@
                         Math.pow(touch1.clientY - touch2.clientY, 2)
                     );
                     
-                    // Calculate center point
-                    const centerX = (touch1.clientX + touch2.clientX) / 2;
-                    const centerY = (touch1.clientY + touch2.clientY) / 2;
-                    
-                    const viewerContainer = document.getElementById('viewerContainer');
-                    const rect = viewerContainer.getBoundingClientRect();
-                    
-                    pdfZoomState.originX = centerX - rect.left;
-                    pdfZoomState.originY = centerY - rect.top;
-                    
                     e.preventDefault();
-                } else if (touches.length === 1 && pdfZoomState.scale > 1) {
-                    // One finger - start drag if zoomed
+                } else if (touches.length === 1) {
+                    // One finger - start drag/pan
                     pdfZoomState.isDragging = true;
                     pdfZoomState.isZooming = false;
                     
-                    pdfZoomState.startX = touches[0].clientX - pdfZoomState.currentX;
-                    pdfZoomState.startY = touches[0].clientY - pdfZoomState.currentY;
+                    const touch = touches[0];
+                    pdfZoomState.startX = touch.clientX - pdfZoomState.translateX;
+                    pdfZoomState.startY = touch.clientY - pdfZoomState.translateY;
                 }
             }
 
@@ -236,8 +194,13 @@
                     applyPDFTransform();
                     e.preventDefault();
                 } else if (pdfZoomState.isDragging && touches.length === 1) {
-                    pdfZoomState.currentX = touches[0].clientX - pdfZoomState.startX;
-                    pdfZoomState.currentY = touches[0].clientY - pdfZoomState.startY;
+                    const touch = touches[0];
+                    pdfZoomState.translateX = touch.clientX - pdfZoomState.startX;
+                    pdfZoomState.translateY = touch.clientY - pdfZoomState.startY;
+                    
+                    // Store the last pan position
+                    pdfZoomState.lastPanX = pdfZoomState.translateX;
+                    pdfZoomState.lastPanY = pdfZoomState.translateY;
                     
                     applyPDFTransform();
                     e.preventDefault();
@@ -251,28 +214,13 @@
                 }
             }
 
-            function handlePDFWheel(e) {
-                e.preventDefault();
-                
-                const delta = e.deltaY > 0 ? 0.9 : 1.1;
-                zoomPDFBy(delta, e.clientX, e.clientY);
-            }
-
-            function zoomPDFBy(factor, clientX, clientY) {
+            function zoomPDFBy(factor) {
                 let newScale = pdfZoomState.scale * factor;
                 
                 // Clamp scale
                 newScale = Math.max(pdfZoomState.minScale, Math.min(pdfZoomState.maxScale, newScale));
                 
                 if (newScale !== pdfZoomState.scale) {
-                    if (clientX !== undefined && clientY !== undefined) {
-                        const viewerContainer = document.getElementById('viewerContainer');
-                        const rect = viewerContainer.getBoundingClientRect();
-                        
-                        pdfZoomState.originX = clientX - rect.left;
-                        pdfZoomState.originY = clientY - rect.top;
-                    }
-                    
                     pdfZoomState.scale = newScale;
                     applyPDFTransform();
                 }
@@ -282,21 +230,10 @@
                 const viewer = document.getElementById('viewer');
                 if (!viewer) return;
                 
-                const transformOrigin = `${pdfZoomState.originX}px ${pdfZoomState.originY}px`;
-                const transform = `scale(${pdfZoomState.scale}) translate(${pdfZoomState.currentX}px, ${pdfZoomState.currentY}px)`;
+                // Use the last pan position as the transform origin
+                const transform = `translate(${pdfZoomState.translateX}px, ${pdfZoomState.translateY}px) scale(${pdfZoomState.scale})`;
                 
-                viewer.style.transformOrigin = transformOrigin;
                 viewer.style.transform = transform;
-            }
-
-            function resetPDFZoom() {
-                pdfZoomState.scale = pdfZoomState.initialScale;
-                pdfZoomState.currentX = 0;
-                pdfZoomState.currentY = 0;
-                pdfZoomState.originX = 0;
-                pdfZoomState.originY = 0;
-                
-                applyPDFTransform();
             }
 
             // Initialize when DOM is ready

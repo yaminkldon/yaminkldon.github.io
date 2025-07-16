@@ -1300,20 +1300,18 @@ function showStudentFilePreview(file) {
     // Use secure proxy to hide original URL
     const secureViewerUrl = createSecureProxy(file.url);
     
-    modal.innerHTML = `
-      <div id="studentFileContainer" style="background: #333; border-radius: 12px; max-width: 95vw; max-height: 95vh; width: 100%; height: 100%; position: relative; overflow: hidden;">
-        <div style="background: #444; padding: 16px; display: flex; justify-content: space-between; align-items: center; border-radius: 12px 12px 0 0;">
-          <h3 style="margin: 0; color: white; font-size: 18px;">📄 ${file.name}</h3>
-          <div style="display: flex; gap: 10px;">
-            <button onclick="resetStudentFileZoom()" style="background: none; border: none; color: white; font-size: 20px; cursor: pointer; padding: 0; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; border-radius: 50%;" title="Reset Zoom">🔍</button>
-            <button onclick="toggleStudentFilePreviewFullscreen()" style="background: none; border: none; color: white; font-size: 24px; cursor: pointer; padding: 0; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; border-radius: 50%;" title="Toggle Fullscreen">⛶</button>
-            <button onclick="closeStudentFilePreview()" style="background: none; border: none; color: white; font-size: 24px; cursor: pointer; padding: 0; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; border-radius: 50%;">&times;</button>
+    modal.innerHTML = `        <div id="studentFileContainer" style="background: #333; border-radius: 12px; max-width: 95vw; max-height: 95vh; width: 100%; height: 100%; position: relative; overflow: hidden;">
+          <div style="background: #444; padding: 16px; display: flex; justify-content: space-between; align-items: center; border-radius: 12px 12px 0 0;">
+            <h3 style="margin: 0; color: white; font-size: 18px;">📄 ${file.name}</h3>
+            <div style="display: flex; gap: 10px;">
+              <button onclick="toggleStudentFilePreviewFullscreen()" style="background: none; border: none; color: white; font-size: 24px; cursor: pointer; padding: 0; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; border-radius: 50%;" title="Toggle Fullscreen">⛶</button>
+              <button onclick="closeStudentFilePreview()" style="background: none; border: none; color: white; font-size: 24px; cursor: pointer; padding: 0; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; border-radius: 50%;">&times;</button>
+            </div>
+          </div>
+          <div id="studentFileViewport" style="width: 100%; height: 85%; position: relative; overflow: hidden;">
+            <iframe id="studentFileFrame" src="${secureViewerUrl}" style="width: 100%; height: 100%; border: none; background: white; transform-origin: 0 0; transition: transform 0.3s ease;" sandbox="allow-same-origin allow-scripts allow-forms"></iframe>
           </div>
         </div>
-        <div id="studentFileViewport" style="width: 100%; height: 85%; position: relative; overflow: hidden;">
-          <iframe id="studentFileFrame" src="${secureViewerUrl}" style="width: 100%; height: 100%; border: none; background: white; transform-origin: 0 0; transition: transform 0.3s ease;" sandbox="allow-same-origin allow-scripts allow-forms"></iframe>
-        </div>
-      </div>
     `;
   } else {
     // For non-PDF files, show a simple preview or download option
@@ -1346,17 +1344,15 @@ function showStudentFilePreview(file) {
   }
 }
 
-// Touch zoom functionality for student file preview
+// Touch zoom functionality for student file preview (mobile only)
 let studentFileZoomState = {
   scale: 1,
-  originX: 0,
-  originY: 0,
+  translateX: 0,
+  translateY: 0,
+  lastPanX: 0,
+  lastPanY: 0,
   initialDistance: 0,
   isZooming: false,
-  startX: 0,
-  startY: 0,
-  currentX: 0,
-  currentY: 0,
   isDragging: false,
   minScale: 0.5,
   maxScale: 3
@@ -1371,26 +1367,21 @@ function initializeStudentFileZoom() {
   // Reset zoom state
   studentFileZoomState = {
     scale: 1,
-    originX: 0,
-    originY: 0,
+    translateX: 0,
+    translateY: 0,
+    lastPanX: 0,
+    lastPanY: 0,
     initialDistance: 0,
     isZooming: false,
-    startX: 0,
-    startY: 0,
-    currentX: 0,
-    currentY: 0,
     isDragging: false,
     minScale: 0.5,
     maxScale: 3
   };
 
-  // Touch event handlers
+  // Touch event handlers (mobile only)
   viewport.addEventListener('touchstart', handleStudentFileZoomStart, { passive: false });
   viewport.addEventListener('touchmove', handleStudentFileZoomMove, { passive: false });
   viewport.addEventListener('touchend', handleStudentFileZoomEnd, { passive: false });
-
-  // Mouse wheel support for desktop
-  viewport.addEventListener('wheel', handleStudentFileWheel, { passive: false });
 
   // Prevent default touch behaviors
   viewport.addEventListener('touchstart', (e) => {
@@ -1414,24 +1405,15 @@ function handleStudentFileZoomStart(e) {
       Math.pow(touch1.clientY - touch2.clientY, 2)
     );
     
-    // Calculate center point
-    const centerX = (touch1.clientX + touch2.clientX) / 2;
-    const centerY = (touch1.clientY + touch2.clientY) / 2;
-    
-    const viewport = document.getElementById('studentFileViewport');
-    const rect = viewport.getBoundingClientRect();
-    
-    studentFileZoomState.originX = centerX - rect.left;
-    studentFileZoomState.originY = centerY - rect.top;
-    
     e.preventDefault();
-  } else if (touches.length === 1 && studentFileZoomState.scale > 1) {
-    // One finger - start drag if zoomed
+  } else if (touches.length === 1) {
+    // One finger - start drag/pan
     studentFileZoomState.isDragging = true;
     studentFileZoomState.isZooming = false;
     
-    studentFileZoomState.startX = touches[0].clientX - studentFileZoomState.currentX;
-    studentFileZoomState.startY = touches[0].clientY - studentFileZoomState.currentY;
+    const touch = touches[0];
+    studentFileZoomState.startX = touch.clientX - studentFileZoomState.translateX;
+    studentFileZoomState.startY = touch.clientY - studentFileZoomState.translateY;
   }
 }
 
@@ -1459,8 +1441,13 @@ function handleStudentFileZoomMove(e) {
     applyStudentFileTransform();
     e.preventDefault();
   } else if (studentFileZoomState.isDragging && touches.length === 1) {
-    studentFileZoomState.currentX = touches[0].clientX - studentFileZoomState.startX;
-    studentFileZoomState.currentY = touches[0].clientY - studentFileZoomState.startY;
+    const touch = touches[0];
+    studentFileZoomState.translateX = touch.clientX - studentFileZoomState.startX;
+    studentFileZoomState.translateY = touch.clientY - studentFileZoomState.startY;
+    
+    // Store the last pan position
+    studentFileZoomState.lastPanX = studentFileZoomState.translateX;
+    studentFileZoomState.lastPanY = studentFileZoomState.translateY;
     
     applyStudentFileTransform();
     e.preventDefault();
@@ -1474,46 +1461,14 @@ function handleStudentFileZoomEnd(e) {
   }
 }
 
-function handleStudentFileWheel(e) {
-  e.preventDefault();
-  
-  const delta = e.deltaY > 0 ? 0.9 : 1.1;
-  let newScale = studentFileZoomState.scale * delta;
-  
-  // Clamp scale
-  newScale = Math.max(studentFileZoomState.minScale, Math.min(studentFileZoomState.maxScale, newScale));
-  
-  if (newScale !== studentFileZoomState.scale) {
-    const viewport = document.getElementById('studentFileViewport');
-    const rect = viewport.getBoundingClientRect();
-    
-    studentFileZoomState.originX = e.clientX - rect.left;
-    studentFileZoomState.originY = e.clientY - rect.top;
-    studentFileZoomState.scale = newScale;
-    
-    applyStudentFileTransform();
-  }
-}
-
 function applyStudentFileTransform() {
   const frame = document.getElementById('studentFileFrame');
   if (!frame) return;
   
-  const transformOrigin = `${studentFileZoomState.originX}px ${studentFileZoomState.originY}px`;
-  const transform = `scale(${studentFileZoomState.scale}) translate(${studentFileZoomState.currentX}px, ${studentFileZoomState.currentY}px)`;
+  // Use translate and scale together, maintaining the last pan position
+  const transform = `translate(${studentFileZoomState.translateX}px, ${studentFileZoomState.translateY}px) scale(${studentFileZoomState.scale})`;
   
-  frame.style.transformOrigin = transformOrigin;
   frame.style.transform = transform;
-}
-
-function resetStudentFileZoom() {
-  studentFileZoomState.scale = 1;
-  studentFileZoomState.currentX = 0;
-  studentFileZoomState.currentY = 0;
-  studentFileZoomState.originX = 0;
-  studentFileZoomState.originY = 0;
-  
-  applyStudentFileTransform();
 }
 
 function closeStudentFilePreview() {
@@ -1525,20 +1480,17 @@ function closeStudentFilePreview() {
       viewport.removeEventListener('touchstart', handleStudentFileZoomStart);
       viewport.removeEventListener('touchmove', handleStudentFileZoomMove);
       viewport.removeEventListener('touchend', handleStudentFileZoomEnd);
-      viewport.removeEventListener('wheel', handleStudentFileWheel);
     }
     
     // Reset zoom state
     studentFileZoomState = {
       scale: 1,
-      originX: 0,
-      originY: 0,
+      translateX: 0,
+      translateY: 0,
+      lastPanX: 0,
+      lastPanY: 0,
       initialDistance: 0,
       isZooming: false,
-      startX: 0,
-      startY: 0,
-      currentX: 0,
-      currentY: 0,
       isDragging: false,
       minScale: 0.5,
       maxScale: 3
