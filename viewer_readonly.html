@@ -187,8 +187,15 @@
                     // Clamp scale
                     newScale = Math.max(pdfZoomState.minScale, Math.min(pdfZoomState.maxScale, newScale));
                     
-                    // Calculate zoom with center point
+                    // Calculate zoom with proper transform-aware center point
                     const scaleChange = newScale / pdfZoomState.scale;
+                    
+                    // Adjust translation to zoom into the center point, accounting for current transform
+                    const adjustedCenterX = pdfZoomState.zoomCenterX - pdfZoomState.translateX;
+                    const adjustedCenterY = pdfZoomState.zoomCenterY - pdfZoomState.translateY;
+                    
+                    pdfZoomState.translateX = pdfZoomState.translateX + adjustedCenterX * (1 - scaleChange);
+                    pdfZoomState.translateY = pdfZoomState.translateY + adjustedCenterY * (1 - scaleChange);
                     
                     pdfZoomState.scale = newScale;
                     pdfZoomState.initialDistance = currentDistance;
@@ -221,7 +228,7 @@
                 
                 // Apply both scale and translation for full functionality
                 viewer.style.transform = `translate(${pdfZoomState.translateX}px, ${pdfZoomState.translateY}px) scale(${pdfZoomState.scale})`;
-                viewer.style.transformOrigin = `${pdfZoomState.zoomCenterX}px ${pdfZoomState.zoomCenterY}px`;
+                viewer.style.transformOrigin = '0 0';
                 viewer.style.transition = 'transform 0.1s ease-out';
             }
 
