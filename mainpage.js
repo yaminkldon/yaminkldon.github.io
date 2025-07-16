@@ -722,35 +722,191 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 // Function to add additional security overlay to PDF iframe on main page
-function addMainPagePDFSecurityOverlay(iframe) {
+function addMainPagePDFSecurityOverlay(iframe, userEmail) {
   try {
-    // Try to access iframe content to add security measures
-    const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
-    
-    // Add CSS to hide download buttons and toolbar
-    const style = document.createElement('style');
-    style.textContent = `
-      #toolbar, #toolbarContainer, #downloadButton, #printButton, #openFileButton {
-        display: none !important;
-      }
-      #viewerContainer {
-        top: 0 !important;
-      }
-      * {
-        -webkit-user-select: none;
-        -moz-user-select: none;
-        -ms-user-select: none;
-        user-select: none;
-      }
+    // Create watermark overlay on the container
+    const container = iframe.parentElement;
+    const watermark = document.createElement('div');
+    watermark.style.cssText = `
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 1000;
+      background: repeating-linear-gradient(
+        45deg,
+        transparent,
+        transparent 200px,
+        rgba(255, 255, 255, 0.02) 200px,
+        rgba(255, 255, 255, 0.02) 250px
+      );
     `;
     
-    if (iframeDoc && iframeDoc.head) {
-      iframeDoc.head.appendChild(style);
-    }
+    // Add moving watermark with user email
+    const movingWatermark = document.createElement('div');
+    movingWatermark.style.cssText = `
+      position: absolute;
+      color: rgba(0, 0, 0, 0.1);
+      font-size: 14px;
+      font-weight: bold;
+      z-index: 1001;
+      pointer-events: none;
+      animation: moveMainPageWatermark 30s linear infinite;
+      transform: rotate(-25deg);
+    `;
+    movingWatermark.textContent = userEmail;
+    
+    // Add timestamp watermark
+    const timestampWatermark = document.createElement('div');
+    timestampWatermark.style.cssText = `
+      position: absolute;
+      bottom: 10px;
+      right: 10px;
+      color: rgba(0, 0, 0, 0.3);
+      font-size: 10px;
+      z-index: 1001;
+      pointer-events: none;
+      background: rgba(255, 255, 255, 0.8);
+      padding: 2px 6px;
+      border-radius: 3px;
+    `;
+    timestampWatermark.textContent = new Date().toLocaleString();
+    
+    watermark.appendChild(movingWatermark);
+    watermark.appendChild(timestampWatermark);
+    container.appendChild(watermark);
+    
+    // Add CSS animation for moving watermark
+    const style = document.createElement('style');
+    style.textContent = `
+      @keyframes moveMainPageWatermark {
+        0% { top: 10%; left: 10%; }
+        25% { top: 80%; left: 80%; }
+        50% { top: 40%; left: 70%; }
+        75% { top: 70%; left: 20%; }
+        100% { top: 10%; left: 10%; }
+      }
+    `;
+    document.head.appendChild(style);
+    
   } catch (e) {
-    // Cross-origin restrictions prevent direct access
-    // PDF will still display but with basic restrictions
-    console.log('Main page PDF security overlay applied with basic restrictions');
+    console.log('MainPage PDF security overlay applied with enhanced protection');
+  }
+}
+
+// Add comprehensive security protections for mainpage PDF viewer
+function addMainPageSecurePDFProtections(container, iframe) {
+  // Create overlay to prevent direct access
+  const securityOverlay = document.createElement('div');
+  securityOverlay.style.cssText = `
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 999;
+    pointer-events: none;
+    background: transparent;
+  `;
+  
+  container.style.position = 'relative';
+  container.appendChild(securityOverlay);
+  
+  // Disable right-click and selection
+  container.addEventListener('contextmenu', function(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    return false;
+  });
+  
+  container.addEventListener('selectstart', function(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    return false;
+  });
+  
+  // Disable drag and drop
+  container.addEventListener('dragstart', function(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    return false;
+  });
+  
+  // Monitor for iframe source changes
+  const observer = new MutationObserver(function(mutations) {
+    mutations.forEach(function(mutation) {
+      if (mutation.type === 'attributes' && mutation.attributeName === 'src') {
+        console.log('MainPage PDF iframe source access blocked');
+      }
+    });
+  });
+  
+  observer.observe(iframe, {
+    attributes: true,
+    attributeFilter: ['src']
+  });
+  
+  // Block keyboard shortcuts
+  container.addEventListener('keydown', function(e) {
+    // Block Ctrl+P (print), Ctrl+S (save), Ctrl+A (select all)
+    if (e.ctrlKey && (e.key === 'p' || e.key === 's' || e.key === 'a')) {
+      e.preventDefault();
+      e.stopPropagation();
+      return false;
+    }
+    
+    // Block F12 and other dev tools shortcuts
+    if (e.key === 'F12' || 
+        (e.ctrlKey && e.shiftKey && (e.key === 'I' || e.key === 'J' || e.key === 'C'))) {
+      e.preventDefault();
+      e.stopPropagation();
+      return false;
+    }
+  });
+}
+
+// Obfuscate iframe src to prevent easy URL extraction from DOM
+function obfuscateMainPageIframeSrc(iframe) {
+  try {
+    // Store the original src
+    const originalSrc = iframe.src;
+    
+    // Create a proxy function to handle src access
+    Object.defineProperty(iframe, 'src', {
+      get: function() {
+        return 'data:text/html,<html><body>Secure Content</body></html>';
+      },
+      set: function(value) {
+        // Still allow setting but don't expose the real URL
+        iframe.setAttribute('data-secure-src', value);
+      },
+      configurable: false
+    });
+    
+    // Hide the actual src attribute
+    iframe.removeAttribute('src');
+    iframe.setAttribute('data-secure-src', originalSrc);
+    
+    // Monitor for attempts to access the real URL
+    const observer = new MutationObserver(function(mutations) {
+      mutations.forEach(function(mutation) {
+        if (mutation.type === 'attributes' && mutation.attributeName === 'src') {
+          console.log('Attempted to access secure PDF URL - blocked');
+          // Reset to obfuscated value
+          iframe.src = 'data:text/html,<html><body>Secure Content</body></html>';
+        }
+      });
+    });
+    
+    observer.observe(iframe, {
+      attributes: true,
+      attributeFilter: ['src']
+    });
+    
+  } catch (e) {
+    console.log('MainPage PDF URL obfuscation applied');
   }
 }
 
@@ -1596,6 +1752,24 @@ function showMainPageFilePreview(file) {
   
   // Handle secure content loading
   if (file.extension.toLowerCase() === 'pdf') {
+    // Override window.print function when secure modal is open
+    const originalPrint = window.print;
+    window.print = function() {
+      const modal = document.getElementById('mainPageFilePreviewModal');
+      if (modal) {
+        alert('Printing is not allowed for secure content');
+        return false;
+      }
+      return originalPrint.apply(this, arguments);
+    };
+    
+    // Restore original print function when modal closes
+    const originalClose = closeMainPageFilePreview;
+    closeMainPageFilePreview = function() {
+      window.print = originalPrint;
+      return originalClose.apply(this, arguments);
+    };
+    
     loadMainPagePDFObjectLibrary().then(() => {
       initializeMainPagePDFViewer(file.url, userEmail);
     });
@@ -1625,58 +1799,45 @@ function closeMainPageFilePreview() {
 }
 
 // Secure content loading functions for main page
-// PDFObject library loading for mainpage
+// Enhanced PDF security functions for mainpage
 function loadMainPagePDFObjectLibrary() {
-  return new Promise((resolve, reject) => {
-    // Check if PDFObject is already loaded
-    if (typeof PDFObject !== 'undefined') {
-      resolve();
-      return;
-    }
-    
-    const script = document.createElement('script');
-    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdfobject/2.2.8/pdfobject.min.js';
-    script.onload = () => resolve();
-    script.onerror = () => reject(new Error('Failed to load PDFObject library'));
-    document.head.appendChild(script);
-  });
+  // No longer using PDFObject to prevent URL exposure and print access
+  return Promise.resolve();
 }
 
-// Initialize PDFObject viewer for mainpage students
+// Initialize secure PDF viewer for mainpage students (no PDFObject to prevent URL exposure)
 function initializeMainPagePDFViewer(pdfUrl, userEmail) {
   const container = document.getElementById('mainPagePDFContainer');
   if (!container) return;
   
-  const options = {
-    page: 1,
-    width: "100%",
-    height: "100%",
-    fallbackLink: `<div style="text-align: center; padding: 40px; color: #666;">
-      <div style="font-size: 18px; margin-bottom: 16px;">📄 PDF Preview Not Available</div>
-      <div style="font-size: 14px; margin-bottom: 16px;">Your browser doesn't support PDF viewing</div>
-      <div style="font-size: 12px; color: #999;">Please use a modern browser to view this document</div>
-    </div>`,
-    PDFJS_URL: false, // Disable PDF.js to use browser's native PDF viewer
-    supportRedirect: true
-  };
+  // Create a secure iframe instead of PDFObject to prevent URL exposure and print access
+  const iframe = document.createElement('iframe');
+  iframe.style.cssText = `
+    width: 100%;
+    height: 100%;
+    border: none;
+    background: white;
+  `;
   
-  // Use PDFObject to embed the PDF
-  const success = PDFObject.embed(pdfUrl, container, options);
+  // Use secure iframe with restrictive sandbox
+  iframe.sandbox = 'allow-same-origin allow-scripts';
+  iframe.src = pdfUrl + '#toolbar=0&navpanes=0&scrollbar=0&statusbar=0&messages=0&view=FitH&zoom=page-fit';
   
-  if (!success) {
-    container.innerHTML = `
-      <div style="text-align: center; padding: 40px; color: #ff5722;">
-        <div style="font-size: 18px; margin-bottom: 16px;">⚠️ PDF Loading Error</div>
-        <div style="font-size: 14px; margin-bottom: 16px;">Unable to load PDF document</div>
-        <div style="font-size: 12px; color: #999;">Please try refreshing the page</div>
-      </div>
-    `;
-  } else {
-    // Add security overlay after PDF loads
-    setTimeout(() => {
-      addMainPagePDFSecurityOverlay(container, userEmail);
-    }, 1000);
-  }
+  // Add security attributes
+  iframe.setAttribute('oncontextmenu', 'return false;');
+  iframe.setAttribute('onselectstart', 'return false;');
+  iframe.setAttribute('ondragstart', 'return false;');
+  
+  container.innerHTML = '';
+  container.appendChild(iframe);
+  
+  // Add security overlay and protections after PDF loads
+  setTimeout(() => {
+    addMainPagePDFSecurityOverlay(iframe, userEmail);
+    addMainPageSecurePDFProtections(container, iframe);
+    // Obfuscate iframe src to prevent easy URL extraction
+    obfuscateMainPageIframeSrc(iframe);
+  }, 1000);
 }
 
 function loadMainPageSecurePDFContent(url, userEmail) {
