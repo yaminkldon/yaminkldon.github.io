@@ -1763,14 +1763,58 @@ function initializeMainPagePDFViewer(pdfUrl, userEmail) {
     background: white;
   `;
   
-  // Use secure iframe with restrictive sandbox
-  iframe.sandbox = 'allow-same-origin allow-scripts allow-forms';
+  // Use secure iframe with necessary permissions but no modals
+  iframe.sandbox = 'allow-same-origin allow-scripts allow-forms allow-downloads';
   iframe.src = viewerUrl;
   
   // Add security attributes
   iframe.setAttribute('oncontextmenu', 'return false;');
   iframe.setAttribute('onselectstart', 'return false;');
   iframe.setAttribute('ondragstart', 'return false;');
+  
+  // Listen for security messages from the sandboxed iframe
+  const messageHandler = function(event) {
+    if (event.data && event.data.type === 'pdf-security-warning') {
+      // Show security warning in parent window
+      const warningDiv = document.createElement('div');
+      warningDiv.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background: #ff6b6b;
+        color: white;
+        padding: 12px 16px;
+        border-radius: 6px;
+        z-index: 20000;
+        font-size: 14px;
+        font-weight: bold;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        animation: slideInRight 0.3s ease-out;
+      `;
+      warningDiv.textContent = `🔒 ${event.data.message}`;
+      
+      // Add animation styles
+      const animationStyle = document.createElement('style');
+      animationStyle.textContent = `
+        @keyframes slideInRight {
+          from { transform: translateX(100%); opacity: 0; }
+          to { transform: translateX(0); opacity: 1; }
+        }
+      `;
+      document.head.appendChild(animationStyle);
+      
+      document.body.appendChild(warningDiv);
+      
+      // Remove after 3 seconds
+      setTimeout(() => {
+        if (warningDiv.parentNode) {
+          warningDiv.parentNode.removeChild(warningDiv);
+        }
+      }, 3000);
+    }
+  };
+  
+  window.addEventListener('message', messageHandler);
   
   container.innerHTML = '';
   container.appendChild(iframe);
