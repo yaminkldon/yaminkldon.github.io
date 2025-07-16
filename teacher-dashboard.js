@@ -6196,8 +6196,13 @@ function displayStudentSubmissions(assessmentId, assessment, type, students, sub
     <div class="assessment-grading-header">
       <h2>${typeLabel}: ${assessment.title}</h2>
       <p>Student submissions for this ${type.toLowerCase()}</p>
-      <div class="debug-info" style="background: #f0f0f0; padding: 10px; margin: 10px 0; border-radius: 5px; font-size: 12px;">
-        <strong>Debug Info:</strong> Students: ${students.length}, Submissions: ${Object.keys(submissions).length}
+      <div class="assessment-stats" style="background: #f8f9fa; padding: 15px; margin: 15px 0; border-radius: 8px; border-left: 4px solid #6c4fc1;">
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; font-size: 14px;">
+          <div><strong>Total Students:</strong> ${students.length}</div>
+          <div><strong>Submissions:</strong> ${Object.keys(submissions).length}</div>
+          <div><strong>Completion Rate:</strong> ${students.length > 0 ? Math.round((Object.keys(submissions).length / students.length) * 100) : 0}%</div>
+          ${type === 'assignment' ? `<div><strong>Pending Grades:</strong> ${Object.values(submissions).filter(s => !s.graded).length}</div>` : ''}
+        </div>
       </div>
     </div>
     
@@ -6227,57 +6232,87 @@ function displayStudentSubmissions(assessmentId, assessment, type, students, sub
       
       let statusHtml = '';
       let actionHtml = '';
+      let submissionDetails = '';
       
       if (type === 'quiz') {
         if (studentSubmissions && studentSubmissions.length > 0) {
           console.log('Quiz submissions found:', studentSubmissions.length);
-          const latestSubmission = studentSubmissions.sort((a, b) => b.submittedAt - a.submittedAt)[0];
-          const score = latestSubmission.score !== undefined ? latestSubmission.score.toFixed(1) : '0';
+          const sortedSubmissions = studentSubmissions.sort((a, b) => b.submittedAt - a.submittedAt);
+          const latestSubmission = sortedSubmissions[0];
+          const bestScore = Math.max(...studentSubmissions.map(s => s.score || 0));
+          const averageScore = studentSubmissions.reduce((sum, s) => sum + (s.score || 0), 0) / studentSubmissions.length;
           
           statusHtml = `
             <div class="submission-status graded">
-              ${studentSubmissions.length} attempt(s) • Best: ${score}%
+              ${studentSubmissions.length} attempt(s) • Best: ${bestScore.toFixed(1)}% • Avg: ${averageScore.toFixed(1)}%
+            </div>
+          `;
+          
+          submissionDetails = `
+            <div class="submission-details" style="margin-top: 8px; font-size: 12px; color: #666;">
+              <div>Last attempt: ${new Date(latestSubmission.submittedAt).toLocaleString()}</div>
+              <div>First attempt: ${new Date(sortedSubmissions[sortedSubmissions.length - 1].submittedAt).toLocaleString()}</div>
             </div>
           `;
           
           actionHtml = `
-            <button class="action-btn" onclick="viewStudentQuizAttempts('${assessmentId}', '${student.id}', '${student.name}')">
-              View Attempts
-            </button>
+            <div style="display: flex; gap: 8px; align-items: center;">
+              <button class="action-btn" onclick="viewStudentQuizAttempts('${assessmentId}', '${student.id}', '${student.name}')" style="padding: 6px 12px; font-size: 12px;">
+                View All Attempts
+              </button>
+              <button class="action-btn secondary" onclick="resetQuizAttempts('${assessmentId}', '${student.id}', '${student.email}')" style="padding: 6px 12px; font-size: 12px;">
+                Reset
+              </button>
+            </div>
           `;
         } else {
           console.log('No quiz submissions found for student');
           statusHtml = '<div class="submission-status no-submission">No attempts</div>';
-          actionHtml = '<span style="color: #666;">No submission</span>';
+          submissionDetails = '<div class="submission-details" style="margin-top: 8px; font-size: 12px; color: #666;">Student has not started this quiz</div>';
+          actionHtml = '<span style="color: #666; font-size: 12px;">No submission</span>';
         }
       } else {
         if (studentSubmissions) {
           console.log('Assignment submission found:', studentSubmissions);
           const isGraded = studentSubmissions.graded;
           const statusClass = isGraded ? 'graded' : 'pending';
-          const statusText = isGraded ? `Graded: ${studentSubmissions.grade}/${studentSubmissions.maxPoints}` : 'Pending grading';
+          const statusText = isGraded ? `Graded: ${studentSubmissions.grade}/${studentSubmissions.maxPoints} (${Math.round((studentSubmissions.grade / studentSubmissions.maxPoints) * 100)}%)` : 'Pending grading';
           
           statusHtml = `<div class="submission-status ${statusClass}">${statusText}</div>`;
           
+          submissionDetails = `
+            <div class="submission-details" style="margin-top: 8px; font-size: 12px; color: #666;">
+              <div>Submitted: ${new Date(studentSubmissions.submittedAt).toLocaleString()}</div>
+              ${studentSubmissions.fileNames ? `<div>Files: ${studentSubmissions.fileNames.join(', ')}</div>` : ''}
+              ${studentSubmissions.textContent ? `<div>Has text submission: Yes</div>` : ''}
+              ${isGraded ? `<div>Graded: ${new Date(studentSubmissions.gradedAt || studentSubmissions.submittedAt).toLocaleString()}</div>` : ''}
+            </div>
+          `;
+          
           actionHtml = `
-            <button class="action-btn" onclick="viewStudentAssignmentSubmission('${studentSubmissions.id}', '${student.name}')">
-              ${isGraded ? 'View Grade' : 'Grade'}
+            <button class="action-btn" onclick="viewStudentAssignmentSubmission('${studentSubmissions.id}', '${student.name}')" style="padding: 6px 12px; font-size: 12px;">
+              ${isGraded ? 'View Grade' : 'Grade Now'}
             </button>
           `;
         } else {
           console.log('No assignment submission found for student');
           statusHtml = '<div class="submission-status no-submission">No submission</div>';
-          actionHtml = '<span style="color: #666;">No submission</span>';
+          submissionDetails = '<div class="submission-details" style="margin-top: 8px; font-size: 12px; color: #666;">Student has not submitted this assignment</div>';
+          actionHtml = '<span style="color: #666; font-size: 12px;">No submission</span>';
         }
       }
       
       html += `
-        <div class="student-submission-card">
-          <div class="student-header">
-            <span class="student-name">${student.name}</span>
+        <div class="student-submission-card" style="margin-bottom: 16px; padding: 16px; border: 1px solid #ddd; border-radius: 8px; background: white;">
+          <div class="student-header" style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px;">
+            <div>
+              <span class="student-name" style="font-weight: bold; color: #333; font-size: 16px;">${student.name}</span>
+              <div style="font-size: 12px; color: #666; margin-top: 2px;">${student.email}</div>
+            </div>
             ${statusHtml}
           </div>
-          <div class="student-actions">
+          ${submissionDetails}
+          <div class="student-actions" style="margin-top: 12px; display: flex; justify-content: flex-end;">
             ${actionHtml}
           </div>
         </div>
@@ -6336,25 +6371,38 @@ function viewStudentAssignmentSubmission(submissionId, studentName) {
   document.getElementById('gradeSubmissionModal').style.display = 'flex';
 }
 
-function clearSearchFilter() {
-  const searchInput = document.getElementById('studentSearchFilter');
-  if (searchInput) {
-    searchInput.value = '';
-    filterSubmissions();
-  }
+function openQuizSubmissionModal(quizId, studentId) {
+  // Get all attempts for this quiz and student
+  db.ref('quizSubmissions').orderByChild('quizId').equalTo(quizId).once('value').then(snapshot => {
+    const attempts = [];
+    
+    if (snapshot.exists()) {
+      snapshot.forEach(child => {
+        const submission = child.val();
+        if (submission.studentId === studentId) {
+          attempts.push({
+            id: child.key,
+            ...submission
+          });
+        }
+      });
+    }
+    
+    if (attempts.length === 0) {
+      alert('No attempts found for this student');
+      return;
+    }
+    
+    // Get quiz details
+    db.ref(`quizzes/${quizId}`).once('value').then(quizSnapshot => {
+      if (quizSnapshot.exists()) {
+        const quiz = quizSnapshot.val();
+        quiz.id = quizId;
+        displayQuizSubmissionModal(attempts, quiz);
+      }
+    });
+  });
 }
-
-function onAssessmentTypeChange() {
-  const assessmentTypeFilter = document.getElementById('assessmentTypeFilter').value;
-  const specificAssessmentFilter = document.getElementById('specificAssessmentFilter');
-  
-  if (assessmentTypeFilter === 'assignment') {
-    // Load only assignments
-    db.ref('assignments').once('value').then(snapshot => {
-      // Clear again to prevent any race conditions
-      specificAssessmentFilter.innerHTML = '<option value="all">All Items</option>';
-      
-      if (snapshot.exists()) {
         snapshot.forEach(child => {
           const assignment = child.val();
           const option = document.createElement('option');
