@@ -1,7 +1,27 @@
 /* Copyright 2016 Mozilla Foundation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
+ * you may n  bottom: 0;
+  widt  bottom: 0;
+  width: 18%;
+  background: none;
+  background-size: 2rem;
+}
+
+.toolbarButton.zoomIn::before {
+  content: "+";
+  color: #d9d9d9;
+  font-size: 20px;
+}%;
+  background: none;
+  background-size: 2rem;
+}
+
+.toolbarButton.zoomOut::before {
+  content: "-";
+  color: #d9d9d9;
+  font-size: 20px;
+}e this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
@@ -43,7 +63,7 @@ header h1 {
 }
 
 body {
-  background: url(images/document_bg.png);
+  background: #808080;
   color: rgba(255, 255, 255, 1);
   font-family: sans-serif;
   font-size: 10px;
@@ -64,7 +84,7 @@ section {
 }
 
 footer {
-  background-image: url(images/toolbar_background.png);
+  background: linear-gradient(rgba(82, 82, 82, 0.99), rgba(69, 69, 69, 0.95));
   height: 4rem;
   position: absolute;
   bottom: 0;
@@ -90,8 +110,14 @@ footer {
   top: 0;
   bottom: 0;
   width: 18%;
-  background-image: url(images/icon_previous_page.png);
+  background: none;
   background-size: 2rem;
+}
+
+.toolbarButton.pageUp::before {
+  content: "◀";
+  color: #d9d9d9;
+  font-size: 16px;
 }
 
 .toolbarButton.pageDown {
@@ -100,8 +126,14 @@ footer {
   top: 0;
   bottom: 0;
   width: 18%;
-  background-image: url(images/icon_next_page.png);
+  background: none;
   background-size: 2rem;
+}
+
+.toolbarButton.pageDown::before {
+  content: "▶";
+  color: #d9d9d9;
+  font-size: 16px;
 }
 
 .toolbarButton.zoomOut {
@@ -110,8 +142,14 @@ footer {
   top: 0;
   bottom: 0;
   width: 16%;
-  background-image: url(images/icon_zoom_out.png);
+  background: none;
   background-size: 2.4rem;
+}
+
+.toolbarButton.zoomOut::before {
+  content: "-";
+  color: #d9d9d9;
+  font-size: 20px;
 }
 
 .toolbarButton.zoomIn {
@@ -120,8 +158,14 @@ footer {
   top: 0;
   bottom: 0;
   width: 16%;
-  background-image: url(images/icon_zoom_in.png);
+  background: none;
   background-size: 2.4rem;
+}
+
+.toolbarButton.zoomIn::before {
+  content: "+";
+  color: #d9d9d9;
+  font-size: 20px;
 }
 
 .toolbarField.pageNumber {
@@ -130,7 +174,7 @@ footer {
   top: 0;
   bottom: 0;
   width: 23%;
-  background-image: url(images/icon_info.png);
+  background: none;
   background-size: 2.4rem;
   background-position: -webkit-calc(50% - 1rem) center;
   background-position: calc(50% - 1rem) center;
@@ -139,7 +183,7 @@ footer {
   font-size: 1.2rem;
   text-align: center;
   color: rgba(255, 255, 255, 1);
-  background-color: rgba(0, 0, 0, 0);
+  background-color: rgba(0, 0, 0, 0.2);
   border-radius: 0.2rem;
   padding: 0;
   margin: 0.6rem 0;
