@@ -1369,7 +1369,7 @@
     <div class="modal-content">
       <div class="modal-header">
         <h3 class="modal-title" data-translate="editUnit">Edit Unit</h3>
-        <button class="modal-close" onclick="closeModal('editUnitModal')" style="width: 15%;">&times;</button>
+        <button class="modal-close" onclick="cancelEditUnit()" style="width: 15%;">&times;</button>
       </div>
       <form id="editUnitForm">
         <div class="form-group">
@@ -1378,7 +1378,7 @@
         </div>
         <div class="feature-actions">
           <button type="submit" class="action-btn" data-translate="updateUnit">Update Unit</button>
-          <button type="button" class="action-btn secondary" onclick="closeModal('editUnitModal')" data-translate="cancel">Cancel</button>
+          <button type="button" class="action-btn secondary" onclick="cancelEditUnit()" data-translate="cancel">Cancel</button>
         </div>
       </form>
     </div>

@@ -835,6 +835,9 @@ function createUnitCard(unit) {
 }
 
 function editUnit(unitId, currentName) {
+  // Close any existing modals first
+  closeModal('manageUnitsModal');
+  
   const modal = document.getElementById('editUnitModal');
   const nameInput = document.getElementById('editUnitName');
   
@@ -869,6 +872,8 @@ function updateUnitName() {
     .then(() => {
       NotificationManager.showToast('Unit name updated successfully!');
       closeModal('editUnitModal');
+      // Reopen the manage units modal to show updated list
+      openModal('manageUnitsModal');
       loadUnitsManagement(); // Refresh the list
       loadQuickStats(); // Refresh stats
       loadUnitsForSelect(); // Refresh unit selects
@@ -877,6 +882,12 @@ function updateUnitName() {
       console.error('Error updating unit name:', error);
       NotificationManager.showToast('Error updating unit name: ' + error.message);
     });
+}
+
+function cancelEditUnit() {
+  closeModal('editUnitModal');
+  // Reopen the manage units modal
+  openModal('manageUnitsModal');
 }
 
 function deleteUnit(unitId) {
