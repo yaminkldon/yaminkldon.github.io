@@ -3962,7 +3962,8 @@ function loadVideoManagementData() {
           // Process lessons from lessons subfolder
           if (unitData.lessons) {
             Object.entries(unitData.lessons).forEach(([lessonKey, lessonData]) => {
-              if (lessonData && typeof lessonData === 'object') {
+              if (lessonData && typeof lessonData === 'object' && 
+                  (lessonData.videoURL || lessonData.videoFile)) {
                 videoCount++;
                 createVideoCard(videosGrid, unitKey, lessonKey, lessonData, 'lessons');
               }
@@ -3972,7 +3973,9 @@ function loadVideoManagementData() {
           // Process lessons from direct structure (new format)
           Object.entries(unitData).forEach(([lessonKey, lessonData]) => {
             if (lessonKey !== 'lessons' && lessonKey !== 'name' && lessonKey !== 'description' && 
-                lessonKey !== 'order' && lessonKey !== 'createdAt' && lessonData && typeof lessonData === 'object') {
+                lessonKey !== 'order' && lessonKey !== 'createdAt' && lessonKey !== 'files' && 
+                lessonData && typeof lessonData === 'object' && 
+                (lessonData.videoURL || lessonData.videoFile)) {
               videoCount++;
               createVideoCard(videosGrid, unitKey, lessonKey, lessonData, 'direct');
             }
@@ -4173,6 +4176,11 @@ function editVideo(unitKey, lessonKey, type) {
           </div>
           <form id="editVideoForm">
             <div class="form-group">
+              <label class="form-label">Lesson Name</label>
+              <input type="text" class="form-input" id="editVideoLessonName" value="${lessonKey}" required>
+              <small style="color: #666; font-size: 11px;">This will rename the entire lesson entry</small>
+            </div>
+            <div class="form-group">
               <label class="form-label">Title</label>
               <input type="text" class="form-input" id="editVideoTitle" value="${lessonData.title || lessonKey}" required>
             </div>
@@ -4213,33 +4221,79 @@ function editVideo(unitKey, lessonKey, type) {
 }
 
 function updateVideoData(unitKey, lessonKey, type) {
+  const newLessonName = document.getElementById('editVideoLessonName').value.trim();
   const title = document.getElementById('editVideoTitle').value.trim();
   const description = document.getElementById('editVideoDescription').value.trim();
   const thumbnail = document.getElementById('editVideoThumbnail').value.trim();
   
   const path = type === 'lessons' ? `units/${unitKey}/lessons/${lessonKey}` : `units/${unitKey}/${lessonKey}`;
   
-  const updateData = {};
-  if (title) updateData.title = title;
-  if (description) updateData.description = description;
-  if (thumbnail) {
-    if (type === 'lessons') {
-      updateData.thumbnail = thumbnail;
-    } else {
-      updateData.thumbnailURL = thumbnail;
+  // First, get the current lesson data
+  db.ref(path).once('value').then(snapshot => {
+    if (snapshot.exists()) {
+      const currentLessonData = snapshot.val();
+      
+      // Prepare the updated data
+      const updateData = { ...currentLessonData };
+      if (title) updateData.title = title;
+      if (description) updateData.description = description;
+      if (thumbnail) {
+        if (type === 'lessons') {
+          updateData.thumbnail = thumbnail;
+        } else {
+          updateData.thumbnailURL = thumbnail;
+        }
+      }
+      
+      // Check if lesson name has changed
+      if (newLessonName && newLessonName !== lessonKey) {
+        // Create new lesson entry with the new name
+        const newPath = type === 'lessons' ? `units/${unitKey}/lessons/${newLessonName}` : `units/${unitKey}/${newLessonName}`;
+        
+        // Check if new lesson name already exists
+        db.ref(newPath).once('value').then(newSnapshot => {
+          if (newSnapshot.exists()) {
+            NotificationManager.showToast('A lesson with this name already exists');
+            return;
+          }
+          
+          // Create new lesson entry and delete old one
+          db.ref(newPath).set(updateData)
+            .then(() => {
+              // Delete the old lesson entry
+              return db.ref(path).remove();
+            })
+            .then(() => {
+              NotificationManager.showToast('Lesson renamed and updated successfully');
+              closeModal('editVideoModal');
+              loadVideoManagementData();
+            })
+            .catch(error => {
+              console.error('Error renaming lesson:', error);
+              NotificationManager.showToast('Error renaming lesson: ' + error.message);
+            });
+        }).catch(error => {
+          console.error('Error checking new lesson name:', error);
+          NotificationManager.showToast('Error checking new lesson name: ' + error.message);
+        });
+      } else {
+        // Just update the existing lesson data
+        db.ref(path).update(updateData)
+          .then(() => {
+            NotificationManager.showToast('Video updated successfully');
+            closeModal('editVideoModal');
+            loadVideoManagementData();
+          })
+          .catch(error => {
+            console.error('Error updating video:', error);
+            NotificationManager.showToast('Error updating video: ' + error.message);
+          });
+      }
     }
-  }
-  
-  db.ref(path).update(updateData)
-    .then(() => {
-      NotificationManager.showToast('Video updated successfully');
-      closeModal('editVideoModal');
-      loadVideoManagementData();
-    })
-    .catch(error => {
-      console.error('Error updating video:', error);
-      NotificationManager.showToast('Error updating video: ' + error.message);
-    });
+  }).catch(error => {
+    console.error('Error getting lesson data:', error);
+    NotificationManager.showToast('Error getting lesson data: ' + error.message);
+  });
 }
 
 function deleteVideo(unitKey, lessonKey, type) {
