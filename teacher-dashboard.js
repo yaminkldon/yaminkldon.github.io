@@ -5812,7 +5812,21 @@ function showFilePreview(file) {
   switch (file.extension.toLowerCase()) {
     case 'pdf':
       previewContent = `
-        <iframe src="${file.url}" style="width: 100%; height: 600px; border: none;"></iframe>
+        <div style="position: relative; width: 100%; height: 600px; border: 1px solid #ddd; border-radius: 8px; overflow: hidden;">
+          <div style="position: absolute; top: 10px; right: 10px; background: rgba(0,0,0,0.7); color: white; padding: 4px 8px; border-radius: 4px; font-size: 11px; z-index: 1000;">
+            Teacher Preview | ${new Date().toLocaleString()}
+          </div>
+          <div style="position: absolute; top: 10px; left: 10px; background: rgba(0,0,0,0.7); color: white; padding: 4px 8px; border-radius: 4px; font-size: 11px; z-index: 1000;">
+            📄 PDF Document
+          </div>
+          <iframe 
+            src="${file.url}#toolbar=0&navpanes=0&scrollbar=0&view=FitH" 
+            style="width: 100%; height: 100%; border: none;"
+            oncontextmenu="return false;"
+            sandbox="allow-same-origin allow-scripts allow-forms"
+            title="PDF Preview"
+          ></iframe>
+        </div>
       `;
       break;
     case 'jpg':

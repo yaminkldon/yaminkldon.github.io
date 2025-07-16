@@ -90,7 +90,7 @@ function loadUnits() {
                   ${progress.percentage > 0 ? `(${progress.percentage}%)` : ''}
                 </div>
               </div>
-              <button onclick="event.stopPropagation(); openStudentUnitFileViewer('${unitName}')" style="padding: 4px 8px; background: #17a2b8; color: white; border: none; border-radius: 4px; font-size: 10px; cursor: pointer; margin: 0%; align-items: center; gap: 4px;">
+              <button onclick="event.stopPropagation(); openMainPageFileViewer('${unitName}', null)" style="padding: 4px 8px; background: #17a2b8; color: white; border: none; border-radius: 4px; font-size: 10px; cursor: pointer; margin: 0%; align-items: center; gap: 4px;">
                 <span class="material-icons" style="font-size: 12px;">folder</span>
                 Files
               </button>
@@ -137,7 +137,7 @@ function loadUnitsWithoutProgress() {
           <div style="flex: 1; cursor: pointer;"">
             <span>${unitName}</span>
           </div>
-          <button onclick="event.stopPropagation(); openStudentUnitFileViewer('${unitName}')" style="padding: 4px 8px; background: #17a2b8; color: white; border: none; border-radius: 4px; font-size: 10px; cursor: pointer; margin: 0%; align-items: center; gap: 4px;">
+          <button onclick="event.stopPropagation(); openMainPageFileViewer('${unitName}', null)" style="padding: 4px 8px; background: #17a2b8; color: white; border: none; border-radius: 4px; font-size: 10px; cursor: pointer; margin: 0%; align-items: center; gap: 4px;">
             <span class="material-icons" style="font-size: 12px;">folder</span>
             Files
           </button>
@@ -1485,26 +1485,26 @@ function showMainPageFilePreview(file) {
           <div id="mainPageSecureDocViewer" style="
             width: 100%;
             height: 100%;
-            overflow-y: auto;
-            padding: 20px;
-            background: white;
-            color: black;
-            font-family: 'Times New Roman', serif;
-            line-height: 1.6;
             position: relative;
             z-index: 1;
           ">
-            <div style="text-align: center; padding: 40px; color: #666;">
-              <div class="loading-spinner" style="
-                border: 4px solid #f3f3f3;
-                border-top: 4px solid #6c4fc1;
-                border-radius: 50%;
-                width: 40px;
-                height: 40px;
-                animation: spin 1s linear infinite;
-                margin: 0 auto 20px;
-              "></div>
-              Loading document content...
+            <div style="position: relative; width: 100%; height: 100%; border: 1px solid #ddd; border-radius: 8px; overflow: hidden;">
+              <div style="position: absolute; top: 10px; right: 10px; background: rgba(0,0,0,0.7); color: white; padding: 4px 8px; border-radius: 4px; font-size: 11px; z-index: 1000;">
+                ${userEmail} | ${new Date().toLocaleString()}
+              </div>
+              <div style="position: absolute; top: 10px; left: 10px; background: rgba(0,0,0,0.7); color: white; padding: 4px 8px; border-radius: 4px; font-size: 11px; z-index: 1000;">
+                🔒 Secure View
+              </div>
+              <iframe 
+                src="${file.url}#toolbar=0&navpanes=0&scrollbar=0&view=FitH" 
+                style="width: 100%; height: 100%; border: none;"
+                oncontextmenu="return false;"
+                sandbox="allow-same-origin allow-scripts allow-forms"
+                title="Secure PDF Viewer"
+              ></iframe>
+              <div style="position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.7); color: white; padding: 4px 8px; border-radius: 4px; font-size: 10px; z-index: 1000;">
+                Viewed by: ${userEmail} | ${new Date().toLocaleString()}
+              </div>
             </div>
           </div>
         </div>
