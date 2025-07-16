@@ -4995,7 +4995,7 @@ function openFileManager(unitKey, lessonKey = null) {
         <!-- Files List Section -->
         <div class="files-list-section">
           <h4 style="color: #6c4fc1; margin-bottom: 20px;">Uploaded Files</h4>
-          <div id="filesList" style="min-height: 200px;">
+          <div id="files-list" style="min-height: 200px;">
             <div style="text-align: center; padding: 40px; color: #666;">
               Loading files...
             </div>
@@ -5114,7 +5114,9 @@ function uploadFile(unitKey, lessonKey) {
 }
 
 function loadFiles(unitKey, lessonKey) {
-  const filesList = document.getElementById('filesList');
+  const filesList = document.getElementById('files-list');
+  if (!filesList) return;
+  
   let dbPath;
   
   if (lessonKey) {
@@ -5294,8 +5296,34 @@ function previewFile(fileId, unitKey, lessonKey) {
     `units/${unitKey}/lessons/${lessonKey}/files/${fileId}` : 
     `units/${unitKey}/files/${fileId}`;
   
+  console.log('Loading teacher dashboard file for preview from path:', dbPath); // Debug log
+  
   db.ref(dbPath).once('value').then(snapshot => {
     if (!snapshot.exists()) {
+      console.log('File not found at path:', dbPath); // Debug log
+      
+      // If it's a lesson file and not found, try the new structure
+      if (lessonKey && dbPath.includes('/lessons/')) {
+        console.log('Trying new structure for lesson file preview'); // Debug log
+        const newDbPath = `units/${unitKey}/lesson${lessonKey}/files/${fileId}`;
+        console.log('Loading file from new path:', newDbPath); // Debug log
+        
+        db.ref(newDbPath).once('value').then(newSnapshot => {
+          if (newSnapshot.exists()) {
+            console.log('Found file in new structure'); // Debug log
+            const file = newSnapshot.val();
+            showFilePreview(file);
+          } else {
+            console.log('File not found in new structure either'); // Debug log
+            alert('File not found');
+          }
+        }).catch(error => {
+          console.error('Error loading file from new structure:', error);
+          alert('Error loading file preview');
+        });
+        return;
+      }
+      
       alert('File not found');
       return;
     }
@@ -5423,8 +5451,34 @@ function editFile(fileId, unitKey, lessonKey) {
     `units/${unitKey}/lessons/${lessonKey}/files/${fileId}` : 
     `units/${unitKey}/files/${fileId}`;
   
+  console.log('Loading teacher dashboard file for edit from path:', dbPath); // Debug log
+  
   db.ref(dbPath).once('value').then(snapshot => {
     if (!snapshot.exists()) {
+      console.log('File not found at path:', dbPath); // Debug log
+      
+      // If it's a lesson file and not found, try the new structure
+      if (lessonKey && dbPath.includes('/lessons/')) {
+        console.log('Trying new structure for lesson file edit'); // Debug log
+        const newDbPath = `units/${unitKey}/lesson${lessonKey}/files/${fileId}`;
+        console.log('Loading file from new path:', newDbPath); // Debug log
+        
+        db.ref(newDbPath).once('value').then(newSnapshot => {
+          if (newSnapshot.exists()) {
+            console.log('Found file in new structure'); // Debug log
+            const file = newSnapshot.val();
+            showEditFileModal(file, unitKey, lessonKey);
+          } else {
+            console.log('File not found in new structure either'); // Debug log
+            alert('File not found');
+          }
+        }).catch(error => {
+          console.error('Error loading file from new structure:', error);
+          alert('Error loading file information');
+        });
+        return;
+      }
+      
       alert('File not found');
       return;
     }
@@ -5512,10 +5566,6 @@ function saveFileChanges(fileId, unitKey, lessonKey) {
     return;
   }
   
-  const dbPath = lessonKey ? 
-    `units/${unitKey}/lessons/${lessonKey}/files/${fileId}` : 
-    `units/${unitKey}/files/${fileId}`;
-  
   const updates = {
     name: name,
     type: type,
@@ -5524,14 +5574,61 @@ function saveFileChanges(fileId, unitKey, lessonKey) {
     updatedAt: Date.now()
   };
   
-  db.ref(dbPath).update(updates).then(() => {
-    alert('File updated successfully!');
-    closeEditFileModal();
-    loadFiles(unitKey, lessonKey);
-  }).catch(error => {
-    console.error('Error updating file:', error);
-    alert('Error updating file. Please try again.');
-  });
+  if (lessonKey) {
+    // For lessons, try the primary structure first
+    const primaryPath = `units/${unitKey}/lessons/${lessonKey}/files/${fileId}`;
+    const secondaryPath = `units/${unitKey}/lesson${lessonKey}/files/${fileId}`;
+    
+    console.log('Updating lesson file - Primary path:', primaryPath);
+    console.log('Updating lesson file - Secondary path:', secondaryPath);
+    
+    // Check if file exists in primary path
+    db.ref(primaryPath).once('value', (snapshot) => {
+      if (snapshot.exists()) {
+        console.log('Found file in primary path, updating...');
+        db.ref(primaryPath).update(updates).then(() => {
+          alert('File updated successfully!');
+          closeEditFileModal();
+          loadFiles(unitKey, lessonKey);
+        }).catch(error => {
+          console.error('Error updating file in primary path:', error);
+          alert('Error updating file. Please try again.');
+        });
+      } else {
+        console.log('File not found in primary path, trying secondary path...');
+        // Check if file exists in secondary path
+        db.ref(secondaryPath).once('value', (snapshot) => {
+          if (snapshot.exists()) {
+            console.log('Found file in secondary path, updating...');
+            db.ref(secondaryPath).update(updates).then(() => {
+              alert('File updated successfully!');
+              closeEditFileModal();
+              loadFiles(unitKey, lessonKey);
+            }).catch(error => {
+              console.error('Error updating file in secondary path:', error);
+              alert('Error updating file. Please try again.');
+            });
+          } else {
+            console.error('File not found in either path structure');
+            alert('Error: File not found. Please try again.');
+          }
+        });
+      }
+    });
+  } else {
+    // For units, use the unit path
+    const dbPath = `units/${unitKey}/files/${fileId}`;
+    console.log('Updating unit file - Path:', dbPath);
+    
+    db.ref(dbPath).update(updates).then(() => {
+      alert('File updated successfully!');
+      closeEditFileModal();
+      loadFiles(unitKey, lessonKey);
+    }).catch(error => {
+      console.error('Error updating file:', error);
+      alert('Error updating file. Please try again.');
+    });
+  }
 }
 
 function deleteFile(fileId, unitKey, lessonKey) {
@@ -5543,15 +5640,10 @@ function deleteFile(fileId, unitKey, lessonKey) {
     `units/${unitKey}/lessons/${lessonKey}/files/${fileId}` : 
     `units/${unitKey}/files/${fileId}`;
   
-  // First get the file data to delete from storage
-  db.ref(dbPath).once('value').then(snapshot => {
-    if (!snapshot.exists()) {
-      alert('File not found');
-      return;
-    }
-    
-    const file = snapshot.val();
-    
+  console.log('Loading teacher dashboard file for deletion from path:', dbPath); // Debug log
+  
+  // Helper function to delete file from both storage and database
+  function deleteFileFromPaths(file, dbPath) {
     // Delete from Firebase Storage
     const fileRef = firebase.storage().refFromURL(file.url);
     fileRef.delete().then(() => {
@@ -5571,6 +5663,41 @@ function deleteFile(fileId, unitKey, lessonKey) {
         loadFiles(unitKey, lessonKey);
       });
     });
+  }
+  
+  // First get the file data to delete from storage
+  db.ref(dbPath).once('value').then(snapshot => {
+    if (!snapshot.exists()) {
+      console.log('File not found at path:', dbPath); // Debug log
+      
+      // If it's a lesson file and not found, try the new structure
+      if (lessonKey && dbPath.includes('/lessons/')) {
+        console.log('Trying new structure for lesson file deletion'); // Debug log
+        const newDbPath = `units/${unitKey}/lesson${lessonKey}/files/${fileId}`;
+        console.log('Loading file from new path:', newDbPath); // Debug log
+        
+        db.ref(newDbPath).once('value').then(newSnapshot => {
+          if (newSnapshot.exists()) {
+            console.log('Found file in new structure'); // Debug log
+            const file = newSnapshot.val();
+            deleteFileFromPaths(file, newDbPath);
+          } else {
+            console.log('File not found in new structure either'); // Debug log
+            alert('File not found');
+          }
+        }).catch(error => {
+          console.error('Error loading file from new structure:', error);
+          alert('Error loading file information');
+        });
+        return;
+      }
+      
+      alert('File not found');
+      return;
+    }
+    
+    const file = snapshot.val();
+    deleteFileFromPaths(file, dbPath);
   }).catch(error => {
     console.error('Error loading file for deletion:', error);
     alert('Error loading file information');
