@@ -1578,7 +1578,7 @@ function showStudentFilePreview(file) {
           <h3 style="margin: 0; color: white; font-size: 18px;">📄 ${file.name}</h3>
           <button onclick="closeStudentFilePreview()" style="background: none; border: none; color: white; font-size: 24px; cursor: pointer; padding: 0; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; border-radius: 50%;">&times;</button>
         </div>
-        <iframe src="${viewerUrl}" style="width: 100%; height: calc(100% - 68px); border: none; background: white;"></iframe>
+        <iframe src="${viewerUrl}" style="width: 100%; height: calc(100% - 10%); border: none; background: white;"></iframe>
       </div>
     `;
   } else {
