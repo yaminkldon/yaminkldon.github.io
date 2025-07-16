@@ -5954,151 +5954,94 @@ function loadStudentSubmissions(assessmentId, type) {
     
     const assessment = assessmentSnapshot.val();
     
-    // Get all students - try multiple approaches
-    console.log('Attempting to load students...');
-    
-    // First try with role filter
-    db.ref('users').orderByChild('role').equalTo('student').once('value').then(studentsSnapshot => {
-      const students = [];
-      
-      console.log('Students snapshot exists:', studentsSnapshot.exists());
-      
-      if (studentsSnapshot.exists()) {
-        studentsSnapshot.forEach(child => {
-          console.log('Found student:', child.key, child.val());
-          students.push({
-            id: child.key,
-            name: child.val().name || child.val().email,
-            email: child.val().email
-          });
-        });
-      }
-      
-      console.log('Students found with role filter:', students.length);
-      
-      // If no students found with role filter, try loading all users
-      if (students.length === 0) {
-        console.log('No students found with role filter, trying all users...');
-        db.ref('users').once('value').then(allUsersSnapshot => {
-          if (allUsersSnapshot.exists()) {
-            allUsersSnapshot.forEach(child => {
-              const user = child.val();
-              console.log('Checking user:', child.key, user);
-              
-              // Include user if they have a role of 'student' or if they don't have a role specified
-              // (assuming users without role are students)
-              if (!user.role || user.role === 'student') {
-                students.push({
-                  id: child.key,
-                  name: user.name || user.email,
-                  email: user.email
-                });
-              }
-            });
-          }
-          
-          console.log('Total students found:', students.length);
-          
-          // Get submissions for this assessment
-          if (type === 'quiz') {
-            loadQuizSubmissionsForStudents(assessmentId, assessment, students, container);
-          } else {
-            loadAssignmentSubmissionsForStudents(assessmentId, assessment, students, container);
-          }
-        });
-      } else {
-        // Get submissions for this assessment
-        if (type === 'quiz') {
-          loadQuizSubmissionsForStudents(assessmentId, assessment, students, container);
-        } else {
-          loadAssignmentSubmissionsForStudents(assessmentId, assessment, students, container);
-        }
-      }
-    }).catch(error => {
-      console.error('Error loading students:', error);
-      // Fallback: try loading all users
-      db.ref('users').once('value').then(allUsersSnapshot => {
-        const students = [];
-        if (allUsersSnapshot.exists()) {
-          allUsersSnapshot.forEach(child => {
-            const user = child.val();
-            if (!user.role || user.role === 'student') {
-              students.push({
-                id: child.key,
-                name: user.name || user.email,
-                email: user.email
-              });
-            }
-          });
-        }
-        
-        console.log('Fallback students found:', students.length);
-        
-        // Get submissions for this assessment
-        if (type === 'quiz') {
-          loadQuizSubmissionsForStudents(assessmentId, assessment, students, container);
-        } else {
-          loadAssignmentSubmissionsForStudents(assessmentId, assessment, students, container);
-        }
-      });
-    });
+    // Get submissions first to know which students we need to find
+    if (type === 'quiz') {
+      loadQuizSubmissionsForStudents(assessmentId, assessment, [], container);
+    } else {
+      loadAssignmentSubmissionsForStudents(assessmentId, assessment, [], container);
+    }
   });
 }
 
 function loadQuizSubmissionsForStudents(quizId, quiz, students, container) {
   console.log('Loading quiz submissions for quiz ID:', quizId);
   
-  // First, let's check what's in the quizSubmissions database
-  db.ref('quizSubmissions').once('value').then(allSubmissionsSnapshot => {
-    console.log('All quiz submissions in database:', allSubmissionsSnapshot.exists());
+  // Get all quiz submissions for this quiz
+  db.ref('quizSubmissions').orderByChild('quizId').equalTo(quizId).once('value').then(snapshot => {
+    const submissions = {};
     
-    if (allSubmissionsSnapshot.exists()) {
-      console.log('All quiz submissions data:', allSubmissionsSnapshot.val());
-      
-      // Count total quiz submissions
-      let totalSubmissions = 0;
-      allSubmissionsSnapshot.forEach(child => {
-        totalSubmissions++;
-        const sub = child.val();
-        console.log('Quiz submission key:', child.key, 'quizId:', sub.quizId, 'studentId:', sub.studentId);
+    console.log('Quiz submissions snapshot exists:', snapshot.exists());
+    
+    if (snapshot.exists()) {
+      snapshot.forEach(child => {
+        const submission = child.val();
+        const studentId = submission.studentId;
+        
+        console.log('Found quiz submission for student:', studentId, submission);
+        
+        if (!submissions[studentId]) {
+          submissions[studentId] = [];
+        }
+        
+        submissions[studentId].push({
+          id: child.key,
+          ...submission
+        });
       });
-      console.log('Total quiz submissions found:', totalSubmissions);
     }
     
-    // Now try the filtered query
-    db.ref('quizSubmissions').orderByChild('quizId').equalTo(quizId).once('value').then(snapshot => {
-      const submissions = {};
+    console.log('Quiz submissions found:', Object.keys(submissions).length);
+    
+    // Now get all users to match students
+    db.ref('users').once('value').then(usersSnapshot => {
+      const studentsWithSubmissions = [];
       
-      console.log('Filtered quiz submissions snapshot exists:', snapshot.exists());
-      
-      if (snapshot.exists()) {
-        snapshot.forEach(child => {
-          const submission = child.val();
-          const studentId = submission.studentId;
-          
-          console.log('Found quiz submission for student:', studentId, submission);
-          
-          if (!submissions[studentId]) {
-            submissions[studentId] = [];
-          }
-          
-          submissions[studentId].push({
-            id: child.key,
-            ...submission
+      if (usersSnapshot.exists()) {
+        // First, try to match existing students by Auth UID from submissions
+        Object.keys(submissions).forEach(submissionStudentId => {
+          usersSnapshot.forEach(child => {
+            const user = child.val();
+            // Try to match by checking if the user's Auth UID matches the submission's studentId
+            // or if the user's email matches the submission's studentEmail
+            const submissionData = submissions[submissionStudentId][0];
+            
+            if (user.email === submissionData.studentEmail) {
+              studentsWithSubmissions.push({
+                id: submissionStudentId, // Use the Auth UID from submissions
+                dbKey: child.key,
+                name: user.name || user.email,
+                email: user.email
+              });
+            }
           });
+        });
+        
+        // Also add students who don't have submissions yet
+        usersSnapshot.forEach(child => {
+          const user = child.val();
+          if (user.type === 'student' || !user.type) {
+            // Check if we already have this student
+            const alreadyExists = studentsWithSubmissions.find(s => s.email === user.email);
+            if (!alreadyExists) {
+              studentsWithSubmissions.push({
+                id: child.key, // Use database key since we don't have their Auth UID
+                dbKey: child.key,
+                name: user.name || user.email,
+                email: user.email
+              });
+            }
+          }
         });
       }
       
-      console.log('Final quiz submissions object:', submissions);
-      console.log('Number of quiz submissions found:', Object.keys(submissions).length);
-      
-      displayStudentSubmissions(quizId, quiz, 'quiz', students, submissions, container);
+      console.log('Students with submissions:', studentsWithSubmissions.length);
+      displayStudentSubmissions(quizId, quiz, 'quiz', studentsWithSubmissions, submissions, container);
     }).catch(error => {
-      console.error('Error loading filtered quiz submissions:', error);
-      container.innerHTML = '<div style="text-align: center; padding: 20px; color: #ff5722;">Error loading quiz submissions</div>';
+      console.error('Error loading users:', error);
+      displayStudentSubmissions(quizId, quiz, 'quiz', [], submissions, container);
     });
   }).catch(error => {
-    console.error('Error loading all quiz submissions:', error);
+    console.error('Error loading quiz submissions:', error);
     container.innerHTML = '<div style="text-align: center; padding: 20px; color: #ff5722;">Error loading quiz submissions</div>';
   });
 }
@@ -6106,54 +6049,79 @@ function loadQuizSubmissionsForStudents(quizId, quiz, students, container) {
 function loadAssignmentSubmissionsForStudents(assignmentId, assignment, students, container) {
   console.log('Loading assignment submissions for assignment ID:', assignmentId);
   
-  // First, let's check what's in the submissions database
-  db.ref('submissions').once('value').then(allSubmissionsSnapshot => {
-    console.log('All submissions in database:', allSubmissionsSnapshot.exists());
+  // Get all assignment submissions for this assignment
+  db.ref('submissions').orderByChild('assignmentId').equalTo(assignmentId).once('value').then(snapshot => {
+    const submissions = {};
     
-    if (allSubmissionsSnapshot.exists()) {
-      console.log('All submissions data:', allSubmissionsSnapshot.val());
-      
-      // Count total submissions
-      let totalSubmissions = 0;
-      allSubmissionsSnapshot.forEach(child => {
-        totalSubmissions++;
-        const sub = child.val();
-        console.log('Submission key:', child.key, 'assignmentId:', sub.assignmentId, 'studentId:', sub.studentId);
+    console.log('Assignment submissions snapshot exists:', snapshot.exists());
+    
+    if (snapshot.exists()) {
+      snapshot.forEach(child => {
+        const submission = child.val();
+        const studentId = submission.studentId;
+        
+        console.log('Found assignment submission for student:', studentId, submission);
+        
+        submissions[studentId] = {
+          id: child.key,
+          ...submission
+        };
       });
-      console.log('Total submissions found:', totalSubmissions);
     }
     
-    // Now try the filtered query
-    db.ref('submissions').orderByChild('assignmentId').equalTo(assignmentId).once('value').then(snapshot => {
-      const submissions = {};
+    console.log('Assignment submissions found:', Object.keys(submissions).length);
+    
+    // Now get all users to match students
+    db.ref('users').once('value').then(usersSnapshot => {
+      const studentsWithSubmissions = [];
       
-      console.log('Filtered submissions snapshot exists:', snapshot.exists());
-      
-      if (snapshot.exists()) {
-        snapshot.forEach(child => {
-          const submission = child.val();
-          const studentId = submission.studentId;
-          
-          console.log('Found submission for student:', studentId, submission);
-          
-          submissions[studentId] = {
-            id: child.key,
-            ...submission
-          };
+      if (usersSnapshot.exists()) {
+        // First, try to match existing students by Auth UID from submissions
+        Object.keys(submissions).forEach(submissionStudentId => {
+          usersSnapshot.forEach(child => {
+            const user = child.val();
+            // Try to match by checking if the user's Auth UID matches the submission's studentId
+            // or if the user's email matches the submission's studentEmail
+            const submissionData = submissions[submissionStudentId];
+            
+            if (user.email === submissionData.studentEmail) {
+              studentsWithSubmissions.push({
+                id: submissionStudentId, // Use the Auth UID from submissions
+                dbKey: child.key,
+                name: user.name || user.email,
+                email: user.email
+              });
+            }
+          });
+        });
+        
+        // Also add students who don't have submissions yet
+        usersSnapshot.forEach(child => {
+          const user = child.val();
+          if (user.type === 'student' || !user.type) {
+            // Check if we already have this student
+            const alreadyExists = studentsWithSubmissions.find(s => s.email === user.email);
+            if (!alreadyExists) {
+              studentsWithSubmissions.push({
+                id: child.key, // Use database key since we don't have their Auth UID
+                dbKey: child.key,
+                name: user.name || user.email,
+                email: user.email
+              });
+            }
+          }
         });
       }
       
-      console.log('Final submissions object:', submissions);
-      console.log('Number of submissions found:', Object.keys(submissions).length);
-      
-      displayStudentSubmissions(assignmentId, assignment, 'assignment', students, submissions, container);
+      console.log('Students with submissions:', studentsWithSubmissions.length);
+      displayStudentSubmissions(assignmentId, assignment, 'assignment', studentsWithSubmissions, submissions, container);
     }).catch(error => {
-      console.error('Error loading filtered assignment submissions:', error);
-      container.innerHTML = '<div style="text-align: center; padding: 20px; color: #ff5722;">Error loading submissions</div>';
+      console.error('Error loading users:', error);
+      displayStudentSubmissions(assignmentId, assignment, 'assignment', [], submissions, container);
     });
   }).catch(error => {
-    console.error('Error loading all submissions:', error);
-    container.innerHTML = '<div style="text-align: center; padding: 20px; color: #ff5722;">Error loading submissions</div>';
+    console.error('Error loading assignment submissions:', error);
+    container.innerHTML = '<div style="text-align: center; padding: 20px; color: #ff5722;">Error loading assignment submissions</div>';
   });
 }
 
