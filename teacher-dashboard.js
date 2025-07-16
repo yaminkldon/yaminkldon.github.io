@@ -932,18 +932,14 @@ function addNewUser() {
 
 function addNewUnit() {
   const unitName = document.getElementById('unitName').value.trim();
-  const unitDescription = document.getElementById('unitDescription').value.trim();
-  const unitOrder = parseInt(document.getElementById('unitOrder').value);
   
-  if (!unitName || !unitOrder) {
-    NotificationManager.showToast('Please fill in all required fields');
+  if (!unitName) {
+    NotificationManager.showToast('Please fill in unit name');
     return;
   }
   
   const unitData = {
     name: unitName,
-    description: unitDescription,
-    order: unitOrder,
     createdAt: Date.now(),
     lessons: {}
   };
