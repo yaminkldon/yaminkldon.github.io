@@ -62,12 +62,90 @@
       flex-direction: column;
     }
     .drawer.open { transform: translateX(0); }
+    
+    /* Drawer tabs */
+    .drawer-tabs {
+      display: flex;
+      border-bottom: 1px solid #e0e0e0;
+      background: #f8f9fa;
+    }
+    
+    .drawer-tab {
+      flex: 1;
+      padding: 12px 16px;
+      text-align: center;
+      cursor: pointer;
+      background: #f8f9fa;
+      border: none;
+      border-bottom: 3px solid transparent;
+      transition: all 0.2s ease;
+      font-size: 14px;
+      font-weight: 500;
+      color: #666;
+    }
+    
+    .drawer-tab.active {
+      background: #fff;
+      color: #6c4fc1;
+      border-bottom-color: #6c4fc1;
+    }
+    
+    .drawer-tab:hover {
+      background: #e9ecef;
+    }
+    
+    .drawer-tab.active:hover {
+      background: #fff;
+    }
+    
+    .drawer-content {
+      flex: 1;
+      overflow-y: auto;
+    }
+    
+    /* Dark mode for drawer tabs */
+    body.dark-mode .drawer-tabs {
+      background: #1f1f1f;
+      border-bottom-color: #444;
+    }
+    
+    body.dark-mode .drawer-tab {
+      background: #1f1f1f;
+      color: #ccc;
+    }
+    
+    body.dark-mode .drawer-tab.active {
+      background: #2d2d2d;
+      color: #8b7cf6;
+    }
+    
+    body.dark-mode .drawer-tab:hover {
+      background: #333;
+    }
+    
+    body.dark-mode .drawer-tab.active:hover {
+      background: #2d2d2d;
+    }
+    
+    /* Tab content styles */
+    .tab-content {
+      display: block;
+    }
+    
+    .tab-content.active {
+      display: block;
+    }
+    
+    .tab-content:not(.active) {
+      display: none;
+    }
+    
     .drawer ul {
       list-style: none; padding: 0; margin: 0;
       flex: 1 1 auto;
       /* This makes the ul take all available space except for the button */
     }
-    .drawer li { padding: 18px 24px; color: #222c5c; cursor: pointer; }
+    .drawer li { padding: 18px 24px; color: #222c5c; cursor: pointer; border-bottom: 1px solid #eee; }
     .drawer li:hover { background: #f0f0f0; }
     .drawer button {
       width: 90%;
@@ -80,6 +158,57 @@
       font-size: 1em;
       cursor: pointer;
       box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    }
+    
+    /* Unit item styles */
+    .unit-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      width: 100%;
+      padding: 12px 0;
+    }
+    
+    .unit-info {
+      flex: 1;
+      cursor: pointer;
+    }
+    
+    .unit-name {
+      font-weight: 500;
+      margin-bottom: 4px;
+    }
+    
+    .unit-progress {
+      font-size: 12px;
+      color: #666;
+      margin-top: 4px;
+    }
+    
+    body.dark-mode .unit-progress {
+      color: #ccc;
+    }
+    
+    .unit-files-btn {
+      padding: 6px 12px;
+      background: #17a2b8;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      font-size: 11px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      transition: background 0.2s ease;
+    }
+    
+    .unit-files-btn:hover {
+      background: #138496;
+    }
+    
+    .unit-files-btn .material-icons {
+      font-size: 14px;
     }
     .main-content {
       margin-top: 56px;
@@ -492,28 +621,54 @@ body.dark-mode .search-result-description {
     </div>
   <div class="drawer-backdrop" id="drawer-backdrop" onclick="closeDrawer()"></div>
   <nav class="drawer" id="drawer">
-    <ul id="units-list">
-      <li id="searchMenuItem" onclick="showSearchSection()" style="border-bottom: 1px solid #eee;" data-static="true">
-        <span class="material-icons" style="vertical-align: middle; margin-right: 12px;">search</span>
-        <span data-translate="searchLessons">Search Lessons</span>
-      </li>
-      <li onclick="openAssignments()" style="border-bottom: 1px solid #eee;" data-static="true">
-        <span class="material-icons" style="vertical-align: middle; margin-right: 12px;">assignment</span>
-        <span data-translate="assignments">Assignments & Quizzes</span>
-      </li>
-      <li onclick="openProgress()" style="border-bottom: 1px solid #eee;" data-static="true">
-        <span class="material-icons" style="vertical-align: middle; margin-right: 12px;">trending_up</span>
-        <span data-translate="progress">Progress</span>
-      </li>
-      <li onclick="openSettings()" style="border-bottom: 1px solid #eee;" data-static="true">
-        <span class="material-icons" style="vertical-align: middle; margin-right: 12px;">settings</span>
-        <span data-translate="settings">Settings</span>
-      </li>
-      <li onclick="openAdvancedSettings()" style="border-bottom: 1px solid #eee;" data-static="true">
-        <span class="material-icons" style="vertical-align: middle; margin-right: 12px;">tune</span>
-        <span data-translate="advancedSettings">Advanced Settings</span>
-      </li>
-    </ul>
+    <!-- Drawer Tabs -->
+    <div class="drawer-tabs">
+      <button class="drawer-tab active" onclick="switchDrawerTab('units')">
+        <span class="material-icons" style="font-size: 16px; margin-right: 4px;">school</span>
+        Units
+      </button>
+      <button class="drawer-tab" onclick="switchDrawerTab('settings')">
+        <span class="material-icons" style="font-size: 16px; margin-right: 4px;">settings</span>
+        Settings
+      </button>
+    </div>
+    
+    <!-- Drawer Content -->
+    <div class="drawer-content">
+      <!-- Units Tab Content -->
+      <div id="units-tab-content" class="tab-content active">
+        <ul id="units-list">
+          <!-- Units will be populated here by JavaScript -->
+        </ul>
+      </div>
+      
+      <!-- Settings Tab Content -->
+      <div id="settings-tab-content" class="tab-content" style="display: none;">
+        <ul>
+          <li id="searchMenuItem" onclick="showSearchSection()" style="border-bottom: 1px solid #eee;" data-static="true">
+            <span class="material-icons" style="vertical-align: middle; margin-right: 12px;">search</span>
+            <span data-translate="searchLessons">Search Lessons</span>
+          </li>
+          <li onclick="openAssignments()" style="border-bottom: 1px solid #eee;" data-static="true">
+            <span class="material-icons" style="vertical-align: middle; margin-right: 12px;">assignment</span>
+            <span data-translate="assignments">Assignments & Quizzes</span>
+          </li>
+          <li onclick="openProgress()" style="border-bottom: 1px solid #eee;" data-static="true">
+            <span class="material-icons" style="vertical-align: middle; margin-right: 12px;">trending_up</span>
+            <span data-translate="progress">Progress</span>
+          </li>
+          <li onclick="openSettings()" style="border-bottom: 1px solid #eee;" data-static="true">
+            <span class="material-icons" style="vertical-align: middle; margin-right: 12px;">settings</span>
+            <span data-translate="settings">Settings</span>
+          </li>
+          <li onclick="openAdvancedSettings()" style="border-bottom: 1px solid #eee;" data-static="true">
+            <span class="material-icons" style="vertical-align: middle; margin-right: 12px;">tune</span>
+            <span data-translate="advancedSettings">Advanced Settings</span>
+          </li>
+        </ul>
+      </div>
+    </div>
+    
     <button onclick="logout()" data-translate="logout">Logout</button>
   </nav>
   
@@ -763,13 +918,8 @@ body.dark-mode .search-result-description {
         
         console.log('Populating units menu with', Object.keys(units).length, 'units');
         
-        // Remove existing unit items (keep static items)
-        const staticItems = unitsList.querySelectorAll('[data-static="true"]');
-        const staticItemsArray = Array.from(staticItems);
+        // Clear the units list
         unitsList.innerHTML = '';
-        
-        // Re-add static items
-        staticItemsArray.forEach(item => unitsList.appendChild(item));
         
         // Add units
         Object.keys(units).forEach(unitKey => {
@@ -784,8 +934,15 @@ body.dark-mode .search-result-description {
             }
           };
           li.innerHTML = `
-            <span class="material-icons" style="vertical-align: middle; margin-right: 12px;">folder</span>
-            <span>${unit.name || unitKey}</span>
+            <div class="unit-item">
+              <div class="unit-info">
+                <div class="unit-name">${unit.name || unitKey}</div>
+              </div>
+              <button class="unit-files-btn" onclick="event.stopPropagation(); openStudentFileViewer('${unitKey}', null)">
+                <span class="material-icons">folder</span>
+                Files
+              </button>
+            </div>
           `;
           unitsList.appendChild(li);
         });
@@ -863,6 +1020,30 @@ body.dark-mode .search-result-description {
         backdrop.style.display = 'block';
       }
     }
+    
+    function switchDrawerTab(tabName) {
+      // Remove active class from all tabs
+      document.querySelectorAll('.drawer-tab').forEach(tab => {
+        tab.classList.remove('active');
+      });
+      
+      // Hide all tab content
+      document.querySelectorAll('.tab-content').forEach(content => {
+        content.classList.remove('active');
+        content.style.display = 'none';
+      });
+      
+      // Show selected tab content
+      const selectedContent = document.getElementById(tabName + '-tab-content');
+      if (selectedContent) {
+        selectedContent.classList.add('active');
+        selectedContent.style.display = 'block';
+      }
+      
+      // Add active class to clicked tab
+      event.target.classList.add('active');
+    }
+    
     function onFabClick() {
       if (!isAppInitialized) return;
       // Example: open mail or show a message

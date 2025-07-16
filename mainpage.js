@@ -62,12 +62,8 @@ function loadUnits() {
       return db.ref('units').once('value').then(snapshot => {
         const unitsList = document.getElementById('units-list');
         
-        // Clear only the units, preserve Progress and Settings
-        const staticItems = unitsList.querySelectorAll('li[data-static="true"]');
+        // Clear the units list
         unitsList.innerHTML = '';
-        
-        // Re-add static items (Progress and Settings)
-        staticItems.forEach(item => unitsList.appendChild(item));
         
         // Add Teacher Dashboard for teachers
         addTeacherDashboardIfApplicable();
@@ -82,16 +78,16 @@ function loadUnits() {
           const li = document.createElement('li');
           li.onclick = () => goToUnit(unitName);
           li.innerHTML = `
-            <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
-              <div style="flex: 1; cursor: pointer;"">
-                <span>${unitName}</span>
-                <div style="font-size: 12px; color: #666; margin-top: 4px;">
+            <div class="unit-item">
+              <div class="unit-info">
+                <div class="unit-name">${unitName}</div>
+                <div class="unit-progress">
                   ${progress.completed}/${progress.total} lessons
                   ${progress.percentage > 0 ? `(${progress.percentage}%)` : ''}
                 </div>
               </div>
-              <button onclick="event.stopPropagation(); openStudentFileViewer('${unitName}', null)" style="padding: 4px 8px; background: #17a2b8; color: white; border: none; border-radius: 4px; font-size: 10px; cursor: pointer; margin: 0%; align-items: center; gap: 4px;">
-                <span class="material-icons" style="font-size: 12px;">folder</span>
+              <button class="unit-files-btn" onclick="event.stopPropagation(); openStudentFileViewer('${unitName}', null)">
+                <span class="material-icons">folder</span>
                 Files
               </button>
             </div>
@@ -121,24 +117,20 @@ function loadUnitsWithoutProgress() {
   db.ref('units').once('value').then(snapshot => {
     const unitsList = document.getElementById('units-list');
     
-    // Clear only the units, preserve Progress and Settings
-    const staticItems = unitsList.querySelectorAll('li[data-static="true"]');
+    // Clear the units list
     unitsList.innerHTML = '';
-    
-    // Re-add static items (Progress and Settings)
-    staticItems.forEach(item => unitsList.appendChild(item));
     
     snapshot.forEach(unitSnap => {
       const unitName = unitSnap.key;
       const li = document.createElement('li');
       li.onclick = () => goToUnit(unitName);
       li.innerHTML = `
-        <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
-          <div style="flex: 1; cursor: pointer;"">
-            <span>${unitName}</span>
+        <div class="unit-item">
+          <div class="unit-info">
+            <div class="unit-name">${unitName}</div>
           </div>
-          <button onclick="event.stopPropagation(); openStudentFileViewer('${unitName}', null)" style="padding: 4px 8px; background: #17a2b8; color: white; border: none; border-radius: 4px; font-size: 10px; cursor: pointer; margin: 0%; align-items: center; gap: 4px;">
-            <span class="material-icons" style="font-size: 12px;">folder</span>
+          <button class="unit-files-btn" onclick="event.stopPropagation(); openStudentFileViewer('${unitName}', null)">
+            <span class="material-icons">folder</span>
             Files
           </button>
         </div>
