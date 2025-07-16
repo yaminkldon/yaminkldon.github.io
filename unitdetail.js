@@ -20,6 +20,65 @@ let currentUnitName = null;
 let currentUnitData = null;
 let currentVideoPlayerCleanup = null;
 
+// Cache management
+const CacheManager = {
+  // Cache duration in milliseconds (24 hours)
+  CACHE_DURATION: 24 * 60 * 60 * 1000,
+  
+  // Cache keys
+  CACHE_KEYS: {
+    UNITS: 'cached_units',
+    LESSONS: 'cached_lessons',
+    PROGRESS: 'cached_progress',
+    ASSIGNMENTS: 'cached_assignments',
+    QUIZZES: 'cached_quizzes'
+  },
+  
+  // Set cache with timestamp
+  setCache: function(key, data) {
+    const cacheData = {
+      timestamp: Date.now(),
+      data: data
+    };
+    localStorage.setItem(key, JSON.stringify(cacheData));
+  },
+  
+  // Get cache if not expired
+  getCache: function(key) {
+    const cachedItem = localStorage.getItem(key);
+    if (!cachedItem) return null;
+    
+    try {
+      const parsedItem = JSON.parse(cachedItem);
+      const now = Date.now();
+      
+      // Check if cache is expired
+      if (now - parsedItem.timestamp > this.CACHE_DURATION) {
+        localStorage.removeItem(key);
+        return null;
+      }
+      
+      return parsedItem.data;
+    } catch (error) {
+      console.error('Error parsing cache:', error);
+      localStorage.removeItem(key);
+      return null;
+    }
+  },
+  
+  // Clear specific cache
+  clearCache: function(key) {
+    localStorage.removeItem(key);
+  },
+  
+  // Clear all cache
+  clearAllCache: function() {
+    Object.values(this.CACHE_KEYS).forEach(key => {
+      localStorage.removeItem(key);
+    });
+  }
+};
+
 // Initialize page
 firebase.auth().onAuthStateChanged(function(user) {
   if (user) {
@@ -80,6 +139,17 @@ function loadUnitFromParams() {
 }
 function loadUnitLessons(unitName, selectedLesson = null) {
   console.log('Loading unit:', unitName, 'Selected lesson:', selectedLesson); // Debug log
+  
+  // Try to load from cache first
+  const cachedUnits = CacheManager.getCache(CacheManager.CACHE_KEYS.UNITS);
+  if (cachedUnits && cachedUnits[unitName]) {
+    console.log('Loading unit from cache:', unitName);
+    currentUnitData = cachedUnits[unitName];
+    renderLessons(selectedLesson);
+    return;
+  }
+  
+  console.log('Loading unit from database:', unitName);
   db.ref('units/' + unitName).once('value')
     .then(snapshot => {
       if (!snapshot.exists()) {
@@ -91,6 +161,12 @@ function loadUnitLessons(unitName, selectedLesson = null) {
       
       currentUnitData = snapshot.val();
       console.log('Unit data loaded:', currentUnitData); // Debug log
+      
+      // Cache the unit data
+      const existingCache = CacheManager.getCache(CacheManager.CACHE_KEYS.UNITS) || {};
+      existingCache[unitName] = currentUnitData;
+      CacheManager.setCache(CacheManager.CACHE_KEYS.UNITS, existingCache);
+      
       renderLessons(selectedLesson);
     })
     .catch(error => {

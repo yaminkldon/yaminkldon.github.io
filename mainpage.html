@@ -667,6 +667,10 @@ body.dark-mode .search-result-description {
             <span class="material-icons" style="vertical-align: middle; margin-right: 12px;">tune</span>
             <span data-translate="advancedSettings">Advanced Settings</span>
           </li>
+          <li onclick="refreshCache()" style="border-bottom: 1px solid #eee;" data-static="true">
+            <span class="material-icons" style="vertical-align: middle; margin-right: 12px;">refresh</span>
+            <span data-translate="refreshCache">Refresh Cache</span>
+          </li>
         </ul>
       </div>
     </div>
@@ -881,8 +885,19 @@ body.dark-mode .search-result-description {
     function loadUnitsData() {
       return new Promise((resolve) => {
         try {
+          // Try to load from cache first
+          const cachedUnits = CacheManager && CacheManager.getCache ? CacheManager.getCache(CacheManager.CACHE_KEYS.UNITS) : null;
+          
+          if (cachedUnits) {
+            console.log('Loading units data from cache');
+            window.unitsData = cachedUnits;
+            populateUnitsMenu(cachedUnits);
+            resolve();
+            return;
+          }
+          
+          console.log('Loading units data from database');
           if (window.db) {
-            console.log('Loading units data...');
             window.db.ref('units').once('value')
               .then(snapshot => {
                 const units = snapshot.val();
@@ -890,6 +905,12 @@ body.dark-mode .search-result-description {
                 if (units) {
                   // Store units data globally for immediate access
                   window.unitsData = units;
+                  
+                  // Cache the units data
+                  if (CacheManager && CacheManager.setCache) {
+                    CacheManager.setCache(CacheManager.CACHE_KEYS.UNITS, units);
+                  }
+                  
                   // Populate the drawer menu
                   populateUnitsMenu(units);
                 }
@@ -908,6 +929,19 @@ body.dark-mode .search-result-description {
           resolve(); // Continue even if there's an error
         }
       });
+    }
+    
+    // Function to refresh cache
+    function refreshCache() {
+      if (typeof CacheManager !== 'undefined' && CacheManager.clearAllCache) {
+        CacheManager.clearAllCache();
+        console.log('Cache cleared, reloading data...');
+        
+        // Reload the page to fetch fresh data
+        setTimeout(() => {
+          window.location.reload();
+        }, 500);
+      }
     }
     
     function populateUnitsMenu(units) {

@@ -54,47 +54,98 @@ let lessons = [];
 let openedLessonKey = null; // Add this at the top with your other globals
 let plyrPlayer = null;
 
-// Load units into drawer
+// Cache management
+const CacheManager = {
+  // Cache duration in milliseconds (24 hours)
+  CACHE_DURATION: 24 * 60 * 60 * 1000,
+  
+  // Cache keys
+  CACHE_KEYS: {
+    UNITS: 'cached_units',
+    LESSONS: 'cached_lessons',
+    PROGRESS: 'cached_progress',
+    ASSIGNMENTS: 'cached_assignments',
+    QUIZZES: 'cached_quizzes'
+  },
+  
+  // Set cache with timestamp
+  setCache: function(key, data) {
+    const cacheData = {
+      timestamp: Date.now(),
+      data: data
+    };
+    localStorage.setItem(key, JSON.stringify(cacheData));
+  },
+  
+  // Get cache if not expired
+  getCache: function(key) {
+    const cachedItem = localStorage.getItem(key);
+    if (!cachedItem) return null;
+    
+    try {
+      const parsedItem = JSON.parse(cachedItem);
+      const now = Date.now();
+      
+      // Check if cache is expired
+      if (now - parsedItem.timestamp > this.CACHE_DURATION) {
+        localStorage.removeItem(key);
+        return null;
+      }
+      
+      return parsedItem.data;
+    } catch (error) {
+      console.error('Error parsing cache:', error);
+      localStorage.removeItem(key);
+      return null;
+    }
+  },
+  
+  // Clear specific cache
+  clearCache: function(key) {
+    localStorage.removeItem(key);
+  },
+  
+  // Clear all cache
+  clearAllCache: function() {
+    Object.values(this.CACHE_KEYS).forEach(key => {
+      localStorage.removeItem(key);
+    });
+  },
+  
+  // Force refresh cache
+  forceRefresh: function(key, fetchFunction) {
+    this.clearCache(key);
+    return fetchFunction();
+  }
+};
+
+// Load units into drawer with caching
 function loadUnits() {
+  // Try to load from cache first
+  const cachedUnits = CacheManager.getCache(CacheManager.CACHE_KEYS.UNITS);
+  const cachedProgress = CacheManager.getCache(CacheManager.CACHE_KEYS.PROGRESS);
+  
+  if (cachedUnits && cachedProgress) {
+    console.log('Loading units from cache');
+    displayUnits(cachedUnits, cachedProgress);
+    return;
+  }
+  
+  console.log('Loading units from database');
+  
   // Load user progress first, then units
   ProgressTracker.getUserProgress()
     .then(userProgress => {
+      // Cache progress
+      CacheManager.setCache(CacheManager.CACHE_KEYS.PROGRESS, userProgress);
+      
       return db.ref('units').once('value').then(snapshot => {
-        const unitsList = document.getElementById('units-list');
+        const unitsData = snapshot.val();
         
-        // Clear the units list
-        unitsList.innerHTML = '';
+        // Cache units data
+        CacheManager.setCache(CacheManager.CACHE_KEYS.UNITS, unitsData);
         
-        // Add Teacher Dashboard for teachers
-        addTeacherDashboardIfApplicable();
-        
-        snapshot.forEach(unitSnap => {
-          const unitName = unitSnap.key;
-          const unitData = unitSnap.val();
-          
-          // Calculate progress for this unit
-          const progress = calculateUnitProgress(unitName, unitData, userProgress);
-          
-          const li = document.createElement('li');
-          li.onclick = () => goToUnit(unitName);
-          li.innerHTML = `
-            <div class="unit-item">
-              <div class="unit-info">
-                <div class="unit-name">${unitName}</div>
-                <div class="unit-progress">
-                  ${progress.completed}/${progress.total} lessons
-                  ${progress.percentage > 0 ? `(${progress.percentage}%)` : ''}
-                </div>
-              </div>
-              <button class="unit-files-btn" onclick="event.stopPropagation(); openStudentFileViewer('${unitName}', null)" style="margin: 0%; width: 50%;">
-                <span class="material-icons">folder</span>
-                Files
-              </button>
-            </div>
-          `;
-          
-          unitsList.appendChild(li);
-        });
+        displayUnits(unitsData, userProgress);
       });
     })
     .catch(error => {
@@ -102,6 +153,46 @@ function loadUnits() {
       // Fallback to loading units without progress
       loadUnitsWithoutProgress();
     });
+}
+
+// Display units in the drawer
+function displayUnits(unitsData, userProgress) {
+  const unitsList = document.getElementById('units-list');
+  
+  // Clear the units list
+  unitsList.innerHTML = '';
+  
+  // Add Teacher Dashboard for teachers
+  addTeacherDashboardIfApplicable();
+  
+  if (unitsData) {
+    Object.keys(unitsData).forEach(unitName => {
+      const unitData = unitsData[unitName];
+      
+      // Calculate progress for this unit
+      const progress = calculateUnitProgress(unitName, unitData, userProgress);
+      
+      const li = document.createElement('li');
+      li.onclick = () => goToUnit(unitName);
+      li.innerHTML = `
+        <div class="unit-item">
+          <div class="unit-info">
+            <div class="unit-name">${unitName}</div>
+            <div class="unit-progress">
+              ${progress.completed}/${progress.total} lessons
+              ${progress.percentage > 0 ? `(${progress.percentage}%)` : ''}
+            </div>
+          </div>
+          <button class="unit-files-btn" onclick="event.stopPropagation(); openStudentFileViewer('${unitName}', null)" style="margin: 0%; width: 50%;">
+            <span class="material-icons">folder</span>
+            Files
+          </button>
+        </div>
+      `;
+      
+      unitsList.appendChild(li);
+    });
+  }
 }
 
 function goToUnit(unitName) {
@@ -114,14 +205,35 @@ function goToUnit(unitName) {
 }
 
 function loadUnitsWithoutProgress() {
+  // Try to load from cache first
+  const cachedUnits = CacheManager.getCache(CacheManager.CACHE_KEYS.UNITS);
+  
+  if (cachedUnits) {
+    console.log('Loading units from cache (no progress)');
+    displayUnitsWithoutProgress(cachedUnits);
+    return;
+  }
+  
+  console.log('Loading units from database (no progress)');
+  
   db.ref('units').once('value').then(snapshot => {
-    const unitsList = document.getElementById('units-list');
+    const unitsData = snapshot.val();
     
-    // Clear the units list
-    unitsList.innerHTML = '';
+    // Cache units data
+    CacheManager.setCache(CacheManager.CACHE_KEYS.UNITS, unitsData);
     
-    snapshot.forEach(unitSnap => {
-      const unitName = unitSnap.key;
+    displayUnitsWithoutProgress(unitsData);
+  });
+}
+
+function displayUnitsWithoutProgress(unitsData) {
+  const unitsList = document.getElementById('units-list');
+  
+  // Clear the units list
+  unitsList.innerHTML = '';
+  
+  if (unitsData) {
+    Object.keys(unitsData).forEach(unitName => {
       const li = document.createElement('li');
       li.onclick = () => goToUnit(unitName);
       li.innerHTML = `
@@ -137,7 +249,7 @@ function loadUnitsWithoutProgress() {
       `;
       unitsList.appendChild(li);
     });
-  });
+  }
 }
 
 function calculateUnitProgress(unitName, unitData, userProgress) {

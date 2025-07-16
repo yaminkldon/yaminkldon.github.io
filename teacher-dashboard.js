@@ -15,6 +15,65 @@ firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 const storage = firebase.storage();
 
+// Cache management for teacher dashboard
+const TeacherCacheManager = {
+  // Cache duration in milliseconds (6 hours for teacher dashboard)
+  CACHE_DURATION: 6 * 60 * 60 * 1000,
+  
+  // Cache keys
+  CACHE_KEYS: {
+    DASHBOARD_STATS: 'teacher_dashboard_stats',
+    UNITS: 'teacher_units',
+    ASSIGNMENTS: 'teacher_assignments',
+    QUIZZES: 'teacher_quizzes',
+    USERS: 'teacher_users'
+  },
+  
+  // Set cache with timestamp
+  setCache: function(key, data) {
+    const cacheData = {
+      timestamp: Date.now(),
+      data: data
+    };
+    localStorage.setItem(key, JSON.stringify(cacheData));
+  },
+  
+  // Get cache if not expired
+  getCache: function(key) {
+    const cachedItem = localStorage.getItem(key);
+    if (!cachedItem) return null;
+    
+    try {
+      const parsedItem = JSON.parse(cachedItem);
+      const now = Date.now();
+      
+      // Check if cache is expired
+      if (now - parsedItem.timestamp > this.CACHE_DURATION) {
+        localStorage.removeItem(key);
+        return null;
+      }
+      
+      return parsedItem.data;
+    } catch (error) {
+      console.error('Error parsing teacher cache:', error);
+      localStorage.removeItem(key);
+      return null;
+    }
+  },
+  
+  // Clear specific cache
+  clearCache: function(key) {
+    localStorage.removeItem(key);
+  },
+  
+  // Clear all cache
+  clearAllCache: function() {
+    Object.values(this.CACHE_KEYS).forEach(key => {
+      localStorage.removeItem(key);
+    });
+  }
+};
+
 // Initialize Advanced Features
 let advancedFeatures = null;
 
@@ -2196,6 +2255,20 @@ function showSessionInfo() {
 
 function goBack() {
   Navigation.goToMainPage();
+}
+
+// Function to refresh teacher cache
+function refreshTeacherCache() {
+  if (typeof TeacherCacheManager !== 'undefined') {
+    TeacherCacheManager.clearAllCache();
+    console.log('Teacher cache cleared, reloading dashboard...');
+    
+    // Reload dashboard data
+    loadDashboardData();
+    
+    // Show notification or alert
+    alert('Cache refreshed successfully!');
+  }
 }
 
 // Close modals when clicking outside

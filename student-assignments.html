@@ -646,6 +646,7 @@
   <div class="appbar">
     <span class="material-icons" onclick="goBack()">arrow_back</span>
     <span style="font-size:1.2em;flex:1;" data-translate="studentAssignments">Student Assignments</span>
+    <span class="material-icons" onclick="refreshAssignmentsCache()" style="cursor: pointer; margin-left: 16px;" title="Refresh Cache">refresh</span>
   </div>
 
   <div class="container">
@@ -756,6 +757,65 @@
   <script src="global.js"></script>
   <script src="assignment-system.js"></script>
   <script>
+    // Cache management
+    const CacheManager = {
+      // Cache duration in milliseconds (24 hours)
+      CACHE_DURATION: 24 * 60 * 60 * 1000,
+      
+      // Cache keys
+      CACHE_KEYS: {
+        UNITS: 'cached_units',
+        LESSONS: 'cached_lessons',
+        PROGRESS: 'cached_progress',
+        ASSIGNMENTS: 'cached_assignments',
+        QUIZZES: 'cached_quizzes'
+      },
+      
+      // Set cache with timestamp
+      setCache: function(key, data) {
+        const cacheData = {
+          timestamp: Date.now(),
+          data: data
+        };
+        localStorage.setItem(key, JSON.stringify(cacheData));
+      },
+      
+      // Get cache if not expired
+      getCache: function(key) {
+        const cachedItem = localStorage.getItem(key);
+        if (!cachedItem) return null;
+        
+        try {
+          const parsedItem = JSON.parse(cachedItem);
+          const now = Date.now();
+          
+          // Check if cache is expired
+          if (now - parsedItem.timestamp > this.CACHE_DURATION) {
+            localStorage.removeItem(key);
+            return null;
+          }
+          
+          return parsedItem.data;
+        } catch (error) {
+          console.error('Error parsing cache:', error);
+          localStorage.removeItem(key);
+          return null;
+        }
+      },
+      
+      // Clear specific cache
+      clearCache: function(key) {
+        localStorage.removeItem(key);
+      },
+      
+      // Clear all cache
+      clearAllCache: function() {
+        Object.values(this.CACHE_KEYS).forEach(key => {
+          localStorage.removeItem(key);
+        });
+      }
+    };
+    
     // Firebase configuration
     const firebaseConfig = {
       apiKey: "AIzaSyCVoy2aBaQO1RDpoGGPIBqriFnGdKeNqHk",
@@ -798,6 +858,15 @@
       const grid = document.getElementById('assignmentsGrid');
       grid.innerHTML = '<div style="text-align: center; padding: 20px;">Loading assignments...</div>';
       
+      // Try to load from cache first
+      const cachedAssignments = CacheManager.getCache(CacheManager.CACHE_KEYS.ASSIGNMENTS);
+      if (cachedAssignments) {
+        console.log('Loading assignments from cache');
+        displayAssignments(cachedAssignments);
+        return;
+      }
+      
+      console.log('Loading assignments from database');
       db.ref('assignments').once('value').then(snapshot => {
         grid.innerHTML = '';
         if (snapshot.exists()) {
@@ -809,12 +878,10 @@
             });
           });
           
-          assignments.forEach(assignment => {
-            checkSubmissionStatus(assignment.id).then(status => {
-              const card = createAssignmentCard(assignment, status);
-              grid.insertAdjacentHTML('beforeend', card);
-            });
-          });
+          // Cache the assignments
+          CacheManager.setCache(CacheManager.CACHE_KEYS.ASSIGNMENTS, assignments);
+          
+          displayAssignments(assignments);
         } else {
           grid.innerHTML = `
             <div class="empty-state">
@@ -826,12 +893,34 @@
         }
       });
     }
+    
+    // Display assignments
+    function displayAssignments(assignments) {
+      const grid = document.getElementById('assignmentsGrid');
+      grid.innerHTML = '';
+      
+      assignments.forEach(assignment => {
+        checkSubmissionStatus(assignment.id).then(status => {
+          const card = createAssignmentCard(assignment, status);
+          grid.insertAdjacentHTML('beforeend', card);
+        });
+      });
+    }
 
     // Load quizzes for current user
     function loadQuizzes() {
       const container = document.getElementById('quizzesContainer');
       container.innerHTML = '<div style="text-align: center; padding: 20px;">Loading quizzes...</div>';
       
+      // Try to load from cache first
+      const cachedQuizzes = CacheManager.getCache(CacheManager.CACHE_KEYS.QUIZZES);
+      if (cachedQuizzes) {
+        console.log('Loading quizzes from cache');
+        displayQuizzes(cachedQuizzes);
+        return;
+      }
+      
+      console.log('Loading quizzes from database');
       db.ref('quizzes').once('value').then(snapshot => {
         container.innerHTML = '';
         if (snapshot.exists()) {
@@ -843,12 +932,10 @@
             });
           });
           
-          quizzes.forEach(quiz => {
-            checkQuizAttempts(quiz.id).then(attempts => {
-              const card = createQuizCard(quiz, attempts);
-              container.insertAdjacentHTML('beforeend', card);
-            });
-          });
+          // Cache the quizzes
+          CacheManager.setCache(CacheManager.CACHE_KEYS.QUIZZES, quizzes);
+          
+          displayQuizzes(quizzes);
         } else {
           container.innerHTML = `
             <div class="empty-state">
@@ -858,6 +945,19 @@
             </div>
           `;
         }
+      });
+    }
+    
+    // Display quizzes
+    function displayQuizzes(quizzes) {
+      const container = document.getElementById('quizzesContainer');
+      container.innerHTML = '';
+      
+      quizzes.forEach(quiz => {
+        checkQuizAttempts(quiz.id).then(attempts => {
+          const card = createQuizCard(quiz, attempts);
+          container.insertAdjacentHTML('beforeend', card);
+        });
       });
     }
 
@@ -1694,6 +1794,22 @@
 
     function goBack() {
       window.history.back();
+    }
+    
+    // Function to refresh assignments cache
+    function refreshAssignmentsCache() {
+      // Clear assignments and quizzes cache
+      CacheManager.clearCache(CacheManager.CACHE_KEYS.ASSIGNMENTS);
+      CacheManager.clearCache(CacheManager.CACHE_KEYS.QUIZZES);
+      
+      console.log('Cache cleared, reloading assignments and quizzes...');
+      
+      // Reload assignments and quizzes
+      loadAssignments();
+      loadQuizzes();
+      
+      // Show notification
+      showNotification('Cache refreshed successfully!', 'success', 'Cache Updated');
     }
 
     // Initialize theme
