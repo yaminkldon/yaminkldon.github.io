@@ -961,7 +961,10 @@ function addTeacherDashboardIfApplicable() {
   }
   window.processingTeacherDashboard = true;
   
-  // Search for user by email in database
+  // ALWAYS make a fresh database query - no caching for teacher dashboard
+  console.log('Loading teacher dashboard status directly from database (no cache)');
+  
+  // Search for user by email in database - force fresh query
   db.ref('users').orderByChild('email').equalTo(user.email).once('value').then(snapshot => {
     // Double check if teacher dashboard was added while we were waiting
     const existingTeacherDashboardCheck = unitsList.querySelector('li[data-teacher-dashboard="true"]');
@@ -971,13 +974,18 @@ function addTeacherDashboardIfApplicable() {
     }
     
     if (!snapshot.exists()) {
+      console.log('User not found in database, no teacher dashboard');
       window.processingTeacherDashboard = false;
       return;
     }
     
     // Get the first (and should be only) matching user
     const userData = Object.values(snapshot.val())[0];
+    console.log('User data loaded from database:', userData);
+    
     if (userData && userData.type === 'teacher') {
+      console.log('User is confirmed as teacher, adding teacher dashboard');
+      
       // Add Teacher Dashboard link
       const teacherDashboardItem = document.createElement('li');
       teacherDashboardItem.setAttribute('data-static', 'true');
@@ -1004,11 +1012,13 @@ function addTeacherDashboardIfApplicable() {
       if (typeof advancedFeatures !== 'undefined' && advancedFeatures) {
         advancedFeatures.updateUITexts();
       }
+    } else {
+      console.log('User is not a teacher, no teacher dashboard added');
     }
     
     window.processingTeacherDashboard = false;
   }).catch(error => {
-    console.error('Error checking user type:', error);
+    console.error('Error checking user type from database:', error);
     window.processingTeacherDashboard = false;
   });
 }
