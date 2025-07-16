@@ -96,10 +96,6 @@
         (function() {
             let pdfZoomState = {
                 scale: 1,
-                translateX: 0,
-                translateY: 0,
-                lastPanX: 0,
-                lastPanY: 0,
                 initialDistance: 0,
                 isZooming: false,
                 isDragging: false,
@@ -126,23 +122,8 @@
                     if (e.touches.length > 1) e.preventDefault();
                 }, { passive: false });
                 
-                // Override existing zoom buttons to work with our system
-                const zoomInBtn = document.getElementById('zoomIn');
-                const zoomOutBtn = document.getElementById('zoomOut');
-                
-                if (zoomInBtn) {
-                    zoomInBtn.addEventListener('click', (e) => {
-                        e.preventDefault();
-                        zoomPDFBy(1.2);
-                    });
-                }
-                
-                if (zoomOutBtn) {
-                    zoomOutBtn.addEventListener('click', (e) => {
-                        e.preventDefault();
-                        zoomPDFBy(0.8);
-                    });
-                }
+                // Let zoom buttons work with original PDF.js functionality
+                // Don't override them, let them work naturally
             }
 
             function handlePDFZoomStart(e) {
@@ -174,19 +155,13 @@
                     
                     e.preventDefault();
                 } else if (touches.length === 1) {
-                    // One finger - check if it's scrolling or dragging
-                    const touch = touches[0];
-                    pdfZoomState.startTouchX = touch.clientX;
-                    pdfZoomState.startTouchY = touch.clientY;
-                    pdfZoomState.startTime = Date.now();
-                    
-                    // Start as potential drag
-                    pdfZoomState.isDragging = true;
+                    // One finger - only allow scrolling, no dragging to avoid watermark interference
+                    pdfZoomState.isDragging = false;
                     pdfZoomState.isZooming = false;
-                    pdfZoomState.isScrolling = false;
+                    pdfZoomState.isScrolling = true;
                     
-                    pdfZoomState.startX = touch.clientX - pdfZoomState.translateX;
-                    pdfZoomState.startY = touch.clientY - pdfZoomState.translateY;
+                    // Don't prevent default to allow natural scrolling
+                    return;
                 }
             }
 
@@ -211,53 +186,14 @@
                     // Calculate zoom with center point
                     const scaleChange = newScale / pdfZoomState.scale;
                     
-                    // Adjust translation to zoom into the center point
-                    pdfZoomState.translateX = pdfZoomState.zoomCenterX - (pdfZoomState.zoomCenterX - pdfZoomState.translateX) * scaleChange;
-                    pdfZoomState.translateY = pdfZoomState.zoomCenterY - (pdfZoomState.zoomCenterY - pdfZoomState.translateY) * scaleChange;
-                    
                     pdfZoomState.scale = newScale;
                     pdfZoomState.initialDistance = currentDistance;
                     
                     applyPDFTransform();
                     e.preventDefault();
                 } else if (pdfZoomState.isDragging && touches.length === 1) {
-                    const touch = touches[0];
-                    const deltaX = touch.clientX - pdfZoomState.startTouchX;
-                    const deltaY = touch.clientY - pdfZoomState.startTouchY;
-                    const timeDelta = Date.now() - pdfZoomState.startTime;
-                    
-                    // Determine if this is scrolling (vertical movement) or dragging (any movement)
-                    if (!pdfZoomState.isScrolling && timeDelta > 50) {
-                        const absX = Math.abs(deltaX);
-                        const absY = Math.abs(deltaY);
-                        
-                        if (absY > absX && absY > 10) {
-                            // Primarily vertical movement - treat as scrolling
-                            pdfZoomState.isScrolling = true;
-                            pdfZoomState.isDragging = false;
-                        } else if (absX > 10 || absY > 10) {
-                            // Mixed or horizontal movement - treat as dragging
-                            pdfZoomState.isDragging = true;
-                            pdfZoomState.isScrolling = false;
-                        }
-                    }
-                    
-                    if (pdfZoomState.isDragging && !pdfZoomState.isScrolling) {
-                        // Regular drag movement
-                        pdfZoomState.translateX = touch.clientX - pdfZoomState.startX;
-                        pdfZoomState.translateY = touch.clientY - pdfZoomState.startY;
-                        
-                        // Store the last pan position
-                        pdfZoomState.lastPanX = pdfZoomState.translateX;
-                        pdfZoomState.lastPanY = pdfZoomState.translateY;
-                        
-                        applyPDFTransform();
-                        e.preventDefault();
-                    } else if (pdfZoomState.isScrolling) {
-                        // Allow natural scrolling - don't prevent default
-                        // This enables content scrolling within the PDF
-                        return;
-                    }
+                    // One finger - allow natural scrolling only, no dragging
+                    return;
                 }
             }
 
@@ -269,38 +205,13 @@
                 }
             }
 
-            function zoomPDFBy(factor) {
-                let newScale = pdfZoomState.scale * factor;
-                
-                // Clamp scale
-                newScale = Math.max(pdfZoomState.minScale, Math.min(pdfZoomState.maxScale, newScale));
-                
-                if (newScale !== pdfZoomState.scale) {
-                    // Use center of viewport as zoom point for button zoom
-                    const viewerContainer = document.getElementById('viewerContainer');
-                    const rect = viewerContainer.getBoundingClientRect();
-                    const centerX = rect.width / 2;
-                    const centerY = rect.height / 2;
-                    
-                    const scaleChange = newScale / pdfZoomState.scale;
-                    
-                    // Adjust translation to zoom into center
-                    pdfZoomState.translateX = centerX - (centerX - pdfZoomState.translateX) * scaleChange;
-                    pdfZoomState.translateY = centerY - (centerY - pdfZoomState.translateY) * scaleChange;
-                    
-                    pdfZoomState.scale = newScale;
-                    applyPDFTransform();
-                }
-            }
-
             function applyPDFTransform() {
                 const viewer = document.getElementById('viewer');
                 if (!viewer) return;
                 
-                // Use translate and scale together with smooth transition
-                const transform = `translate(${pdfZoomState.translateX}px, ${pdfZoomState.translateY}px) scale(${pdfZoomState.scale})`;
-                
-                viewer.style.transform = transform;
+                // Only apply pinch-to-zoom scale, let PDF.js handle zoom buttons
+                viewer.style.transform = `scale(${pdfZoomState.scale})`;
+                viewer.style.transformOrigin = `${pdfZoomState.zoomCenterX}px ${pdfZoomState.zoomCenterY}px`;
                 viewer.style.transition = 'transform 0.1s ease-out';
             }
 
