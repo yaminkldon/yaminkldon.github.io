@@ -381,6 +381,58 @@ body.dark-mode .search-result-description {
   color: #ccc;
 }
 
+/* Main Page File Access Badges */
+.main-page-access-badge {
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: bold;
+  text-transform: uppercase;
+}
+
+.main-page-access-badge.view-only {
+  background: #fff3cd;
+  color: #856404;
+}
+
+.main-page-access-badge.downloadable {
+  background: #d4edda;
+  color: #155724;
+}
+
+.main-page-file-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
+/* Lesson Action Buttons for Main Page */
+.lesson-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.lesson-action-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 4px 8px;
+  border: none;
+  border-radius: 4px;
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.lesson-action-btn:hover {
+  transform: translateY(-1px);
+}
+
+.lesson-action-btn .material-icons {
+  font-size: 14px;
+}
+
 @media (max-width: 768px) {
   .search-section {
     padding: 16px;
@@ -833,6 +885,6 @@ body.dark-mode .search-result-description {
     z-index: 1000;
     user-select: none;
     pointer-events: none;
-  ">V6</div>
+  ">V7</div>
 </body>
 </html>

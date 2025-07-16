@@ -117,6 +117,82 @@
     }
     body.dark-mode .lesson-description { color: #ccc; }
     
+    /* Lesson Action Buttons */
+    .lesson-actions {
+      margin-top: 12px;
+      display: flex;
+      gap: 8px;
+    }
+    
+    .lesson-action-btn {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      padding: 6px 12px;
+      background: #6c4fc1;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      flex: 1;
+      justify-content: center;
+    }
+    
+    .lesson-action-btn:hover {
+      background: #5a3fa3;
+      transform: translateY(-1px);
+    }
+    
+    .lesson-action-btn.files-btn {
+      background: #17a2b8;
+    }
+    
+    .lesson-action-btn.files-btn:hover {
+      background: #138496;
+    }
+    
+    .lesson-action-btn .material-icons {
+      font-size: 16px;
+    }
+    
+    /* Student File Access Badges */
+    .student-access-badge {
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 10px;
+      font-weight: bold;
+      text-transform: uppercase;
+    }
+    
+    .student-access-badge.view-only {
+      background: #fff3cd;
+      color: #856404;
+    }
+    
+    .student-access-badge.downloadable {
+      background: #d4edda;
+      color: #155724;
+    }
+    
+    .student-file-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    }
+    
+    /* Mobile adjustments */
+    @media (max-width: 768px) {
+      .lesson-action-btn {
+        padding: 4px 8px;
+        font-size: 11px;
+      }
+      
+      .lesson-action-btn .material-icons {
+        font-size: 14px;
+      }
+    }
+    
     /* Video Modal Popup */
     .video-modal {
       position: fixed;
@@ -728,7 +804,7 @@
     z-index: 1000;
     user-select: none;
     pointer-events: none;
-  ">V6.1</div>
+  ">V7.1</div>
 
   <div class="main-content">
     <h1 class="unit-title" id="unit-title" data-translate="loading">Loading...</h1>

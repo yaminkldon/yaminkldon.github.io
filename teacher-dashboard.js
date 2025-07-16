@@ -2365,6 +2365,7 @@ function loadUnitsContent() {
             </div>
             <div style="display: flex; gap: 8px;">
               <button onclick="editUnit('${unitKey}')" style="padding: 4px 8px; background: #6c4fc1; color: white; border: none; border-radius: 4px; font-size: 12px;">Edit</button>
+              <button onclick="openFileManager('${unitKey}')" style="padding: 4px 8px; background: #ffc107; color: #212529; border: none; border-radius: 4px; font-size: 12px;">Files</button>
               <button onclick="deleteUnit('${unitKey}')" style="padding: 4px 8px; background: #dc3545; color: white; border: none; border-radius: 4px; font-size: 12px;">Delete</button>
             </div>
           </div>
@@ -3898,6 +3899,7 @@ function createVideoCard(container, unitKey, lessonKey, lessonData, type) {
       <div style="display: flex; flex-direction: column; gap: 4px;">
         ${videoFile ? `<button onclick="previewVideo('${unitKey}', '${lessonKey}', '${type}')" style="padding: 4px 8px; background: #6c4fc1; color: white; border: none; border-radius: 4px; font-size: 11px;">Preview</button>` : ''}
         <button onclick="editVideo('${unitKey}', '${lessonKey}', '${type}')" style="padding: 4px 8px; background: #28a745; color: white; border: none; border-radius: 4px; font-size: 11px;">Edit</button>
+        <button onclick="openFileManager('${unitKey}', '${lessonKey}')" style="padding: 4px 8px; background: #ffc107; color: #212529; border: none; border-radius: 4px; font-size: 11px;">Files</button>
         <button onclick="deleteVideo('${unitKey}', '${lessonKey}', '${type}')" style="padding: 4px 8px; background: #dc3545; color: white; border: none; border-radius: 4px; font-size: 11px;">Delete</button>
       </div>
     </div>
@@ -4922,6 +4924,607 @@ function deleteLesson(unitKey, lessonKey) {
   }
 }
 
+// ========= FILE MANAGEMENT FUNCTIONS =========
+
+function openFileManager(unitKey, lessonKey = null) {
+  const modal = document.createElement('div');
+  modal.className = 'modal';
+  modal.id = 'fileManagerModal';
+  modal.style.display = 'flex';
+  
+  const targetPath = lessonKey ? `units/${unitKey}/lessons/${lessonKey}` : `units/${unitKey}`;
+  const targetName = lessonKey ? `Lesson: ${lessonKey}` : `Unit: ${unitKey}`;
+  
+  modal.innerHTML = `
+    <div class="modal-content" style="max-width: 1000px; max-height: 90vh; overflow-y: auto;">
+      <div class="modal-header">
+        <h3 class="modal-title">File Manager - ${targetName}</h3>
+        <button class="modal-close" onclick="closeFileManager()">&times;</button>
+      </div>
+      
+      <div style="padding: 20px;">
+        <!-- File Upload Section -->
+        <div class="file-upload-section" style="margin-bottom: 30px; padding: 20px; border: 2px dashed #ddd; border-radius: 8px; background: #f9f9f9;">
+          <h4 style="margin-top: 0; color: #6c4fc1;">Upload New File</h4>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px;">
+            <div>
+              <label style="display: block; margin-bottom: 8px; font-weight: bold;">File</label>
+              <input type="file" id="fileUpload" class="form-input" accept=".pdf,.doc,.docx,.txt,.jpg,.jpeg,.png,.gif,.mp4,.mp3,.ppt,.pptx,.xls,.xlsx" style="padding: 8px;">
+            </div>
+            <div>
+              <label style="display: block; margin-bottom: 8px; font-weight: bold;">File Name (Optional)</label>
+              <input type="text" id="fileDisplayName" class="form-input" placeholder="Leave empty to use original name">
+            </div>
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px;">
+            <div>
+              <label style="display: block; margin-bottom: 8px; font-weight: bold;">File Type</label>
+              <select id="fileType" class="form-input">
+                <option value="document">Document</option>
+                <option value="image">Image</option>
+                <option value="video">Video</option>
+                <option value="audio">Audio</option>
+                <option value="presentation">Presentation</option>
+                <option value="spreadsheet">Spreadsheet</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
+            <div>
+              <label style="display: block; margin-bottom: 8px; font-weight: bold;">Access Level</label>
+              <select id="fileAccess" class="form-input">
+                <option value="view-only">View Only (No Download)</option>
+                <option value="downloadable">Downloadable</option>
+                <option value="restricted">Restricted (Teacher Only)</option>
+              </select>
+            </div>
+          </div>
+          <div style="margin-bottom: 20px;">
+            <label style="display: block; margin-bottom: 8px; font-weight: bold;">Description</label>
+            <textarea id="fileDescription" class="form-textarea" placeholder="Brief description of the file..."></textarea>
+          </div>
+          <button class="action-btn" onclick="uploadFile('${unitKey}', '${lessonKey}')">
+            <span class="material-icons" style="margin-right: 8px;">cloud_upload</span>
+            Upload File
+          </button>
+        </div>
+        
+        <!-- Files List Section -->
+        <div class="files-list-section">
+          <h4 style="color: #6c4fc1; margin-bottom: 20px;">Uploaded Files</h4>
+          <div id="filesList" style="min-height: 200px;">
+            <div style="text-align: center; padding: 40px; color: #666;">
+              Loading files...
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+  
+  document.body.appendChild(modal);
+  
+  // Load existing files
+  loadFiles(unitKey, lessonKey);
+}
+
+function closeFileManager() {
+  const modal = document.getElementById('fileManagerModal');
+  if (modal) {
+    modal.remove();
+  }
+}
+
+function uploadFile(unitKey, lessonKey) {
+  const fileInput = document.getElementById('fileUpload');
+  const displayName = document.getElementById('fileDisplayName').value.trim();
+  const fileType = document.getElementById('fileType').value;
+  const fileAccess = document.getElementById('fileAccess').value;
+  const fileDescription = document.getElementById('fileDescription').value.trim();
+  
+  if (!fileInput.files[0]) {
+    alert('Please select a file to upload');
+    return;
+  }
+  
+  const file = fileInput.files[0];
+  const fileName = displayName || file.name;
+  const fileExtension = file.name.split('.').pop().toLowerCase();
+  
+  // Validate file size (max 50MB)
+  if (file.size > 50 * 1024 * 1024) {
+    alert('File size must be less than 50MB');
+    return;
+  }
+  
+  // Show upload progress
+  const uploadBtn = event.target;
+  uploadBtn.disabled = true;
+  uploadBtn.innerHTML = '<span class="material-icons">hourglass_empty</span> Uploading...';
+  
+  // Create file reference
+  const timestamp = Date.now();
+  const fileId = `${unitKey}_${lessonKey || 'unit'}_${timestamp}`;
+  const storagePath = `files/${unitKey}/${lessonKey || 'unit'}/${fileId}.${fileExtension}`;
+  
+  // Upload to Firebase Storage
+  const storageRef = firebase.storage().ref(storagePath);
+  const uploadTask = storageRef.put(file);
+  
+  uploadTask.on('state_changed', 
+    (snapshot) => {
+      const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+      uploadBtn.innerHTML = `<span class="material-icons">hourglass_empty</span> ${Math.round(progress)}%`;
+    },
+    (error) => {
+      console.error('Upload error:', error);
+      alert('Error uploading file. Please try again.');
+      uploadBtn.disabled = false;
+      uploadBtn.innerHTML = '<span class="material-icons">cloud_upload</span> Upload File';
+    },
+    () => {
+      // Upload completed successfully
+      uploadTask.snapshot.ref.getDownloadURL().then((downloadURL) => {
+        // Save file metadata to database
+        const fileData = {
+          id: fileId,
+          name: fileName,
+          originalName: file.name,
+          type: fileType,
+          extension: fileExtension,
+          size: file.size,
+          access: fileAccess,
+          description: fileDescription,
+          url: downloadURL,
+          uploadedAt: timestamp,
+          uploadedBy: firebase.auth().currentUser.uid,
+          unitKey: unitKey,
+          lessonKey: lessonKey
+        };
+        
+        const dbPath = lessonKey ? 
+          `units/${unitKey}/lessons/${lessonKey}/files/${fileId}` : 
+          `units/${unitKey}/files/${fileId}`;
+        
+        db.ref(dbPath).set(fileData).then(() => {
+          alert('File uploaded successfully!');
+          
+          // Reset form
+          fileInput.value = '';
+          document.getElementById('fileDisplayName').value = '';
+          document.getElementById('fileDescription').value = '';
+          
+          // Reload files list
+          loadFiles(unitKey, lessonKey);
+          
+          uploadBtn.disabled = false;
+          uploadBtn.innerHTML = '<span class="material-icons">cloud_upload</span> Upload File';
+        }).catch(error => {
+          console.error('Error saving file metadata:', error);
+          alert('Error saving file information. Please try again.');
+          uploadBtn.disabled = false;
+          uploadBtn.innerHTML = '<span class="material-icons">cloud_upload</span> Upload File';
+        });
+      });
+    }
+  );
+}
+
+function loadFiles(unitKey, lessonKey) {
+  const filesList = document.getElementById('filesList');
+  const dbPath = lessonKey ? 
+    `units/${unitKey}/lessons/${lessonKey}/files` : 
+    `units/${unitKey}/files`;
+  
+  db.ref(dbPath).once('value').then(snapshot => {
+    if (!snapshot.exists()) {
+      filesList.innerHTML = `
+        <div style="text-align: center; padding: 40px; color: #666;">
+          <span class="material-icons" style="font-size: 48px; margin-bottom: 16px;">folder_open</span>
+          <p>No files uploaded yet</p>
+        </div>
+      `;
+      return;
+    }
+    
+    const files = [];
+    snapshot.forEach(child => {
+      files.push({
+        id: child.key,
+        ...child.val()
+      });
+    });
+    
+    // Sort files by upload date (newest first)
+    files.sort((a, b) => b.uploadedAt - a.uploadedAt);
+    
+    let html = '<div class="files-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px;">';
+    
+    files.forEach(file => {
+      const fileIcon = getFileIcon(file.extension);
+      const fileSize = formatFileSize(file.size);
+      const uploadDate = new Date(file.uploadedAt).toLocaleDateString();
+      const canPreview = canPreviewFile(file.extension);
+      
+      html += `
+        <div class="file-card" style="border: 1px solid #ddd; border-radius: 8px; padding: 16px; background: white;">
+          <div class="file-header" style="display: flex; align-items: center; margin-bottom: 12px;">
+            <span class="material-icons" style="font-size: 32px; color: #6c4fc1; margin-right: 12px;">${fileIcon}</span>
+            <div style="flex: 1;">
+              <h4 style="margin: 0; font-size: 14px; color: #333;">${file.name}</h4>
+              <p style="margin: 4px 0 0 0; font-size: 12px; color: #666;">${fileSize} • ${uploadDate}</p>
+            </div>
+            <div class="file-actions" style="display: flex; gap: 8px;">
+              ${canPreview ? `<button class="action-btn" onclick="previewFile('${file.id}', '${unitKey}', '${lessonKey}')" style="padding: 4px 8px; font-size: 12px;" title="Preview">
+                <span class="material-icons" style="font-size: 16px;">visibility</span>
+              </button>` : ''}
+              <button class="action-btn secondary" onclick="editFile('${file.id}', '${unitKey}', '${lessonKey}')" style="padding: 4px 8px; font-size: 12px;" title="Edit">
+                <span class="material-icons" style="font-size: 16px;">edit</span>
+              </button>
+              <button class="action-btn secondary" onclick="deleteFile('${file.id}', '${unitKey}', '${lessonKey}')" style="padding: 4px 8px; font-size: 12px; background: #dc3545;" title="Delete">
+                <span class="material-icons" style="font-size: 16px;">delete</span>
+              </button>
+            </div>
+          </div>
+          
+          <div class="file-info" style="margin-bottom: 12px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+              <span style="font-size: 12px; color: #666;">Type: ${file.type}</span>
+              <span class="access-badge ${file.access}" style="padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: bold;">
+                ${file.access === 'view-only' ? 'View Only' : file.access === 'downloadable' ? 'Downloadable' : 'Restricted'}
+              </span>
+            </div>
+            ${file.description ? `<p style="margin: 0; font-size: 12px; color: #666;">${file.description}</p>` : ''}
+          </div>
+          
+          <div class="file-actions-full" style="display: flex; gap: 8px;">
+            ${canPreview ? `<button class="action-btn" onclick="previewFile('${file.id}', '${unitKey}', '${lessonKey}')" style="flex: 1; padding: 8px; font-size: 12px;">
+              <span class="material-icons" style="margin-right: 4px; font-size: 16px;">visibility</span>
+              Preview
+            </button>` : ''}
+            ${file.access === 'downloadable' ? `<button class="action-btn secondary" onclick="downloadFile('${file.url}', '${file.name}')" style="flex: 1; padding: 8px; font-size: 12px;">
+              <span class="material-icons" style="margin-right: 4px; font-size: 16px;">download</span>
+              Download
+            </button>` : ''}
+          </div>
+        </div>
+      `;
+    });
+    
+    html += '</div>';
+    filesList.innerHTML = html;
+  }).catch(error => {
+    console.error('Error loading files:', error);
+    filesList.innerHTML = `
+      <div style="text-align: center; padding: 40px; color: #ff5722;">
+        <span class="material-icons" style="font-size: 48px; margin-bottom: 16px;">error</span>
+        <p>Error loading files</p>
+      </div>
+    `;
+  });
+}
+
+function getFileIcon(extension) {
+  const iconMap = {
+    'pdf': 'picture_as_pdf',
+    'doc': 'description',
+    'docx': 'description',
+    'txt': 'description',
+    'jpg': 'image',
+    'jpeg': 'image',
+    'png': 'image',
+    'gif': 'image',
+    'mp4': 'video_file',
+    'mp3': 'audio_file',
+    'ppt': 'slideshow',
+    'pptx': 'slideshow',
+    'xls': 'table_chart',
+    'xlsx': 'table_chart'
+  };
+  
+  return iconMap[extension.toLowerCase()] || 'insert_drive_file';
+}
+
+function formatFileSize(bytes) {
+  if (bytes === 0) return '0 Bytes';
+  const k = 1024;
+  const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+}
+
+function canPreviewFile(extension) {
+  const previewableTypes = ['pdf', 'jpg', 'jpeg', 'png', 'gif', 'mp4', 'mp3', 'txt'];
+  return previewableTypes.includes(extension.toLowerCase());
+}
+
+function previewFile(fileId, unitKey, lessonKey) {
+  const dbPath = lessonKey ? 
+    `units/${unitKey}/lessons/${lessonKey}/files/${fileId}` : 
+    `units/${unitKey}/files/${fileId}`;
+  
+  db.ref(dbPath).once('value').then(snapshot => {
+    if (!snapshot.exists()) {
+      alert('File not found');
+      return;
+    }
+    
+    const file = snapshot.val();
+    showFilePreview(file);
+  }).catch(error => {
+    console.error('Error loading file:', error);
+    alert('Error loading file preview');
+  });
+}
+
+function showFilePreview(file) {
+  const modal = document.createElement('div');
+  modal.className = 'modal';
+  modal.id = 'filePreviewModal';
+  modal.style.display = 'flex';
+  modal.style.zIndex = '10000';
+  
+  let previewContent = '';
+  
+  switch (file.extension.toLowerCase()) {
+    case 'pdf':
+      previewContent = `
+        <iframe src="${file.url}" style="width: 100%; height: 600px; border: none;"></iframe>
+      `;
+      break;
+    case 'jpg':
+    case 'jpeg':
+    case 'png':
+    case 'gif':
+      previewContent = `
+        <img src="${file.url}" style="max-width: 100%; max-height: 600px; object-fit: contain;" alt="${file.name}">
+      `;
+      break;
+    case 'mp4':
+      previewContent = `
+        <video controls style="max-width: 100%; max-height: 600px;">
+          <source src="${file.url}" type="video/mp4">
+          Your browser does not support the video tag.
+        </video>
+      `;
+      break;
+    case 'mp3':
+      previewContent = `
+        <audio controls style="width: 100%;">
+          <source src="${file.url}" type="audio/mpeg">
+          Your browser does not support the audio tag.
+        </audio>
+      `;
+      break;
+    case 'txt':
+      // For text files, we'll fetch the content
+      fetch(file.url)
+        .then(response => response.text())
+        .then(text => {
+          document.getElementById('filePreviewContent').innerHTML = `
+            <pre style="white-space: pre-wrap; max-height: 600px; overflow-y: auto; padding: 20px; background: #f5f5f5; border-radius: 4px;">${text}</pre>
+          `;
+        })
+        .catch(error => {
+          document.getElementById('filePreviewContent').innerHTML = `
+            <div style="text-align: center; padding: 40px; color: #ff5722;">
+              <span class="material-icons" style="font-size: 48px; margin-bottom: 16px;">error</span>
+              <p>Error loading text file</p>
+            </div>
+          `;
+        });
+      previewContent = '<div id="filePreviewContent">Loading...</div>';
+      break;
+    default:
+      previewContent = `
+        <div style="text-align: center; padding: 40px; color: #666;">
+          <span class="material-icons" style="font-size: 48px; margin-bottom: 16px;">preview</span>
+          <p>Preview not available for this file type</p>
+          <p>File: ${file.name}</p>
+          ${file.access === 'downloadable' ? `<button class="action-btn" onclick="downloadFile('${file.url}', '${file.name}')" style="margin-top: 16px;">Download File</button>` : ''}
+        </div>
+      `;
+  }
+  
+  modal.innerHTML = `
+    <div class="modal-content" style="max-width: 90vw; max-height: 90vh; overflow: hidden;">
+      <div class="modal-header">
+        <h3 class="modal-title">Preview: ${file.name}</h3>
+        <div style="display: flex; gap: 8px; align-items: center;">
+          ${file.access === 'downloadable' ? `<button class="action-btn secondary" onclick="downloadFile('${file.url}', '${file.name}')" style="padding: 6px 12px; font-size: 12px;">
+            <span class="material-icons" style="margin-right: 4px; font-size: 16px;">download</span>
+            Download
+          </button>` : ''}
+          <button class="modal-close" onclick="closeFilePreview()">&times;</button>
+        </div>
+      </div>
+      
+      <div style="padding: 20px; text-align: center; overflow-y: auto; max-height: calc(90vh - 100px);">
+        ${previewContent}
+      </div>
+    </div>
+  `;
+  
+  document.body.appendChild(modal);
+  document.body.style.overflow = 'hidden';
+}
+
+function closeFilePreview() {
+  const modal = document.getElementById('filePreviewModal');
+  if (modal) {
+    modal.remove();
+    document.body.style.overflow = 'auto';
+  }
+}
+
+function downloadFile(url, filename) {
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  link.target = '_blank';
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+}
+
+function editFile(fileId, unitKey, lessonKey) {
+  const dbPath = lessonKey ? 
+    `units/${unitKey}/lessons/${lessonKey}/files/${fileId}` : 
+    `units/${unitKey}/files/${fileId}`;
+  
+  db.ref(dbPath).once('value').then(snapshot => {
+    if (!snapshot.exists()) {
+      alert('File not found');
+      return;
+    }
+    
+    const file = snapshot.val();
+    showEditFileModal(file, unitKey, lessonKey);
+  }).catch(error => {
+    console.error('Error loading file:', error);
+    alert('Error loading file information');
+  });
+}
+
+function showEditFileModal(file, unitKey, lessonKey) {
+  const modal = document.createElement('div');
+  modal.className = 'modal';
+  modal.id = 'editFileModal';
+  modal.style.display = 'flex';
+  
+  modal.innerHTML = `
+    <div class="modal-content" style="max-width: 600px;">
+      <div class="modal-header">
+        <h3 class="modal-title">Edit File: ${file.name}</h3>
+        <button class="modal-close" onclick="closeEditFileModal()">&times;</button>
+      </div>
+      
+      <div style="padding: 20px;">
+        <div style="margin-bottom: 16px;">
+          <label style="display: block; margin-bottom: 8px; font-weight: bold;">File Name</label>
+          <input type="text" id="editFileName" class="form-input" value="${file.name}">
+        </div>
+        
+        <div style="margin-bottom: 16px;">
+          <label style="display: block; margin-bottom: 8px; font-weight: bold;">File Type</label>
+          <select id="editFileType" class="form-input">
+            <option value="document" ${file.type === 'document' ? 'selected' : ''}>Document</option>
+            <option value="image" ${file.type === 'image' ? 'selected' : ''}>Image</option>
+            <option value="video" ${file.type === 'video' ? 'selected' : ''}>Video</option>
+            <option value="audio" ${file.type === 'audio' ? 'selected' : ''}>Audio</option>
+            <option value="presentation" ${file.type === 'presentation' ? 'selected' : ''}>Presentation</option>
+            <option value="spreadsheet" ${file.type === 'spreadsheet' ? 'selected' : ''}>Spreadsheet</option>
+            <option value="other" ${file.type === 'other' ? 'selected' : ''}>Other</option>
+          </select>
+        </div>
+        
+        <div style="margin-bottom: 16px;">
+          <label style="display: block; margin-bottom: 8px; font-weight: bold;">Access Level</label>
+          <select id="editFileAccess" class="form-input">
+            <option value="view-only" ${file.access === 'view-only' ? 'selected' : ''}>View Only (No Download)</option>
+            <option value="downloadable" ${file.access === 'downloadable' ? 'selected' : ''}>Downloadable</option>
+            <option value="restricted" ${file.access === 'restricted' ? 'selected' : ''}>Restricted (Teacher Only)</option>
+          </select>
+        </div>
+        
+        <div style="margin-bottom: 20px;">
+          <label style="display: block; margin-bottom: 8px; font-weight: bold;">Description</label>
+          <textarea id="editFileDescription" class="form-textarea">${file.description || ''}</textarea>
+        </div>
+        
+        <div style="display: flex; gap: 12px; justify-content: flex-end;">
+          <button class="action-btn secondary" onclick="closeEditFileModal()">Cancel</button>
+          <button class="action-btn" onclick="saveFileChanges('${file.id}', '${unitKey}', '${lessonKey}')">Save Changes</button>
+        </div>
+      </div>
+    </div>
+  `;
+  
+  document.body.appendChild(modal);
+}
+
+function closeEditFileModal() {
+  const modal = document.getElementById('editFileModal');
+  if (modal) {
+    modal.remove();
+  }
+}
+
+function saveFileChanges(fileId, unitKey, lessonKey) {
+  const name = document.getElementById('editFileName').value.trim();
+  const type = document.getElementById('editFileType').value;
+  const access = document.getElementById('editFileAccess').value;
+  const description = document.getElementById('editFileDescription').value.trim();
+  
+  if (!name) {
+    alert('File name is required');
+    return;
+  }
+  
+  const dbPath = lessonKey ? 
+    `units/${unitKey}/lessons/${lessonKey}/files/${fileId}` : 
+    `units/${unitKey}/files/${fileId}`;
+  
+  const updates = {
+    name: name,
+    type: type,
+    access: access,
+    description: description,
+    updatedAt: Date.now()
+  };
+  
+  db.ref(dbPath).update(updates).then(() => {
+    alert('File updated successfully!');
+    closeEditFileModal();
+    loadFiles(unitKey, lessonKey);
+  }).catch(error => {
+    console.error('Error updating file:', error);
+    alert('Error updating file. Please try again.');
+  });
+}
+
+function deleteFile(fileId, unitKey, lessonKey) {
+  if (!confirm('Are you sure you want to delete this file? This action cannot be undone.')) {
+    return;
+  }
+  
+  const dbPath = lessonKey ? 
+    `units/${unitKey}/lessons/${lessonKey}/files/${fileId}` : 
+    `units/${unitKey}/files/${fileId}`;
+  
+  // First get the file data to delete from storage
+  db.ref(dbPath).once('value').then(snapshot => {
+    if (!snapshot.exists()) {
+      alert('File not found');
+      return;
+    }
+    
+    const file = snapshot.val();
+    
+    // Delete from Firebase Storage
+    const fileRef = firebase.storage().refFromURL(file.url);
+    fileRef.delete().then(() => {
+      // Delete from database
+      db.ref(dbPath).remove().then(() => {
+        alert('File deleted successfully!');
+        loadFiles(unitKey, lessonKey);
+      }).catch(error => {
+        console.error('Error deleting file from database:', error);
+        alert('Error deleting file from database');
+      });
+    }).catch(error => {
+      console.error('Error deleting file from storage:', error);
+      // Still try to delete from database even if storage deletion fails
+      db.ref(dbPath).remove().then(() => {
+        alert('File deleted from database (storage deletion may have failed)');
+        loadFiles(unitKey, lessonKey);
+      });
+    });
+  }).catch(error => {
+    console.error('Error loading file for deletion:', error);
+    alert('Error loading file information');
+  });
+}
+
 // Enhanced modal close function to handle dynamic modals
 window.closeModal = function(modalId) {
   const modal = document.getElementById(modalId);
@@ -5083,6 +5686,63 @@ const additionalStyles = `
   
   .dropdown-option.selected .attempt-label {
     color: #6c4fc1;
+  }
+  
+  /* File Manager Styles */
+  .access-badge {
+    display: inline-block;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 10px;
+    font-weight: bold;
+    text-transform: uppercase;
+  }
+  
+  .access-badge.view-only {
+    background: #fff3cd;
+    color: #856404;
+  }
+  
+  .access-badge.downloadable {
+    background: #d4edda;
+    color: #155724;
+  }
+  
+  .access-badge.restricted {
+    background: #f8d7da;
+    color: #721c24;
+  }
+  
+  .file-card {
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+  }
+  
+  .file-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  }
+  
+  .file-upload-section {
+    background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+  }
+  
+  .files-grid {
+    animation: fadeIn 0.3s ease;
+  }
+  
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  
+  .modal#filePreviewModal .modal-content {
+    background: #000;
+    color: #fff;
+  }
+  
+  .modal#filePreviewModal .modal-header {
+    background: #333;
+    color: #fff;
   }
 `;
 
