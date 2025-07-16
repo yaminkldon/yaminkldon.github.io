@@ -748,11 +748,172 @@ function viewMessages() {
   loadMessages();
 }
 
-function manageVideos() {
+function manageLessons() {
   console.log('Managing Videos');
   
   // Redirect to the main video management function
   openVideoManagement();
+}
+
+function manageUnits() {
+  console.log('Managing Units');
+  openModal('manageUnitsModal');
+  loadUnitsManagement();
+}
+
+function loadUnitsManagement() {
+  const container = document.getElementById('unitsManagementContainer');
+  container.innerHTML = '<div style="text-align: center; padding: 20px; color: #666;">Loading units...</div>';
+  
+  db.ref('units').once('value').then(snapshot => {
+    container.innerHTML = '';
+    
+    if (snapshot.exists()) {
+      const units = [];
+      snapshot.forEach(child => {
+        const unitData = child.val();
+        const unitId = child.key;
+        units.push({
+          id: unitId,
+          name: unitData.name || unitId,
+          createdAt: unitData.createdAt || 0,
+          lessonsCount: unitData.lessons ? Object.keys(unitData.lessons).length : 0
+        });
+      });
+      
+      // Sort units by creation date (newest first)
+      units.sort((a, b) => b.createdAt - a.createdAt);
+      
+      units.forEach(unit => {
+        const unitCard = createUnitCard(unit);
+        container.appendChild(unitCard);
+      });
+    } else {
+      container.innerHTML = `
+        <div style="text-align: center; padding: 40px; color: #666;">
+          <span class="material-icons" style="font-size: 48px; margin-bottom: 16px;">library_books</span>
+          <p>No units found</p>
+          <p>Create your first unit to get started!</p>
+        </div>
+      `;
+    }
+  }).catch(error => {
+    console.error('Error loading units:', error);
+    container.innerHTML = '<div style="text-align: center; padding: 20px; color: #dc3545;">Error loading units</div>';
+  });
+}
+
+function createUnitCard(unit) {
+  const unitCard = document.createElement('div');
+  unitCard.className = 'unit-card';
+  unitCard.style.cssText = 'padding: 16px; border-radius: 8px; border: 1px solid #e0e0e0; margin-bottom: 12px; background: white;';
+  
+  const createdDate = unit.createdAt ? new Date(unit.createdAt).toLocaleDateString() : 'Unknown';
+  
+  unitCard.innerHTML = `
+    <div style="display: flex; justify-content: space-between; align-items: center;">
+      <div style="flex: 1;">
+        <h4 style="margin: 0 0 8px 0; color: #6c4fc1;">${unit.name}</h4>
+        <div style="font-size: 12px; color: #666;">
+          <span>ID: ${unit.id}</span> | 
+          <span>Lessons: ${unit.lessonsCount}</span> | 
+          <span>Created: ${createdDate}</span>
+        </div>
+      </div>
+      <div style="display: flex; gap: 8px;">
+        <button onclick="editUnit('${unit.id}', '${unit.name}')" style="padding: 6px 12px; background: #28a745; color: white; border: none; border-radius: 4px; font-size: 12px; cursor: pointer;">
+          <span class="material-icons" style="font-size: 14px;">edit</span> Edit
+        </button>
+        <button onclick="deleteUnit('${unit.id}')" style="padding: 6px 12px; background: #dc3545; color: white; border: none; border-radius: 4px; font-size: 12px; cursor: pointer;">
+          <span class="material-icons" style="font-size: 14px;">delete</span> Delete
+        </button>
+      </div>
+    </div>
+  `;
+  
+  return unitCard;
+}
+
+function editUnit(unitId, currentName) {
+  const modal = document.getElementById('editUnitModal');
+  const nameInput = document.getElementById('editUnitName');
+  
+  // Store the current unit ID for updating
+  window.currentEditingUnitId = unitId;
+  
+  // Set the current name
+  nameInput.value = currentName;
+  
+  // Open the edit modal
+  openModal('editUnitModal');
+  
+  // Setup form submission
+  const form = document.getElementById('editUnitForm');
+  form.onsubmit = function(e) {
+    e.preventDefault();
+    updateUnitName();
+  };
+}
+
+function updateUnitName() {
+  const newName = document.getElementById('editUnitName').value.trim();
+  const unitId = window.currentEditingUnitId;
+  
+  if (!newName) {
+    NotificationManager.showToast('Please enter a unit name');
+    return;
+  }
+  
+  // Update the unit name in the database
+  db.ref(`units/${unitId}/name`).set(newName)
+    .then(() => {
+      NotificationManager.showToast('Unit name updated successfully!');
+      closeModal('editUnitModal');
+      loadUnitsManagement(); // Refresh the list
+      loadQuickStats(); // Refresh stats
+      loadUnitsForSelect(); // Refresh unit selects
+    })
+    .catch(error => {
+      console.error('Error updating unit name:', error);
+      NotificationManager.showToast('Error updating unit name: ' + error.message);
+    });
+}
+
+function deleteUnit(unitId) {
+  if (confirm(`Are you sure you want to delete the unit "${unitId}" and all its lessons?\n\nThis action cannot be undone.`)) {
+    db.ref(`units/${unitId}`).remove()
+      .then(() => {
+        NotificationManager.showToast('Unit deleted successfully!');
+        loadUnitsManagement(); // Refresh the list
+        loadQuickStats(); // Refresh stats
+        loadUnitsForSelect(); // Refresh unit selects
+      })
+      .catch(error => {
+        console.error('Error deleting unit:', error);
+        NotificationManager.showToast('Error deleting unit: ' + error.message);
+      });
+  }
+}
+
+function filterUnits() {
+  const searchTerm = document.getElementById('unitSearchInput').value.toLowerCase();
+  const unitCards = document.querySelectorAll('.unit-card');
+  
+  unitCards.forEach(card => {
+    const unitName = card.querySelector('h4').textContent.toLowerCase();
+    const unitId = card.textContent.toLowerCase();
+    
+    if (unitName.includes(searchTerm) || unitId.includes(searchTerm)) {
+      card.style.display = 'block';
+    } else {
+      card.style.display = 'none';
+    }
+  });
+}
+
+function refreshUnitsList() {
+  loadUnitsManagement();
+  NotificationManager.showToast('Units list refreshed');
 }
 
 function openPreferences() {
@@ -4722,23 +4883,6 @@ function extendUser(userId) {
     });
 }
 
-function editUnit(unitKey) {
-  NotificationManager.showToast(`Editing unit: ${unitKey}`);
-}
-
-function deleteUnit(unitKey) {
-  if (confirm('Are you sure you want to delete this unit and all its lessons?')) {
-    db.ref(`units/${unitKey}`).remove()
-      .then(() => {
-        NotificationManager.showToast('Unit deleted successfully');
-        loadUnitsContent();
-      })
-      .catch(error => {
-        NotificationManager.showToast('Error deleting unit');
-      });
-  }
-}
-
 function editLesson(unitKey, lessonKey) {
   NotificationManager.showToast(`Editing lesson: ${lessonKey} in ${unitKey}`);
 }
@@ -4774,7 +4918,9 @@ window.closeModal = function(modalId) {
       'createRubricModal',
       'gradingCenterModal',
       'gradeSubmissionModal',
-      'quizTakingModal'
+      'quizTakingModal',
+      'manageUnitsModal',
+      'editUnitModal'
     ];
     
     // Remove dynamically created modals (but not HTML-defined ones)
@@ -6306,7 +6452,9 @@ function closeModal(modalId) {
       'createRubricModal',
       'gradingCenterModal',
       'gradeSubmissionModal',
-      'quizTakingModal'
+      'quizTakingModal',
+      'manageUnitsModal',
+      'editUnitModal'
     ];
     
     // Remove dynamically created modals (but not HTML-defined ones)

@@ -790,7 +790,9 @@
         <p class="feature-description" data-translate="contentManagementDesc">Create and manage units, lessons, and course materials.</p>
         <div class="feature-actions">
           <button class="action-btn" onclick="event.stopPropagation(); openAddUnitModal()" data-translate="addUnit">Add Unit</button>
-          <button class="action-btn" onclick="event.stopPropagation(); openAddLessonModal()" data-translate="addLesson">Add Lesson</button>
+          <button class="action-btn" onclick="event.stopPropagation(); openUploadVideoModal()" data-translate="uploadVideo">Upload Video</button>
+          <button class="action-btn secondary" onclick="event.stopPropagation(); manageUnits()" data-translate="manageUnits">Manage Units</button>
+          <button class="action-btn secondary" onclick="event.stopPropagation(); manageLessons()" data-translate="manageLessons">Manage Lessons</button>
         </div>
       </div>
 
@@ -817,19 +819,6 @@
         <div class="feature-actions">
           <button class="action-btn" onclick="event.stopPropagation(); openSendNotification()" data-translate="sendNotification">Send Notification</button>
           <button class="action-btn secondary" onclick="event.stopPropagation(); viewMessages()" data-translate="viewMessages">View Messages</button>
-        </div>
-      </div>
-
-      <!-- Video Management -->
-      <div class="feature-card" onclick="openVideoManagement()">
-        <div class="feature-icon">
-          <span class="material-icons">video_library</span>
-        </div>
-        <h3 class="feature-title" data-translate="videoManagement">Video Management</h3>
-        <p class="feature-description" data-translate="videoManagementDesc">Upload, organize, and manage video content for lessons.</p>
-        <div class="feature-actions">
-          <button class="action-btn" onclick="event.stopPropagation(); openUploadVideoModal()" data-translate="uploadVideo">Upload Video</button>
-          <button class="action-btn secondary" onclick="event.stopPropagation(); manageVideos()" data-translate="manageVideos">Manage Videos</button>
         </div>
       </div>
 
@@ -1345,6 +1334,53 @@
         <button class="action-btn" onclick="nextQuestion()" id="nextBtn">Next</button>
         <button class="action-btn" onclick="submitQuiz()" id="submitBtn" style="display: none;">Submit Quiz</button>
       </div>
+    </div>
+  </div>
+
+  <!-- Manage Units Modal -->
+  <div id="manageUnitsModal" class="modal">
+    <div class="modal-content" style="max-width: 800px;">
+      <div class="modal-header">
+        <h3 class="modal-title" data-translate="manageUnits">Manage Units</h3>
+        <button class="modal-close" onclick="closeModal('manageUnitsModal')" style="width: 15%;">&times;</button>
+      </div>
+      
+      <div style="margin-bottom: 20px;">
+        <input type="text" class="form-input" id="unitSearchInput" placeholder="Search units..." onkeyup="filterUnits()" style="width: 100%;">
+      </div>
+      
+      <div id="unitsManagementContainer" style="max-height: 500px; overflow-y: auto;">
+        <div style="text-align: center; padding: 40px; color: #666;">
+          <span class="material-icons" style="font-size: 48px; margin-bottom: 16px;">library_books</span>
+          <p>Loading units...</p>
+        </div>
+      </div>
+      
+      <div class="feature-actions" style="margin-top: 20px;">
+        <button class="action-btn" onclick="openAddUnitModal()">Add New Unit</button>
+        <button class="action-btn secondary" onclick="refreshUnitsList()">Refresh</button>
+        <button class="action-btn secondary" onclick="closeModal('manageUnitsModal')">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Edit Unit Modal -->
+  <div id="editUnitModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 class="modal-title" data-translate="editUnit">Edit Unit</h3>
+        <button class="modal-close" onclick="closeModal('editUnitModal')" style="width: 15%;">&times;</button>
+      </div>
+      <form id="editUnitForm">
+        <div class="form-group">
+          <label class="form-label" data-translate="unitName">Unit Name</label>
+          <input type="text" class="form-input" id="editUnitName" required>
+        </div>
+        <div class="feature-actions">
+          <button type="submit" class="action-btn" data-translate="updateUnit">Update Unit</button>
+          <button type="button" class="action-btn secondary" onclick="closeModal('editUnitModal')" data-translate="cancel">Cancel</button>
+        </div>
+      </form>
     </div>
   </div>
 
