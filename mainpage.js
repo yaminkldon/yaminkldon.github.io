@@ -1354,8 +1354,11 @@ let studentFileZoomState = {
   initialDistance: 0,
   isZooming: false,
   isDragging: false,
+  isScrolling: false,
   minScale: 0.5,
-  maxScale: 3
+  maxScale: 3,
+  zoomCenterX: 0,
+  zoomCenterY: 0
 };
 
 function initializeStudentFileZoom() {
@@ -1374,8 +1377,11 @@ function initializeStudentFileZoom() {
     initialDistance: 0,
     isZooming: false,
     isDragging: false,
+    isScrolling: false,
     minScale: 0.5,
-    maxScale: 3
+    maxScale: 3,
+    zoomCenterX: 0,
+    zoomCenterY: 0
   };
 
   // Touch event handlers (mobile only)
@@ -1396,6 +1402,7 @@ function handleStudentFileZoomStart(e) {
     // Two fingers - start zoom
     studentFileZoomState.isZooming = true;
     studentFileZoomState.isDragging = false;
+    studentFileZoomState.isScrolling = false;
     
     const touch1 = touches[0];
     const touch2 = touches[1];
@@ -1405,13 +1412,29 @@ function handleStudentFileZoomStart(e) {
       Math.pow(touch1.clientY - touch2.clientY, 2)
     );
     
+    // Calculate center point for zoom
+    const centerX = (touch1.clientX + touch2.clientX) / 2;
+    const centerY = (touch1.clientY + touch2.clientY) / 2;
+    
+    const viewport = document.getElementById('studentFileViewport');
+    const rect = viewport.getBoundingClientRect();
+    
+    studentFileZoomState.zoomCenterX = centerX - rect.left;
+    studentFileZoomState.zoomCenterY = centerY - rect.top;
+    
     e.preventDefault();
   } else if (touches.length === 1) {
-    // One finger - start drag/pan
+    // One finger - check if it's scrolling or dragging
+    const touch = touches[0];
+    studentFileZoomState.startTouchX = touch.clientX;
+    studentFileZoomState.startTouchY = touch.clientY;
+    studentFileZoomState.startTime = Date.now();
+    
+    // Start as potential drag
     studentFileZoomState.isDragging = true;
     studentFileZoomState.isZooming = false;
+    studentFileZoomState.isScrolling = false;
     
-    const touch = touches[0];
     studentFileZoomState.startX = touch.clientX - studentFileZoomState.translateX;
     studentFileZoomState.startY = touch.clientY - studentFileZoomState.translateY;
   }
@@ -1440,17 +1463,43 @@ function handleStudentFileZoomMove(e) {
     
     applyStudentFileTransform();
     e.preventDefault();
-  } else if (studentFileZoomState.isDragging && touches.length === 1) {
+  } else if (touches.length === 1 && studentFileZoomState.isDragging) {
     const touch = touches[0];
-    studentFileZoomState.translateX = touch.clientX - studentFileZoomState.startX;
-    studentFileZoomState.translateY = touch.clientY - studentFileZoomState.startY;
+    const deltaX = Math.abs(touch.clientX - studentFileZoomState.startTouchX);
+    const deltaY = Math.abs(touch.clientY - studentFileZoomState.startTouchY);
+    const timeDelta = Date.now() - studentFileZoomState.startTime;
     
-    // Store the last pan position
-    studentFileZoomState.lastPanX = studentFileZoomState.translateX;
-    studentFileZoomState.lastPanY = studentFileZoomState.translateY;
+    // If not yet determined, check if it's scrolling or dragging
+    if (!studentFileZoomState.isScrolling && timeDelta > 100) {
+      // Determine if it's vertical scrolling or pan movement
+      if (deltaY > deltaX && deltaY > 10) {
+        // Vertical movement - likely scrolling
+        studentFileZoomState.isScrolling = true;
+        studentFileZoomState.isDragging = false;
+        return; // Allow normal scrolling
+      } else if (deltaX > 10 || deltaY > 10) {
+        // More horizontal or significant movement - pan
+        studentFileZoomState.isScrolling = false;
+      }
+    }
     
-    applyStudentFileTransform();
-    e.preventDefault();
+    // If it's scrolling, don't prevent default
+    if (studentFileZoomState.isScrolling) {
+      return;
+    }
+    
+    // Handle pan movement
+    if (!studentFileZoomState.isScrolling) {
+      studentFileZoomState.translateX = touch.clientX - studentFileZoomState.startX;
+      studentFileZoomState.translateY = touch.clientY - studentFileZoomState.startY;
+      
+      // Store the last pan position
+      studentFileZoomState.lastPanX = studentFileZoomState.translateX;
+      studentFileZoomState.lastPanY = studentFileZoomState.translateY;
+      
+      applyStudentFileTransform();
+      e.preventDefault();
+    }
   }
 }
 
@@ -1458,6 +1507,7 @@ function handleStudentFileZoomEnd(e) {
   if (e.touches.length === 0) {
     studentFileZoomState.isZooming = false;
     studentFileZoomState.isDragging = false;
+    studentFileZoomState.isScrolling = false;
   }
 }
 
@@ -1468,6 +1518,7 @@ function applyStudentFileTransform() {
   // Use translate and scale together, maintaining the last pan position
   const transform = `translate(${studentFileZoomState.translateX}px, ${studentFileZoomState.translateY}px) scale(${studentFileZoomState.scale})`;
   
+  frame.style.transition = 'transform 0.1s ease-out';
   frame.style.transform = transform;
 }
 

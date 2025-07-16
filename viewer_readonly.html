@@ -103,8 +103,11 @@
                 initialDistance: 0,
                 isZooming: false,
                 isDragging: false,
+                isScrolling: false,
                 minScale: 0.5,
-                maxScale: 4
+                maxScale: 4,
+                zoomCenterX: 0,
+                zoomCenterY: 0
             };
 
             function initializePDFZoom() {
@@ -149,6 +152,7 @@
                     // Two fingers - start zoom
                     pdfZoomState.isZooming = true;
                     pdfZoomState.isDragging = false;
+                    pdfZoomState.isScrolling = false;
                     
                     const touch1 = touches[0];
                     const touch2 = touches[1];
@@ -158,13 +162,29 @@
                         Math.pow(touch1.clientY - touch2.clientY, 2)
                     );
                     
+                    // Calculate center point for zoom
+                    const centerX = (touch1.clientX + touch2.clientX) / 2;
+                    const centerY = (touch1.clientY + touch2.clientY) / 2;
+                    
+                    const viewerContainer = document.getElementById('viewerContainer');
+                    const rect = viewerContainer.getBoundingClientRect();
+                    
+                    pdfZoomState.zoomCenterX = centerX - rect.left;
+                    pdfZoomState.zoomCenterY = centerY - rect.top;
+                    
                     e.preventDefault();
                 } else if (touches.length === 1) {
-                    // One finger - start drag/pan
+                    // One finger - check if it's scrolling or dragging
+                    const touch = touches[0];
+                    pdfZoomState.startTouchX = touch.clientX;
+                    pdfZoomState.startTouchY = touch.clientY;
+                    pdfZoomState.startTime = Date.now();
+                    
+                    // Start as potential drag
                     pdfZoomState.isDragging = true;
                     pdfZoomState.isZooming = false;
+                    pdfZoomState.isScrolling = false;
                     
-                    const touch = touches[0];
                     pdfZoomState.startX = touch.clientX - pdfZoomState.translateX;
                     pdfZoomState.startY = touch.clientY - pdfZoomState.translateY;
                 }
@@ -188,6 +208,13 @@
                     // Clamp scale
                     newScale = Math.max(pdfZoomState.minScale, Math.min(pdfZoomState.maxScale, newScale));
                     
+                    // Calculate zoom with center point
+                    const scaleChange = newScale / pdfZoomState.scale;
+                    
+                    // Adjust translation to zoom into the center point
+                    pdfZoomState.translateX = pdfZoomState.zoomCenterX - (pdfZoomState.zoomCenterX - pdfZoomState.translateX) * scaleChange;
+                    pdfZoomState.translateY = pdfZoomState.zoomCenterY - (pdfZoomState.zoomCenterY - pdfZoomState.translateY) * scaleChange;
+                    
                     pdfZoomState.scale = newScale;
                     pdfZoomState.initialDistance = currentDistance;
                     
@@ -195,15 +222,42 @@
                     e.preventDefault();
                 } else if (pdfZoomState.isDragging && touches.length === 1) {
                     const touch = touches[0];
-                    pdfZoomState.translateX = touch.clientX - pdfZoomState.startX;
-                    pdfZoomState.translateY = touch.clientY - pdfZoomState.startY;
+                    const deltaX = touch.clientX - pdfZoomState.startTouchX;
+                    const deltaY = touch.clientY - pdfZoomState.startTouchY;
+                    const timeDelta = Date.now() - pdfZoomState.startTime;
                     
-                    // Store the last pan position
-                    pdfZoomState.lastPanX = pdfZoomState.translateX;
-                    pdfZoomState.lastPanY = pdfZoomState.translateY;
+                    // Determine if this is scrolling (vertical movement) or dragging (any movement)
+                    if (!pdfZoomState.isScrolling && timeDelta > 50) {
+                        const absX = Math.abs(deltaX);
+                        const absY = Math.abs(deltaY);
+                        
+                        if (absY > absX && absY > 10) {
+                            // Primarily vertical movement - treat as scrolling
+                            pdfZoomState.isScrolling = true;
+                            pdfZoomState.isDragging = false;
+                        } else if (absX > 10 || absY > 10) {
+                            // Mixed or horizontal movement - treat as dragging
+                            pdfZoomState.isDragging = true;
+                            pdfZoomState.isScrolling = false;
+                        }
+                    }
                     
-                    applyPDFTransform();
-                    e.preventDefault();
+                    if (pdfZoomState.isDragging && !pdfZoomState.isScrolling) {
+                        // Regular drag movement
+                        pdfZoomState.translateX = touch.clientX - pdfZoomState.startX;
+                        pdfZoomState.translateY = touch.clientY - pdfZoomState.startY;
+                        
+                        // Store the last pan position
+                        pdfZoomState.lastPanX = pdfZoomState.translateX;
+                        pdfZoomState.lastPanY = pdfZoomState.translateY;
+                        
+                        applyPDFTransform();
+                        e.preventDefault();
+                    } else if (pdfZoomState.isScrolling) {
+                        // Allow natural scrolling - don't prevent default
+                        // This enables content scrolling within the PDF
+                        return;
+                    }
                 }
             }
 
@@ -211,6 +265,7 @@
                 if (e.touches.length === 0) {
                     pdfZoomState.isZooming = false;
                     pdfZoomState.isDragging = false;
+                    pdfZoomState.isScrolling = false;
                 }
             }
 
@@ -221,6 +276,18 @@
                 newScale = Math.max(pdfZoomState.minScale, Math.min(pdfZoomState.maxScale, newScale));
                 
                 if (newScale !== pdfZoomState.scale) {
+                    // Use center of viewport as zoom point for button zoom
+                    const viewerContainer = document.getElementById('viewerContainer');
+                    const rect = viewerContainer.getBoundingClientRect();
+                    const centerX = rect.width / 2;
+                    const centerY = rect.height / 2;
+                    
+                    const scaleChange = newScale / pdfZoomState.scale;
+                    
+                    // Adjust translation to zoom into center
+                    pdfZoomState.translateX = centerX - (centerX - pdfZoomState.translateX) * scaleChange;
+                    pdfZoomState.translateY = centerY - (centerY - pdfZoomState.translateY) * scaleChange;
+                    
                     pdfZoomState.scale = newScale;
                     applyPDFTransform();
                 }
@@ -230,10 +297,11 @@
                 const viewer = document.getElementById('viewer');
                 if (!viewer) return;
                 
-                // Use the last pan position as the transform origin
+                // Use translate and scale together with smooth transition
                 const transform = `translate(${pdfZoomState.translateX}px, ${pdfZoomState.translateY}px) scale(${pdfZoomState.scale})`;
                 
                 viewer.style.transform = transform;
+                viewer.style.transition = 'transform 0.1s ease-out';
             }
 
             // Initialize when DOM is ready
