@@ -7373,11 +7373,6 @@ async function editQuiz(quizId) {
     // Reset form to ensure clean state BEFORE loading units
     resetQuizForm();
 
-    // Load units first without setting selection
-    console.log('Loading units...');
-    await loadUnitsForQuiz(quiz.unit);
-    console.log('Units loaded');
-
     // Now populate the form (unit is already set by loadUnitsForQuiz)
     document.getElementById('quizTitle').value = quiz.title || '';
     document.getElementById('quizDescription').value = quiz.description || '';
@@ -7443,6 +7438,11 @@ async function editQuiz(quizId) {
     currentQuizQuestionCount = quiz.questions.length;
 
     updateQuizFormForEditing();
+
+    // Load units first without setting selection
+    console.log('Loading units...');
+    await loadUnitsForQuiz(quiz.unit);
+    console.log('Units loaded');
 
   } catch (error) {
     console.error('Failed to load quiz:', error);
