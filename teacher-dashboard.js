@@ -6403,51 +6403,6 @@ function openQuizSubmissionModal(quizId, studentId) {
     });
   });
 }
-        snapshot.forEach(child => {
-          const assignment = child.val();
-          const option = document.createElement('option');
-          option.value = child.key;
-          option.textContent = `Assignment: ${assignment.title}`;
-          option.dataset.type = 'assignment';
-          specificAssessmentFilter.appendChild(option);
-        });
-      }
-      
-      // Apply filters after updating options
-      setTimeout(() => {
-        filterSubmissions();
-      }, 100);
-    });
-  } else if (assessmentTypeFilter === 'quiz') {
-    // Load only quizzes
-    db.ref('quizzes').once('value').then(snapshot => {
-      
-      if (snapshot.exists()) {
-        snapshot.forEach(child => {
-          const quiz = child.val();
-          const option = document.createElement('option');
-          option.value = child.key;
-          option.textContent = `Quiz: ${quiz.title}`;
-          option.dataset.type = 'quiz';
-          specificAssessmentFilter.appendChild(option);
-        });
-      }
-      
-      // Apply filters after updating options
-      setTimeout(() => {
-        filterSubmissions();
-      }, 100);
-    });
-  } else {
-    // Load both assignments and quizzes using the improved function
-    loadAssignmentFilterOptions();
-    
-    // Apply filters after updating options
-    setTimeout(() => {
-      filterSubmissions();
-    }, 100);
-  }
-}
 
 function displayAllSubmissions(submissions, container) {
   container.innerHTML = '';
