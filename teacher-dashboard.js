@@ -7748,15 +7748,21 @@ function filterAssessments() {
   
   // Apply type filter
   if (typeFilter !== 'all') {
+    console.log('Before type filter:', filteredAssessments.length);
+    console.log('Available types:', [...new Set(allAssessments.map(a => a.type))]);
+    console.log('Filtering by type:', typeFilter);
     filteredAssessments = filteredAssessments.filter(assessment => assessment.type === typeFilter);
+    console.log('After type filter:', filteredAssessments.length);
   }
   
   // Apply search filter - search by title only
   if (searchFilter) {
+    console.log('Before search filter:', filteredAssessments.length);
     filteredAssessments = filteredAssessments.filter(assessment => {
       const title = (assessment.title || '').toLowerCase();
       return title.includes(searchFilter);
     });
+    console.log('After search filter:', filteredAssessments.length);
   }
   
   console.log('After filtering:', { filteredCount: filteredAssessments.length });
