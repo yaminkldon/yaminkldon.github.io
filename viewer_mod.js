@@ -36,7 +36,6 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const storage = firebase.storage();
 
-const USE_ONLY_CSS_ZOOM = true;
 const TEXT_LAYER_MODE = 0; // DISABLE
 /*  Modified for PDF.js Read Only
  *  To enable PDF large image size
@@ -258,7 +257,7 @@ const PDFViewerApplication = {
     this.pdfLoadingTask = loadingTask;
 
     loadingTask.onProgress = function (progressData) {
-      self.progress(progressData.loaded / progressData.total);
+      // Progress tracking removed - no progress bar needed
     };
 
     return loadingTask.promise.then(
@@ -269,7 +268,6 @@ const PDFViewerApplication = {
         self.pdfLinkService.setDocument(pdfDocument);
         self.pdfHistory.initialize({ fingerprint: pdfDocument.fingerprint });
 
-        self.loadingBar.hide();
         /*  Modified for PDF.js Read Only
          *  To hide Custom Progress Document Loading
          */
@@ -335,7 +333,6 @@ const PDFViewerApplication = {
         loadingErrorMessage.then(function (msg) {
           self.error(msg, { message });
         });
-        self.loadingBar.hide();
         /*  Modified for PDF.js Read Only
          *  To hide Custom Progress Document Loading
          */
@@ -377,12 +374,6 @@ const PDFViewerApplication = {
     }
 
     return promise;
-  },
-
-  get loadingBar() {
-    const bar = new pdfjsViewer.ProgressBar("#loadingBar", {});
-
-    return pdfjsLib.shadow(this, "loadingBar", bar);
   },
 
   setTitleUsingUrl: function pdfViewSetTitleUsingUrl(url) {
@@ -533,14 +524,6 @@ const PDFViewerApplication = {
     }
   },
 
-  progress: function pdfViewProgress(level) {
-    const percent = Math.round(level * 100);
-    // Updating the bar if value increases.
-    if (percent > this.loadingBar.percent || isNaN(percent)) {
-      this.loadingBar.percent = percent;
-    }
-  },
-
   get pagesCount() {
     return this.pdfDocument.numPages;
   },
@@ -590,7 +573,7 @@ const PDFViewerApplication = {
       eventBus,
       linkService,
       l10n: this.l10n,
-      useOnlyCssZoom: USE_ONLY_CSS_ZOOM,
+      maxCanvasPixels: 0,
       textLayerMode: TEXT_LAYER_MODE,
     });
     this.pdfViewer = pdfViewer;
