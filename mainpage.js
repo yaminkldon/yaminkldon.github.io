@@ -1133,6 +1133,21 @@ function toggleStudentFilePreviewFullscreen() {
     // Remove modal padding in fullscreen
     modal.style.padding = '0%';
     
+    // Ensure controls are visible in fullscreen on all devices
+    const iframe = modal.querySelector('iframe');
+    if (iframe) {
+      // Add a small delay to ensure fullscreen is active
+      setTimeout(() => {
+        // Force landscape orientation on mobile after fullscreen
+        if (isMobile && screen.orientation && screen.orientation.lock) {
+          screen.orientation.lock('landscape').catch(e => console.log('Orientation lock retry failed:', e));
+        }
+        
+        // Add PDF navigation controls for fullscreen
+        addStudentPDFNavigationControls(modal);
+      }, 500);
+    }
+    
     isStudentFilePreviewFullscreen = true;
     
     // Update button text
@@ -1169,13 +1184,173 @@ function toggleStudentFilePreviewFullscreen() {
       screen.orientation.unlock();
     }
     
+    // Remove PDF navigation controls
+    removeStudentPDFNavigationControls();
+    
     isStudentFilePreviewFullscreen = false;
+
+    modal.style.padding = '0%';
     
     // Update button text
     const fullscreenBtn = modal.querySelector('button[onclick="toggleStudentFilePreviewFullscreen()"]');
     if (fullscreenBtn) {
       fullscreenBtn.textContent = '⛶';
     }
+  }
+}
+
+// PDF Navigation Controls for student file viewer
+function addStudentPDFNavigationControls(modal) {
+  // Add controls for all devices when in fullscreen
+  if (!isStudentFilePreviewFullscreen) {
+    return;
+  }
+  
+  // Remove existing controls if any
+  removeStudentPDFNavigationControls();
+  
+  // Find the header section in the modal
+  const headerSection = modal.querySelector('div[style*="background: #444"]');
+  if (!headerSection) {
+    console.log('Header section not found');
+    return;
+  }
+  
+  // Find the button container in the header
+  const buttonContainer = headerSection.querySelector('div[style*="display: flex; gap: 10px"]');
+  if (!buttonContainer) {
+    console.log('Button container not found');
+    return;
+  }
+  
+  // Create navigation controls container
+  const navControls = document.createElement('div');
+  navControls.id = 'studentPdfNavigationControls';
+  navControls.style.cssText = `
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-right: 10px;
+  `;
+  
+  // Create previous page button
+  const prevBtn = document.createElement('button');
+  prevBtn.id = 'studentPdfPrevBtn';
+  prevBtn.innerHTML = '◀';
+  prevBtn.style.cssText = `
+    background: rgba(255, 255, 255, 0.2);
+    color: white;
+    border: none;
+    border-radius: 50%;
+    font-size: 16px;
+    cursor: pointer;
+    padding: 0;
+    width: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s ease;
+  `;
+  
+  // Create next page button
+  const nextBtn = document.createElement('button');
+  nextBtn.id = 'studentPdfNextBtn';
+  nextBtn.innerHTML = '▶';
+  nextBtn.style.cssText = `
+    background: rgba(255, 255, 255, 0.2);
+    color: white;
+    border: none;
+    border-radius: 50%;
+    font-size: 16px;
+    cursor: pointer;
+    padding: 0;
+    width: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s ease;
+  `;
+  
+  // Add hover effects
+  const addHoverEffects = (btn) => {
+    btn.addEventListener('mouseenter', () => {
+      btn.style.background = 'rgba(255, 255, 255, 0.3)';
+      btn.style.transform = 'scale(1.1)';
+    });
+    
+    btn.addEventListener('mouseleave', () => {
+      btn.style.background = 'rgba(255, 255, 255, 0.2)';
+      btn.style.transform = 'scale(1)';
+    });
+  };
+  
+  addHoverEffects(prevBtn);
+  addHoverEffects(nextBtn);
+  
+  // Add click handlers that trigger the iframe's navigation
+  prevBtn.addEventListener('click', () => {
+    const iframe = modal.querySelector('iframe');
+    if (iframe) {
+      try {
+        // Try to trigger the previous button in the iframe
+        iframe.contentWindow.postMessage({ 
+          type: 'navigate', 
+          action: 'previous' 
+        }, '*');
+      } catch (e) {
+        console.log('Failed to navigate to previous page:', e);
+      }
+    }
+  });
+  
+  nextBtn.addEventListener('click', () => {
+    const iframe = modal.querySelector('iframe');
+    if (iframe) {
+      try {
+        // Try to trigger the next button in the iframe
+        iframe.contentWindow.postMessage({ 
+          type: 'navigate', 
+          action: 'next' 
+        }, '*');
+      } catch (e) {
+        console.log('Failed to navigate to next page:', e);
+      }
+    }
+  });
+  
+  // Add touch handlers for mobile
+  const addTouchHandlers = (btn, action) => {
+    btn.addEventListener('touchstart', (e) => {
+      e.preventDefault();
+      btn.style.background = 'rgba(255, 255, 255, 0.3)';
+      btn.style.transform = 'scale(1.1)';
+      btn.click();
+    });
+    
+    btn.addEventListener('touchend', (e) => {
+      e.preventDefault();
+      btn.style.background = 'rgba(255, 255, 255, 0.2)';
+      btn.style.transform = 'scale(1)';
+    });
+  };
+  
+  addTouchHandlers(prevBtn, 'prev');
+  addTouchHandlers(nextBtn, 'next');
+  
+  // Add buttons to navigation controls
+  navControls.appendChild(prevBtn);
+  navControls.appendChild(nextBtn);
+  
+  // Insert navigation controls before the existing button container
+  headerSection.insertBefore(navControls, buttonContainer);
+}
+
+function removeStudentPDFNavigationControls() {
+  const navControls = document.getElementById('studentPdfNavigationControls');
+  if (navControls) {
+    navControls.remove();
   }
 }
 
