@@ -1,6 +1,7 @@
 /*  PDF.js Read Only Restriction for Mobile
  *  @author: Aprillio Latuminggi
  *  @source: https://github.com/latuminggi/pdf.js_readonly
+ *  Modified to support mobile pinch-to-zoom
  */
 
 // Read Only Preferences
@@ -10,6 +11,7 @@ var disableOpenFile = true; // Disable Open PDF,      value: true || false
 var disablePrintPdf = true; // Disable Print PDF,     value: true || false
 var disableDownload = true; // Disable Save PDF,      value: true || false
 var disablePrntScrn = true; // Disable Print Screen,  value: true || false (experimental)
+var allowPinchZoom = true;  // Allow pinch-to-zoom,   value: true || false (mobile enhancement)
 
 // Stop Print Screen
 function stopPrntScr() {
@@ -40,9 +42,15 @@ document.addEventListener("keyup", function (e) {
   }
 });
 
-// Disable F12, Ctrl+Shift+I (Developer Tools), Ctrl+Shift+J (Console), Ctrl+U (View Source), Ctrl+S (Save), Ctrl+A (Select All), Ctrl+P (Print), Ctrl+O (Open)
+// Disable keyboard shortcuts but allow zoom gestures
 document.addEventListener("keydown", function (e) {
   var keyCode = e.keyCode ? e.keyCode : e.which;
+  
+  // Allow Ctrl+Plus and Ctrl+Minus for zoom if pinch zoom is enabled
+  if (allowPinchZoom && ((e.ctrlKey || e.metaKey) && (keyCode == 187 || keyCode == 189))) {
+    return true; // Allow zoom shortcuts
+  }
+  
   if (keyCode == 123) {
     if (disableOpenFile) {
       alert('This function has been disabled!');
@@ -124,11 +132,37 @@ $(document).ready(function() {
   if (disableCopyText) {
     setInterval(ClearClipboardData(), 300);
   }
-  // Disable Right Click (Context Menu)
+  // Disable Right Click (Context Menu) but allow touch zoom
   if (disableRghtClck) {
     $('body').attr('oncontextmenu', 'return false;');
+    
+    // But allow touch events for zoom
+    if (allowPinchZoom) {
+      $('body').on('touchstart touchmove touchend', function(e) {
+        // Allow multi-touch events for zoom
+        if (e.originalEvent.touches && e.originalEvent.touches.length > 1) {
+          return true;
+        }
+      });
+    }
   }
   // Disable Header
   $('header').addClass('hidden');
   $('#viewerContainer').attr('style', 'margin-top:-50px');
+  
+  // Add mobile-specific styles for better touch experience
+  if (allowPinchZoom) {
+    $('body').css({
+      'touch-action': 'manipulation',
+      'user-select': 'none',
+      '-webkit-user-select': 'none',
+      '-moz-user-select': 'none',
+      '-ms-user-select': 'none'
+    });
+    
+    $('#viewerContainer').css({
+      'touch-action': 'manipulation',
+      'overflow': 'hidden'
+    });
+  }
 });
