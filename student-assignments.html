@@ -275,6 +275,10 @@
       width: 100%;
       height: 100%;
       background-color: rgba(0,0,0,0.5);
+    }
+    
+    .modal.show {
+      display: flex;
       align-items: center;
       justify-content: center;
     }
@@ -1439,7 +1443,9 @@
       feedbackContent.innerHTML = feedbackHtml;
       
       // Show modal
-      document.getElementById('feedbackModal').style.display = 'block';
+      const modal = document.getElementById('feedbackModal');
+      modal.style.display = 'flex';
+      modal.classList.add('show');
     }
 
     // Review quiz answers function
@@ -1671,7 +1677,9 @@
     }
 
     function closeModal(modalId) {
-      document.getElementById(modalId).style.display = 'none';
+      const modal = document.getElementById(modalId);
+      modal.classList.remove('show');
+      modal.style.display = 'none';
       
       // Clean up quiz timer if closing quiz modal
       if (modalId === 'quizModal' && quizTimer) {
