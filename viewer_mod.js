@@ -1,6 +1,24 @@
-// PDF.js Readonly Viewer - CDN Version with Security Features
-// Set up PDF.js worker
-pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+/* Copyright 2016 Mozilla Foundation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+"use strict";
+
+if (!pdfjsLib.getDocument || !pdfjsViewer.PDFViewer) {
+  // eslint-disable-next-line no-alert
+  alert("Please build the pdfjs-dist library using\n `gulp dist-install`");
+}
 
 // Firebase configuration
 const firebaseConfig = {
@@ -18,7 +36,34 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const storage = firebase.storage();
 
-// PDF.js Scale Settings
+const USE_ONLY_CSS_ZOOM = true;
+const TEXT_LAYER_MODE = 0; // DISABLE
+/*  Modified for PDF.js Read Only
+ *  To enable PDF large image size
+ */
+// const MAX_IMAGE_SIZE = 1024 * 1024; // Limited Max Image Size
+const MAX_IMAGE_SIZE = false; // Unlimited Max Image Size
+const CMAP_URL = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/cmaps/";
+const CMAP_PACKED = true;
+
+pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+/*  Modified for PDF.js Read Only
+ *  To enable get query string of file
+ *  How can I get query string values in JavaScript? https://stackoverflow.com/a/901144/17754812
+ */
+function getParameterByName(name, url = window.location.href) {
+  name = name.replace(/[\[\]]/g, '\\$&');
+  var regex   = new RegExp('[?&]' + name + '(=([^&#]*)|&|#|$)'),
+      results = regex.exec(url);
+  if (!results) return null;
+  if (!results[2]) return '';
+  return decodeURIComponent(results[2].replace(/\+/g, ' '));
+}
+
+const DEFAULT_SCALE_DELTA = 1.1;
+const MIN_SCALE = 0.25;
+const MAX_SCALE = 10.0;
 const DEFAULT_SCALE_VALUE = "page-fit";
 
 // Security functions
@@ -152,305 +197,507 @@ function getSecureFileUrl() {
   return urlParams.get('file');
 }
 
-// PDF Viewer Application
+/*  Modified for PDF.js Read Only
+ *  To get query string of file or using default PDF file
+ */
+// Get PDF file whether from secure proxy or "file" query string
+var file = getSecureFileUrl();
+const DEFAULT_URL = (file === null || file === "") ? "web/compressed.tracemonkey-pldi-09.pdf" : file;
+
 const PDFViewerApplication = {
+  pdfLoadingTask: null,
   pdfDocument: null,
-  currentPageNumber: 1,
-  numPages: 0,
-  scale: 1.0, // Default zoom
-  eventBus: null,
   pdfViewer: null,
-  
-  async initialize() {
-    this.container = document.getElementById('viewer');
-    this.pageNumber = document.getElementById('pageNumber');
-    this.customProgress = document.getElementById('customProgress');
-    this.errorWrapper = document.getElementById('errorWrapper');
+  pdfHistory: null,
+  pdfLinkService: null,
+  eventBus: null,
+
+  /**
+   * Opens PDF document specified by URL.
+   * @returns {Promise} - Returns the promise, which is resolved when document
+   *                      is opened.
+   */
+  async open(params) {
+    if (this.pdfLoadingTask) {
+      // We need to destroy already opened document
+      return this.close().then(
+        function () {
+          // ... and repeat the open() call.
+          return this.open(params);
+        }.bind(this)
+      );
+    }
+
+    let url = params.url;
+    const self = this;
     
-    // Initialize event bus
-    this.eventBus = new pdfjsViewer.EventBus();
+    // Handle Firebase storage URLs
+    if (url && !url.startsWith('http')) {
+      try {
+        const corsHandler = new FirebaseStorageCORSHandler();
+        const storageRef = storage.ref(url);
+        url = await storageRef.getDownloadURL();
+        url = await corsHandler.handleFirebaseStorageUrl(url);
+      } catch (error) {
+        console.error('Error getting Firebase URL:', error);
+      }
+    }
     
-    // Set up pagesinit event listener
-    this.eventBus.on("pagesinit", function () {
-      // We can use pdfViewer now, e.g. let's change default scale.
-      if (PDFViewerApplication.pdfViewer) {
-        PDFViewerApplication.pdfViewer.currentScaleValue = DEFAULT_SCALE_VALUE;
+    this.setTitleUsingUrl(url);
+
+    // Loading document with higher quality settings
+    const loadingTask = pdfjsLib.getDocument({
+      url,
+      maxImageSize: MAX_IMAGE_SIZE,
+      cMapUrl: CMAP_URL,
+      cMapPacked: CMAP_PACKED,
+      disableAutoFetch: false,
+      disableStream: false,
+      disableFontFace: false
+    });
+    this.pdfLoadingTask = loadingTask;
+
+    loadingTask.onProgress = function (progressData) {
+      self.progress(progressData.loaded / progressData.total);
+    };
+
+    return loadingTask.promise.then(
+      function (pdfDocument) {
+        // Document loaded, specifying document for the viewer.
+        self.pdfDocument = pdfDocument;
+        self.pdfViewer.setDocument(pdfDocument);
+        self.pdfLinkService.setDocument(pdfDocument);
+        self.pdfHistory.initialize({ fingerprint: pdfDocument.fingerprint });
+
+        self.loadingBar.hide();
+        /*  Modified for PDF.js Read Only
+         *  To hide Custom Progress Document Loading
+         */
+        const customProgress = document.getElementById('customProgress');
+        if (customProgress) {
+          customProgress.style.display = 'none';
+        }
+        
+        // Add watermark with user email
+        const urlParams = new URLSearchParams(window.location.search);
+        const proxyKey = urlParams.get('p');
+        let userEmail = 'Student';
+        
+        if (proxyKey) {
+          const proxyData = sessionStorage.getItem('proxy_' + proxyKey);
+          if (proxyData) {
+            try {
+              const data = JSON.parse(atob(proxyData));
+              userEmail = data.user || 'Student';
+            } catch (e) {
+              console.error('Error parsing user data');
+            }
+          }
+        }
+        
+        addStaticWatermark(userEmail);
+        
+        self.setTitleUsingMetadata(pdfDocument);
+      },
+      function (exception) {
+        const message = exception && exception.message;
+        const l10n = self.l10n;
+        let loadingErrorMessage;
+
+        if (exception instanceof pdfjsLib.InvalidPDFException) {
+          // change error message also for other builds
+          loadingErrorMessage = l10n.get(
+            "invalid_file_error",
+            null,
+            "Invalid or corrupted PDF file."
+          );
+        } else if (exception instanceof pdfjsLib.MissingPDFException) {
+          // special message for missing PDFs
+          loadingErrorMessage = l10n.get(
+            "missing_file_error",
+            null,
+            "Missing PDF file."
+          );
+        } else if (exception instanceof pdfjsLib.UnexpectedResponseException) {
+          loadingErrorMessage = l10n.get(
+            "unexpected_response_error",
+            null,
+            "Unexpected server response."
+          );
+        } else {
+          loadingErrorMessage = l10n.get(
+            "loading_error",
+            null,
+            "An error occurred while loading the PDF."
+          );
+        }
+
+        loadingErrorMessage.then(function (msg) {
+          self.error(msg, { message });
+        });
+        self.loadingBar.hide();
+        /*  Modified for PDF.js Read Only
+         *  To hide Custom Progress Document Loading
+         */
+        const customProgress = document.getElementById('customProgress');
+        if (customProgress) {
+          customProgress.style.display = 'none';
+        }
+      }
+    );
+  },
+
+  /**
+   * Closes opened PDF document.
+   * @returns {Promise} - Returns the promise, which is resolved when all
+   *                      destruction is completed.
+   */
+  close() {
+    const errorWrapper = document.getElementById("errorWrapper");
+    if (errorWrapper) {
+      errorWrapper.hidden = true;
+    }
+
+    if (!this.pdfLoadingTask) {
+      return Promise.resolve();
+    }
+
+    const promise = this.pdfLoadingTask.destroy();
+    this.pdfLoadingTask = null;
+
+    if (this.pdfDocument) {
+      this.pdfDocument = null;
+
+      this.pdfViewer.setDocument(null);
+      this.pdfLinkService.setDocument(null, null);
+
+      if (this.pdfHistory) {
+        this.pdfHistory.reset();
+      }
+    }
+
+    return promise;
+  },
+
+  get loadingBar() {
+    const bar = new pdfjsViewer.ProgressBar("#loadingBar", {});
+
+    return pdfjsLib.shadow(this, "loadingBar", bar);
+  },
+
+  setTitleUsingUrl: function pdfViewSetTitleUsingUrl(url) {
+    this.url = url;
+    let title = pdfjsLib.getFilenameFromUrl(url) || url;
+    try {
+      title = decodeURIComponent(title);
+    } catch (e) {
+      // decodeURIComponent may throw URIError,
+      // fall back to using the unprocessed url in that case
+    }
+    this.setTitle(title);
+  },
+
+  setTitleUsingMetadata(pdfDocument) {
+    const self = this;
+    pdfDocument.getMetadata().then(function (data) {
+      const info = data.info,
+        metadata = data.metadata;
+      self.documentInfo = info;
+      self.metadata = metadata;
+
+      // Provides some basic debug information
+      console.log(
+        "PDF " +
+          pdfDocument.fingerprint +
+          " [" +
+          info.PDFFormatVersion +
+          " " +
+          (info.Producer || "-").trim() +
+          " / " +
+          (info.Creator || "-").trim() +
+          "]" +
+          " (PDF.js: " +
+          (pdfjsLib.version || "-") +
+          ")"
+      );
+
+      let pdfTitle;
+      if (metadata && metadata.has("dc:title")) {
+        const title = metadata.get("dc:title");
+        // Ghostscript sometimes returns 'Untitled', so prevent setting the
+        // title to 'Untitled.
+        if (title !== "Untitled") {
+          pdfTitle = title;
+        }
+      }
+
+      if (!pdfTitle && info && info.Title) {
+        pdfTitle = info.Title;
+      }
+
+      if (pdfTitle) {
+        self.setTitle(pdfTitle + " - " + document.title);
       }
     });
+  },
+
+  setTitle: function pdfViewSetTitle(title) {
+    document.title = title;
+    const titleElement = document.getElementById("title");
+    if (titleElement) {
+      titleElement.textContent = title;
+    }
+  },
+
+  error: function pdfViewError(message, moreInfo) {
+    const l10n = this.l10n;
+    const moreInfoText = [
+      l10n.get(
+        "error_version_info",
+        { version: pdfjsLib.version || "?", build: pdfjsLib.build || "?" },
+        "PDF.js v{{version}} (build: {{build}})"
+      ),
+    ];
+
+    if (moreInfo) {
+      moreInfoText.push(
+        l10n.get(
+          "error_message",
+          { message: moreInfo.message },
+          "Message: {{message}}"
+        )
+      );
+      if (moreInfo.stack) {
+        moreInfoText.push(
+          l10n.get("error_stack", { stack: moreInfo.stack }, "Stack: {{stack}}")
+        );
+      } else {
+        if (moreInfo.filename) {
+          moreInfoText.push(
+            l10n.get(
+              "error_file",
+              { file: moreInfo.filename },
+              "File: {{file}}"
+            )
+          );
+        }
+        if (moreInfo.lineNumber) {
+          moreInfoText.push(
+            l10n.get(
+              "error_line",
+              { line: moreInfo.lineNumber },
+              "Line: {{line}}"
+            )
+          );
+        }
+      }
+    }
+
+    const errorWrapper = document.getElementById("errorWrapper");
+    if (errorWrapper) {
+      errorWrapper.hidden = false;
+    }
+
+    const errorMessage = document.getElementById("errorMessage");
+    if (errorMessage) {
+      errorMessage.textContent = message;
+    }
+
+    const closeButton = document.getElementById("errorClose");
+    if (closeButton) {
+      closeButton.onclick = function () {
+        errorWrapper.hidden = true;
+      };
+    }
+
+    const errorMoreInfo = document.getElementById("errorMoreInfo");
+    const moreInfoButton = document.getElementById("errorShowMore");
+    const lessInfoButton = document.getElementById("errorShowLess");
+    if (moreInfoButton && lessInfoButton && errorMoreInfo) {
+      moreInfoButton.onclick = function () {
+        errorMoreInfo.hidden = false;
+        moreInfoButton.hidden = true;
+        lessInfoButton.hidden = false;
+        errorMoreInfo.style.height = errorMoreInfo.scrollHeight + "px";
+      };
+      lessInfoButton.onclick = function () {
+        errorMoreInfo.hidden = true;
+        moreInfoButton.hidden = false;
+        lessInfoButton.hidden = true;
+      };
+      moreInfoButton.hidden = false;
+      lessInfoButton.hidden = true;
+      Promise.all(moreInfoText).then(function (parts) {
+        errorMoreInfo.value = parts.join("\n");
+      });
+    }
+  },
+
+  progress: function pdfViewProgress(level) {
+    const percent = Math.round(level * 100);
+    // Updating the bar if value increases.
+    if (percent > this.loadingBar.percent || isNaN(percent)) {
+      this.loadingBar.percent = percent;
+    }
+  },
+
+  get pagesCount() {
+    return this.pdfDocument.numPages;
+  },
+
+  get page() {
+    return this.pdfViewer.currentPageNumber;
+  },
+
+  set page(val) {
+    this.pdfViewer.currentPageNumber = val;
+  },
+
+  zoomIn: function pdfViewZoomIn(ticks) {
+    let newScale = this.pdfViewer.currentScale;
+    do {
+      newScale = (newScale * DEFAULT_SCALE_DELTA).toFixed(2);
+      newScale = Math.ceil(newScale * 10) / 10;
+      newScale = Math.min(MAX_SCALE, newScale);
+    } while (--ticks && newScale < MAX_SCALE);
+    this.pdfViewer.currentScaleValue = newScale;
+  },
+
+  zoomOut: function pdfViewZoomOut(ticks) {
+    let newScale = this.pdfViewer.currentScale;
+    do {
+      newScale = (newScale / DEFAULT_SCALE_DELTA).toFixed(2);
+      newScale = Math.floor(newScale * 10) / 10;
+      newScale = Math.max(MIN_SCALE, newScale);
+    } while (--ticks && newScale > MIN_SCALE);
+    this.pdfViewer.currentScaleValue = newScale;
+  },
+
+  initUI: function pdfViewInitUI() {
+    const eventBus = new pdfjsViewer.EventBus();
+    this.eventBus = eventBus;
+
+    const linkService = new pdfjsViewer.PDFLinkService({
+      eventBus,
+    });
+    this.pdfLinkService = linkService;
+
+    this.l10n = pdfjsViewer.NullL10n;
+
+    const container = document.getElementById("viewerContainer");
+    const pdfViewer = new pdfjsViewer.PDFViewer({
+      container,
+      eventBus,
+      linkService,
+      l10n: this.l10n,
+      useOnlyCssZoom: USE_ONLY_CSS_ZOOM,
+      textLayerMode: TEXT_LAYER_MODE,
+    });
+    this.pdfViewer = pdfViewer;
+    linkService.setViewer(pdfViewer);
+
+    this.pdfHistory = new pdfjsViewer.PDFHistory({
+      eventBus,
+      linkService,
+    });
+    linkService.setHistory(this.pdfHistory);
+
+    // Navigation buttons
+    const prevBtn = document.getElementById("previous");
+    if (prevBtn) {
+      prevBtn.addEventListener("click", function () {
+        PDFViewerApplication.page--;
+      });
+    }
+
+    const nextBtn = document.getElementById("next");
+    if (nextBtn) {
+      nextBtn.addEventListener("click", function () {
+        PDFViewerApplication.page++;
+      });
+    }
+
+    const zoomInBtn = document.getElementById("zoomIn");
+    if (zoomInBtn) {
+      zoomInBtn.addEventListener("click", function () {
+        PDFViewerApplication.zoomIn();
+      });
+    }
+
+    const zoomOutBtn = document.getElementById("zoomOut");
+    if (zoomOutBtn) {
+      zoomOutBtn.addEventListener("click", function () {
+        PDFViewerApplication.zoomOut();
+      });
+    }
+
+    const pageNumberInput = document.getElementById("pageNumber");
+    if (pageNumberInput) {
+      pageNumberInput.addEventListener("click", function () {
+        this.select();
+      });
+
+      pageNumberInput.addEventListener("change", function () {
+        PDFViewerApplication.page = this.value | 0;
+
+        // Ensure that the page number input displays the correct value,
+        // even if the value entered by the user was invalid
+        // (e.g. a floating point number).
+        if (this.value !== PDFViewerApplication.page.toString()) {
+          this.value = PDFViewerApplication.page;
+        }
+      });
+    }
+
+    // Set up pagesinit event listener for proper page-fit scaling
+    eventBus.on("pagesinit", function () {
+      // We can use pdfViewer now, e.g. let's change default scale.
+      pdfViewer.currentScaleValue = DEFAULT_SCALE_VALUE;
+    });
+
+    eventBus.on(
+      "pagechanging",
+      function (evt) {
+        const page = evt.pageNumber;
+        const numPages = PDFViewerApplication.pagesCount;
+
+        if (pageNumberInput) {
+          pageNumberInput.value = page;
+        }
+        if (prevBtn) {
+          prevBtn.disabled = page <= 1;
+        }
+        if (nextBtn) {
+          nextBtn.disabled = page >= numPages;
+        }
+      },
+      true
+    );
     
     // Start developer tools detection
     detectDevToolsInViewer();
-    
-    // Get file parameter from secure proxy or URL
-    const fileParam = getSecureFileUrl();
-    
-    if (fileParam) {
-      await this.loadPDF(fileParam);
-    } else {
-      this.showError('No file parameter specified');
-    }
-    
-    this.setupEventListeners();
   },
-  
-  async loadPDF(filePath) {
-    try {
-      this.showProgress(true);
-      
-      // Use Firebase CORS handler
-      const corsHandler = new FirebaseStorageCORSHandler();
-      let pdfUrl;
-      
-      if (filePath.startsWith('http')) {
-        pdfUrl = filePath;
-      } else {
-        // Get Firebase storage URL
-        const storageRef = storage.ref(filePath);
-        pdfUrl = await storageRef.getDownloadURL();
-      }
-      
-      // Handle CORS if needed
-      pdfUrl = await corsHandler.handleFirebaseStorageUrl(pdfUrl);
-      
-      // Load PDF document with higher quality settings
-      const loadingTask = pdfjsLib.getDocument({
-        url: pdfUrl,
-        maxImageSize: -1, // Unlimited image size for better quality
-        disableAutoFetch: false,
-        disableStream: false,
-        disableFontFace: false,
-        cMapUrl: 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/cmaps/',
-        cMapPacked: true
-      });
-      
-      this.pdfDocument = await loadingTask.promise;
-      this.numPages = this.pdfDocument.numPages;
-      
-      // Update page number input
-      this.pageNumber.max = this.numPages;
-      
-      // Add watermark with user email
-      const urlParams = new URLSearchParams(window.location.search);
-      const proxyKey = urlParams.get('p');
-      let userEmail = 'Student';
-      
-      if (proxyKey) {
-        const proxyData = sessionStorage.getItem('proxy_' + proxyKey);
-        if (proxyData) {
-          try {
-            const data = JSON.parse(atob(proxyData));
-            userEmail = data.user || 'Student';
-          } catch (e) {
-            console.error('Error parsing user data');
-          }
-        }
-      }
-      
-      addStaticWatermark(userEmail);
-      
-      // Render first page
-      await this.renderPage(1);
-      
-      this.showProgress(false);
-      
-    } catch (error) {
-      console.error('Error loading PDF:', error);
-      this.showError('Failed to load PDF: ' + error.message);
-    }
-  },
-  
-  async renderPage(pageNum) {
-    try {
-      const page = await this.pdfDocument.getPage(pageNum);
-      
-      // Use higher scale for better quality when zoomed out
-      const baseScale = this.scale;
-      const renderScale = Math.max(baseScale, 1.5); // Minimum render scale for quality
-      
-      const viewport = page.getViewport({ scale: renderScale });
-      
-      // Create canvas with higher resolution
-      const canvas = document.createElement('canvas');
-      const context = canvas.getContext('2d');
-      
-      // Set up high-DPI rendering
-      const devicePixelRatio = window.devicePixelRatio || 1;
-      const backingStoreRatio = context.webkitBackingStorePixelRatio ||
-                               context.mozBackingStorePixelRatio ||
-                               context.msBackingStorePixelRatio ||
-                               context.oBackingStorePixelRatio ||
-                               context.backingStorePixelRatio || 1;
-      
-      const ratio = devicePixelRatio / backingStoreRatio;
-      
-      canvas.width = viewport.width * ratio;
-      canvas.height = viewport.height * ratio;
-      canvas.style.width = viewport.width * (baseScale / renderScale) + 'px';
-      canvas.style.height = viewport.height * (baseScale / renderScale) + 'px';
-      
-      context.scale(ratio, ratio);
-      
-      // Clear container and add canvas
-      this.container.innerHTML = '';
-      this.container.appendChild(canvas);
-      
-      // Render page with high quality
-      const renderContext = {
-        canvasContext: context,
-        viewport: viewport,
-        intent: 'display'
-      };
-      
-      await page.render(renderContext).promise;
-      
-      // Update current page number
-      this.currentPageNumber = pageNum;
-      this.pageNumber.value = pageNum;
-      
-      // Refresh watermarks after page render
-      this.refreshWatermarks();
-      
-    } catch (error) {
-      console.error('Error rendering page:', error);
-      this.showError('Failed to render page: ' + error.message);
-    }
-  },
-  
-  refreshWatermarks() {
-    // Get user email from secure proxy
-    const urlParams = new URLSearchParams(window.location.search);
-    const proxyKey = urlParams.get('p');
-    let userEmail = 'Student';
-    
-    if (proxyKey) {
-      const proxyData = sessionStorage.getItem('proxy_' + proxyKey);
-      if (proxyData) {
-        try {
-          const data = JSON.parse(atob(proxyData));
-          userEmail = data.user || 'Student';
-        } catch (e) {
-          console.error('Error parsing user data');
-        }
-      }
-    }
-    
-    // Re-add watermarks to ensure they're visible
-    addStaticWatermark(userEmail);
-  },
-  
-  setupEventListeners() {
-    // Navigation buttons
-    document.getElementById('previous').addEventListener('click', () => {
-      if (this.currentPageNumber > 1) {
-        this.renderPage(this.currentPageNumber - 1);
-      }
-    });
-    
-    document.getElementById('next').addEventListener('click', () => {
-      if (this.currentPageNumber < this.numPages) {
-        this.renderPage(this.currentPageNumber + 1);
-      }
-    });
-    
-    // Page number input
-    this.pageNumber.addEventListener('change', (e) => {
-      const pageNum = parseInt(e.target.value);
-      if (pageNum >= 1 && pageNum <= this.numPages) {
-        this.renderPage(pageNum);
-      }
-    });
-    
-    // Zoom buttons
-    document.getElementById('zoomIn').addEventListener('click', () => {
-      this.scale *= 1.2;
-      this.renderPage(this.currentPageNumber);
-    });
-    
-    document.getElementById('zoomOut').addEventListener('click', () => {
-      this.scale /= 1.2;
-      this.renderPage(this.currentPageNumber);
-    });
-    
-    // Touch support for mobile
-    let touchStartX = 0;
-    let touchStartY = 0;
-    
-    this.container.addEventListener('touchstart', (e) => {
-      touchStartX = e.touches[0].clientX;
-      touchStartY = e.touches[0].clientY;
-    });
-    
-    this.container.addEventListener('touchend', (e) => {
-      const touchEndX = e.changedTouches[0].clientX;
-      const touchEndY = e.changedTouches[0].clientY;
-      
-      const deltaX = touchEndX - touchStartX;
-      const deltaY = touchEndY - touchStartY;
-      
-      // Swipe threshold
-      const minSwipeDistance = 50;
-      
-      // Horizontal swipe for page navigation
-      if (Math.abs(deltaX) > minSwipeDistance && Math.abs(deltaX) > Math.abs(deltaY)) {
-        if (deltaX > 0 && this.currentPageNumber > 1) {
-          // Swipe right - previous page
-          this.renderPage(this.currentPageNumber - 1);
-        } else if (deltaX < 0 && this.currentPageNumber < this.numPages) {
-          // Swipe left - next page
-          this.renderPage(this.currentPageNumber + 1);
-        }
-      }
-    });
-    
-    // Keyboard navigation
-    document.addEventListener('keydown', (e) => {
-      switch(e.key) {
-        case 'ArrowLeft':
-          if (this.currentPageNumber > 1) {
-            this.renderPage(this.currentPageNumber - 1);
-          }
-          break;
-        case 'ArrowRight':
-          if (this.currentPageNumber < this.numPages) {
-            this.renderPage(this.currentPageNumber + 1);
-          }
-          break;
-        case '+':
-        case '=':
-          this.scale *= 1.2;
-          this.renderPage(this.currentPageNumber);
-          break;
-        case '-':
-          this.scale /= 1.2;
-          this.renderPage(this.currentPageNumber);
-          break;
-      }
-    });
-    
-    // Error close button
-    document.getElementById('errorClose').addEventListener('click', () => {
-      this.showError('');
-    });
-  },
-  
-  showProgress(show) {
-    if (this.customProgress) {
-      this.customProgress.style.display = show ? 'block' : 'none';
-    }
-  },
-  
-  showError(message) {
-    if (message) {
-      document.getElementById('errorMessage').textContent = message;
-      this.errorWrapper.hidden = false;
-      this.showProgress(false);
-    } else {
-      this.errorWrapper.hidden = true;
-    }
-  }
 };
 
-// Initialize when DOM is loaded
-document.addEventListener('DOMContentLoaded', function() {
-  PDFViewerApplication.initialize();
+window.PDFViewerApplication = PDFViewerApplication;
+
+document.addEventListener(
+  "DOMContentLoaded",
+  function () {
+    PDFViewerApplication.initUI();
+  },
+  true
+);
+
+// The offsetParent is not set until the PDF.js iframe or object is visible;
+// waiting for first animation.
+const animationStarted = new Promise(function (resolve) {
+  window.requestAnimationFrame(resolve);
+});
+
+// We need to delay opening until all HTML is loaded.
+animationStarted.then(function () {
+  PDFViewerApplication.open({
+    url: DEFAULT_URL,
+  });
 });
