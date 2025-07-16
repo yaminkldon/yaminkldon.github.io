@@ -1098,12 +1098,16 @@ function loadStudentFiles(unitKey, lessonKey) {
     `units/${unitKey}/lessons/${lessonKey}/files` : 
     `units/${unitKey}/files`;
   
+  console.log('Loading student files from path:', dbPath); // Debug log
+  
   db.ref(dbPath).once('value').then(snapshot => {
+    console.log('Student files snapshot exists:', snapshot.exists()); // Debug log
     if (!snapshot.exists()) {
       filesList.innerHTML = `
         <div style="text-align: center; padding: 40px; color: #666;">
           <span class="material-icons" style="font-size: 48px; color: #ddd; margin-bottom: 16px;">folder_open</span>
-          <div>No files available for this lesson</div>
+          <div>No files available for this ${lessonKey ? 'lesson' : 'unit'}</div>
+          <div style="font-size: 12px; color: #999; margin-top: 8px;">Files will appear here once uploaded by your teacher</div>
         </div>
       `;
       return;

@@ -5115,32 +5115,77 @@ function uploadFile(unitKey, lessonKey) {
 
 function loadFiles(unitKey, lessonKey) {
   const filesList = document.getElementById('filesList');
-  const dbPath = lessonKey ? 
-    `units/${unitKey}/lessons/${lessonKey}/files` : 
-    `units/${unitKey}/files`;
+  let dbPath;
   
-  db.ref(dbPath).once('value').then(snapshot => {
+  if (lessonKey) {
+    // For lessons, check both old and new file structures
+    dbPath = `units/${unitKey}/lessons/${lessonKey}/files`;
+  } else {
+    // For units, files are stored directly under the unit in a files folder
+    dbPath = `units/${unitKey}/files`;
+  }
+  
+  console.log('Loading files from path:', dbPath); // Debug log
+  
+  // Helper function to handle files snapshot
+  function handleFilesSnapshot(snapshot) {
     if (!snapshot.exists()) {
-      filesList.innerHTML = `
-        <div style="text-align: center; padding: 40px; color: #666;">
-          <span class="material-icons" style="font-size: 48px; margin-bottom: 16px;">folder_open</span>
-          <p>No files uploaded yet</p>
-        </div>
-      `;
+      console.log('No files found at path:', dbPath); // Debug log
+      
+      // If it's a lesson and we didn't find files, try the new structure
+      if (lessonKey && dbPath.includes('/lessons/')) {
+        console.log('Trying new structure for lesson files'); // Debug log
+        const newDbPath = `units/${unitKey}/lesson${lessonKey}/files`;
+        console.log('Loading files from new path:', newDbPath); // Debug log
+        
+        db.ref(newDbPath).once('value').then(newSnapshot => {
+          if (newSnapshot.exists()) {
+            console.log('Found files in new structure'); // Debug log
+            handleFilesSnapshot(newSnapshot);
+          } else {
+            console.log('No files found in new structure either'); // Debug log
+            showNoFilesMessage();
+          }
+        }).catch(error => {
+          console.error('Error loading files from new structure:', error);
+          showNoFilesMessage();
+        });
+        return;
+      }
+      
+      showNoFilesMessage();
       return;
     }
     
     const files = [];
     snapshot.forEach(child => {
+      const fileData = child.val();
+      console.log('Found file:', child.key, fileData); // Debug log
       files.push({
         id: child.key,
-        ...child.val()
+        ...fileData
       });
     });
     
     // Sort files by upload date (newest first)
     files.sort((a, b) => b.uploadedAt - a.uploadedAt);
     
+    displayFiles(files);
+  }
+  
+  // Helper function to show no files message
+  function showNoFilesMessage() {
+    filesList.innerHTML = `
+      <div style="text-align: center; padding: 40px; color: #666;">
+        <span class="material-icons" style="font-size: 48px; margin-bottom: 16px;">folder_open</span>
+        <p>No files uploaded yet</p>
+        <p style="font-size: 12px; color: #999;">Upload files using the form above</p>
+      </div>
+    `;
+  }
+  
+  // Helper function to display files
+  function displayFiles(files) {
     let html = '<div class="files-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px;">';
     
     files.forEach(file => {
@@ -5196,7 +5241,10 @@ function loadFiles(unitKey, lessonKey) {
     
     html += '</div>';
     filesList.innerHTML = html;
-  }).catch(error => {
+  }
+  
+  // Start the file loading process
+  db.ref(dbPath).once('value').then(handleFilesSnapshot).catch(error => {
     console.error('Error loading files:', error);
     filesList.innerHTML = `
       <div style="text-align: center; padding: 40px; color: #ff5722;">
