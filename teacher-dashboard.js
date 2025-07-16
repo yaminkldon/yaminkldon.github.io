@@ -7155,18 +7155,18 @@ function viewAssessments() {
       
       <div class="assessment-filters" style="margin-bottom: 20px;">
         <div style="display: flex; gap: 10px; margin-bottom: 10px; flex-wrap: wrap;">
-          <select class="form-input" id="assessmentTypeFilter" onchange="filterAssessments()" style="width: 150px;">
+          <select class="form-input" id="assessmentsViewTypeFilter" onchange="filterAssessments()" style="width: 150px;">
             <option value="all">All Types</option>
             <option value="quiz">Quizzes</option>
             <option value="assignment">Assignments</option>
           </select>
-          <select class="form-input" id="assessmentSortFilter" onchange="filterAssessments()" style="width: 180px;">
+          <select class="form-input" id="assessmentsViewSortFilter" onchange="filterAssessments()" style="width: 180px;">
             <option value="date-desc">Newest First</option>
             <option value="date-asc">Oldest First</option>
             <option value="title-asc">Title (A-Z)</option>
             <option value="title-desc">Title (Z-A)</option>
           </select>
-          <input type="text" class="form-input" id="assessmentSearchFilter" onkeyup="filterAssessments()" placeholder="Search by title..." style="width: 300px;">
+          <input type="text" class="form-input" id="assessmentsViewSearchFilter" onkeyup="filterAssessments()" placeholder="Search by title..." style="width: 300px;">
         </div>
       </div>
       
@@ -7737,9 +7737,27 @@ function deleteAssessment(assessmentId, type) {
 }
 
 function filterAssessments() {
-  const typeFilter = document.getElementById('assessmentTypeFilter')?.value || 'all';
-  const sortFilter = document.getElementById('assessmentSortFilter')?.value || 'date-desc';
-  const searchFilter = document.getElementById('assessmentSearchFilter')?.value?.toLowerCase() || '';
+  const typeFilterElement = document.getElementById('assessmentsViewTypeFilter');
+  const sortFilterElement = document.getElementById('assessmentsViewSortFilter');
+  const searchFilterElement = document.getElementById('assessmentsViewSearchFilter');
+  
+  // Debug the actual elements
+  console.log('Filter elements:', {
+    typeFilterElement: typeFilterElement,
+    sortFilterElement: sortFilterElement,
+    searchFilterElement: searchFilterElement
+  });
+  
+  const typeFilter = typeFilterElement?.value || 'all';
+  const sortFilter = sortFilterElement?.value || 'date-desc';
+  const searchFilter = searchFilterElement?.value?.toLowerCase() || '';
+  
+  // Debug the actual values
+  console.log('Raw values:', {
+    typeFilterValue: typeFilterElement?.value,
+    sortFilterValue: sortFilterElement?.value,
+    searchFilterValue: searchFilterElement?.value
+  });
   
   console.log('Filtering assessments:', { typeFilter, sortFilter, searchFilter, totalAssessments: allAssessments.length });
   
