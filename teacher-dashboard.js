@@ -7355,12 +7355,15 @@ async function editQuiz(quizId) {
     const quiz = snapshot.val();
 
     // First, open the create quiz modal to ensure it exists in the DOM
-    openCreateQuizModal();
+    openModal('createQuizModal');
 
     // Wait for loadUnitsForQuiz to complete and get the available units
     console.log('Waiting for units to load...');
     const availableUnits = await loadUnitsForQuiz();
     console.log('Units loaded:', availableUnits);
+
+    // Reset form to ensure clean state
+    resetQuizForm();
 
     // Now get the unit dropdown and set it to the quiz's unit
     const unitSelect = document.getElementById('quizUnit');
