@@ -154,7 +154,7 @@ const PDFViewerApplication = {
   pdfDocument: null,
   currentPageNumber: 1,
   numPages: 0,
-  scale: 1.0,
+  scale: 0.5, // Default zoom to 50%
   
   async initialize() {
     this.container = document.getElementById('viewer');
@@ -174,12 +174,7 @@ const PDFViewerApplication = {
       this.showError('No file parameter specified');
     }
     
-    // Set up window resize listener for automatic fit
-    window.addEventListener('resize', () => {
-      if (this.pdfDocument) {
-        this.renderPage(this.currentPageNumber);
-      }
-    });
+    this.setupEventListeners();
   },
   
   async loadPDF(filePath) {
@@ -215,8 +210,8 @@ const PDFViewerApplication = {
       this.pdfDocument = await loadingTask.promise;
       this.numPages = this.pdfDocument.numPages;
       
-      // Update page number display
-      this.pageNumber.value = `1 / ${this.numPages}`;
+      // Update page number input
+      this.pageNumber.max = this.numPages;
       
       // Add watermark with user email
       const urlParams = new URLSearchParams(window.location.search);
@@ -252,25 +247,13 @@ const PDFViewerApplication = {
     try {
       const page = await this.pdfDocument.getPage(pageNum);
       
-      // Calculate scale to fit the page to the container
-      const container = this.container.parentElement;
-      const containerWidth = container.clientWidth - 40; // Account for padding
-      const containerHeight = container.clientHeight - 40;
+      // Use higher scale for better quality when zoomed out
+      const baseScale = this.scale;
+      const renderScale = Math.max(baseScale, 1.5); // Minimum render scale for quality
       
-      // Get the page dimensions at scale 1.0
-      const viewport = page.getViewport({ scale: 1.0 });
+      const viewport = page.getViewport({ scale: renderScale });
       
-      // Calculate scale to fit both width and height
-      const scaleX = containerWidth / viewport.width;
-      const scaleY = containerHeight / viewport.height;
-      
-      // Use the smaller scale to ensure the page fits completely
-      this.scale = Math.min(scaleX, scaleY, 2.0); // Max scale of 2.0 for readability
-      
-      // Get the final viewport with calculated scale
-      const finalViewport = page.getViewport({ scale: this.scale });
-      
-      // Create canvas with higher resolution for quality
+      // Create canvas with higher resolution
       const canvas = document.createElement('canvas');
       const context = canvas.getContext('2d');
       
@@ -284,16 +267,12 @@ const PDFViewerApplication = {
       
       const ratio = devicePixelRatio / backingStoreRatio;
       
-      canvas.width = finalViewport.width * ratio;
-      canvas.height = finalViewport.height * ratio;
-      canvas.style.width = finalViewport.width + 'px';
-      canvas.style.height = finalViewport.height + 'px';
+      canvas.width = viewport.width * ratio;
+      canvas.height = viewport.height * ratio;
+      canvas.style.width = viewport.width * (baseScale / renderScale) + 'px';
+      canvas.style.height = viewport.height * (baseScale / renderScale) + 'px';
       
       context.scale(ratio, ratio);
-      
-      // Center the canvas in the container
-      canvas.style.display = 'block';
-      canvas.style.margin = '0 auto';
       
       // Clear container and add canvas
       this.container.innerHTML = '';
@@ -302,7 +281,7 @@ const PDFViewerApplication = {
       // Render page with high quality
       const renderContext = {
         canvasContext: context,
-        viewport: finalViewport,
+        viewport: viewport,
         intent: 'display'
       };
       
@@ -310,7 +289,7 @@ const PDFViewerApplication = {
       
       // Update current page number
       this.currentPageNumber = pageNum;
-      this.pageNumber.value = `${pageNum} / ${this.numPages}`;
+      this.pageNumber.value = pageNum;
       
       // Refresh watermarks after page render
       this.refreshWatermarks();
@@ -341,6 +320,101 @@ const PDFViewerApplication = {
     
     // Re-add watermarks to ensure they're visible
     addStaticWatermark(userEmail);
+  },
+  
+  setupEventListeners() {
+    // Navigation buttons
+    document.getElementById('previous').addEventListener('click', () => {
+      if (this.currentPageNumber > 1) {
+        this.renderPage(this.currentPageNumber - 1);
+      }
+    });
+    
+    document.getElementById('next').addEventListener('click', () => {
+      if (this.currentPageNumber < this.numPages) {
+        this.renderPage(this.currentPageNumber + 1);
+      }
+    });
+    
+    // Page number input
+    this.pageNumber.addEventListener('change', (e) => {
+      const pageNum = parseInt(e.target.value);
+      if (pageNum >= 1 && pageNum <= this.numPages) {
+        this.renderPage(pageNum);
+      }
+    });
+    
+    // Zoom buttons
+    document.getElementById('zoomIn').addEventListener('click', () => {
+      this.scale *= 1.2;
+      this.renderPage(this.currentPageNumber);
+    });
+    
+    document.getElementById('zoomOut').addEventListener('click', () => {
+      this.scale /= 1.2;
+      this.renderPage(this.currentPageNumber);
+    });
+    
+    // Touch support for mobile
+    let touchStartX = 0;
+    let touchStartY = 0;
+    
+    this.container.addEventListener('touchstart', (e) => {
+      touchStartX = e.touches[0].clientX;
+      touchStartY = e.touches[0].clientY;
+    });
+    
+    this.container.addEventListener('touchend', (e) => {
+      const touchEndX = e.changedTouches[0].clientX;
+      const touchEndY = e.changedTouches[0].clientY;
+      
+      const deltaX = touchEndX - touchStartX;
+      const deltaY = touchEndY - touchStartY;
+      
+      // Swipe threshold
+      const minSwipeDistance = 50;
+      
+      // Horizontal swipe for page navigation
+      if (Math.abs(deltaX) > minSwipeDistance && Math.abs(deltaX) > Math.abs(deltaY)) {
+        if (deltaX > 0 && this.currentPageNumber > 1) {
+          // Swipe right - previous page
+          this.renderPage(this.currentPageNumber - 1);
+        } else if (deltaX < 0 && this.currentPageNumber < this.numPages) {
+          // Swipe left - next page
+          this.renderPage(this.currentPageNumber + 1);
+        }
+      }
+    });
+    
+    // Keyboard navigation
+    document.addEventListener('keydown', (e) => {
+      switch(e.key) {
+        case 'ArrowLeft':
+          if (this.currentPageNumber > 1) {
+            this.renderPage(this.currentPageNumber - 1);
+          }
+          break;
+        case 'ArrowRight':
+          if (this.currentPageNumber < this.numPages) {
+            this.renderPage(this.currentPageNumber + 1);
+          }
+          break;
+        case '+':
+        case '=':
+          this.scale *= 1.2;
+          this.renderPage(this.currentPageNumber);
+          break;
+        case '-':
+          this.scale /= 1.2;
+          this.renderPage(this.currentPageNumber);
+          break;
+      }
+    });
+    
+    // Error close button
+    document.getElementById('errorClose').addEventListener('click', () => {
+      this.showError('');
+    });
   },
   
   showProgress(show) {
