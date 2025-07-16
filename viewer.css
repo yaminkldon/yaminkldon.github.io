@@ -94,6 +94,59 @@ footer {
   box-shadow: 0 -0.2rem 0.5rem rgba(50, 50, 50, 0.75);
 }
 
+/* Mobile-first responsive design */
+@media (max-width: 768px) {
+  footer {
+    height: 5rem;
+  }
+  
+  .toolbarButton {
+    font-size: 1.8rem;
+    min-height: 4rem;
+  }
+  
+  .toolbarButton.pageUp {
+    width: 20%;
+  }
+  
+  .toolbarButton.pageDown {
+    width: 20%;
+  }
+  
+  .toolbarButton.zoomOut {
+    width: 18%;
+    right: 60%;
+  }
+  
+  .toolbarButton.zoomIn {
+    width: 18%;
+    right: 40%;
+  }
+  
+  .toolbarField.pageNumber {
+    width: 20%;
+    right: 18%;
+    font-size: 1.4rem;
+  }
+  
+  /* Larger icons for mobile */
+  .toolbarButton.pageUp::before {
+    font-size: 20px;
+  }
+  
+  .toolbarButton.pageDown::before {
+    font-size: 20px;
+  }
+  
+  .toolbarButton.zoomOut::before {
+    font-size: 24px;
+  }
+  
+  .toolbarButton.zoomIn::before {
+    font-size: 24px;
+  }
+}
+
 .toolbarButton {
   display: block;
   padding: 0;
@@ -102,6 +155,26 @@ footer {
   background-position: center center;
   background-repeat: no-repeat;
   background-color: rgba(0, 0, 0, 0);
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.toolbarButton:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.toolbarButton:active {
+  background-color: rgba(255, 255, 255, 0.2);
+}
+
+/* Touch-friendly button sizing */
+.toolbarButton::before {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  font-weight: bold;
 }
 
 .toolbarButton.pageUp {
@@ -147,9 +220,10 @@ footer {
 }
 
 .toolbarButton.zoomOut::before {
-  content: "-";
+  content: "−";
   color: #d9d9d9;
   font-size: 20px;
+  font-weight: bold;
 }
 
 .toolbarButton.zoomIn {
@@ -166,6 +240,7 @@ footer {
   content: "+";
   color: #d9d9d9;
   font-size: 20px;
+  font-weight: bold;
 }
 
 .toolbarField.pageNumber {
@@ -201,6 +276,19 @@ footer {
   bottom: 4rem;
   left: 0;
   right: 0;
+  -webkit-overflow-scrolling: touch; /* Smooth scrolling on mobile */
+}
+
+/* Mobile responsive adjustments */
+@media (max-width: 768px) {
+  #viewerContainer {
+    bottom: 5rem;
+    top: 4rem;
+  }
+  
+  body {
+    padding-bottom: 5rem;
+  }
 }
 
 canvas {

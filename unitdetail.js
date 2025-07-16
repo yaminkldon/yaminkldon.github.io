@@ -1820,11 +1820,17 @@ function detectDevTools() {
     orientation: null
   };
   
-  const threshold = 160;
+  // More lenient threshold for mobile devices
+  const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+  const threshold = isMobile ? 200 : 300; // Higher threshold for mobile
   
   function checkDevTools() {
-    if (window.outerHeight - window.innerHeight > threshold || 
-        window.outerWidth - window.innerWidth > threshold) {
+    // Additional check to prevent false positives on mobile
+    const heightDiff = window.outerHeight - window.innerHeight;
+    const widthDiff = window.outerWidth - window.innerWidth;
+    
+    // Only trigger if both dimensions suggest dev tools (not just mobile keyboard or UI)
+    if (heightDiff > threshold && widthDiff > 50) {
       if (!devtools.open) {
         devtools.open = true;
         devToolsDetected = true;
@@ -1854,8 +1860,8 @@ function detectDevTools() {
     }
   }
   
-  // Check every 500ms
-  setInterval(checkDevTools, 500);
+  // Check every 1000ms (less frequent)
+  setInterval(checkDevTools, 1000);
   
   // Also check on resize
   window.addEventListener('resize', checkDevTools);

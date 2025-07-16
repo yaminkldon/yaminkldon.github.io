@@ -25,11 +25,17 @@ function detectDevToolsInViewer() {
     orientation: null
   };
   
-  const threshold = 160;
+  // More lenient threshold for mobile devices
+  const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+  const threshold = isMobile ? 200 : 300; // Higher threshold for mobile
   
   setInterval(() => {
-    if (window.outerHeight - window.innerHeight > threshold || 
-        window.outerWidth - window.innerWidth > threshold) {
+    // Additional check to prevent false positives on mobile
+    const heightDiff = window.outerHeight - window.innerHeight;
+    const widthDiff = window.outerWidth - window.innerWidth;
+    
+    // Only trigger if both dimensions suggest dev tools (not just mobile keyboard)
+    if (heightDiff > threshold && widthDiff > 50) {
       if (!devtools.open) {
         devtools.open = true;
         
@@ -54,7 +60,7 @@ function detectDevToolsInViewer() {
     } else {
       devtools.open = false;
     }
-  }, 500);
+  }, 1000); // Less frequent checking
 }
 
 function addStaticWatermark(userEmail) {
@@ -64,7 +70,7 @@ function addStaticWatermark(userEmail) {
   // Clear existing watermarks
   watermarkContainer.innerHTML = '';
   
-  // Create multiple static watermarks
+  // Create multiple static watermarks that will be positioned dynamically
   const watermarkPositions = [
     { top: '10%', left: '10%' },
     { top: '10%', right: '10%' },
@@ -72,14 +78,17 @@ function addStaticWatermark(userEmail) {
     { bottom: '10%', left: '10%' },
     { bottom: '10%', right: '10%' },
     { top: '30%', left: '30%' },
-    { top: '70%', right: '30%' }
+    { top: '70%', right: '30%' },
+    { top: '25%', right: '25%' },
+    { bottom: '25%', left: '50%', transform: 'translateX(-50%)' }
   ];
   
-  watermarkPositions.forEach(position => {
+  watermarkPositions.forEach((position, index) => {
     const watermark = document.createElement('div');
+    watermark.className = 'pdf-watermark-item';
     watermark.style.cssText = `
-      position: absolute;
-      color: rgba(0, 0, 0, 0.1);
+      position: fixed;
+      color: rgba(0, 0, 0, 0.08);
       font-size: 12px;
       font-weight: bold;
       font-family: Arial, sans-serif;
@@ -87,6 +96,7 @@ function addStaticWatermark(userEmail) {
       pointer-events: none;
       transform: rotate(-20deg);
       z-index: 1001;
+      white-space: nowrap;
       ${position.top ? `top: ${position.top};` : ''}
       ${position.bottom ? `bottom: ${position.bottom};` : ''}
       ${position.left ? `left: ${position.left};` : ''}
@@ -99,6 +109,22 @@ function addStaticWatermark(userEmail) {
   
   // Show watermark container
   watermarkContainer.style.display = 'block';
+  
+  // Update watermark positions when window resizes or scrolls
+  function updateWatermarkPositions() {
+    const watermarks = document.querySelectorAll('.pdf-watermark-item');
+    watermarks.forEach(watermark => {
+      // Keep watermarks visible and positioned correctly
+      watermark.style.position = 'fixed';
+    });
+  }
+  
+  // Add listeners for dynamic positioning
+  window.addEventListener('resize', updateWatermarkPositions);
+  window.addEventListener('scroll', updateWatermarkPositions);
+  
+  // Initial positioning update
+  setTimeout(updateWatermarkPositions, 100);
 }
 
 function getSecureFileUrl() {
@@ -265,10 +291,35 @@ const PDFViewerApplication = {
       this.currentPageNumber = pageNum;
       this.pageNumber.value = pageNum;
       
+      // Refresh watermarks after page render
+      this.refreshWatermarks();
+      
     } catch (error) {
       console.error('Error rendering page:', error);
       this.showError('Failed to render page: ' + error.message);
     }
+  },
+  
+  refreshWatermarks() {
+    // Get user email from secure proxy
+    const urlParams = new URLSearchParams(window.location.search);
+    const proxyKey = urlParams.get('p');
+    let userEmail = 'Student';
+    
+    if (proxyKey) {
+      const proxyData = sessionStorage.getItem('proxy_' + proxyKey);
+      if (proxyData) {
+        try {
+          const data = JSON.parse(atob(proxyData));
+          userEmail = data.user || 'Student';
+        } catch (e) {
+          console.error('Error parsing user data');
+        }
+      }
+    }
+    
+    // Re-add watermarks to ensure they're visible
+    addStaticWatermark(userEmail);
   },
   
   setupEventListeners() {
@@ -302,6 +353,62 @@ const PDFViewerApplication = {
     document.getElementById('zoomOut').addEventListener('click', () => {
       this.scale /= 1.2;
       this.renderPage(this.currentPageNumber);
+    });
+    
+    // Touch support for mobile
+    let touchStartX = 0;
+    let touchStartY = 0;
+    
+    this.container.addEventListener('touchstart', (e) => {
+      touchStartX = e.touches[0].clientX;
+      touchStartY = e.touches[0].clientY;
+    });
+    
+    this.container.addEventListener('touchend', (e) => {
+      const touchEndX = e.changedTouches[0].clientX;
+      const touchEndY = e.changedTouches[0].clientY;
+      
+      const deltaX = touchEndX - touchStartX;
+      const deltaY = touchEndY - touchStartY;
+      
+      // Swipe threshold
+      const minSwipeDistance = 50;
+      
+      // Horizontal swipe for page navigation
+      if (Math.abs(deltaX) > minSwipeDistance && Math.abs(deltaX) > Math.abs(deltaY)) {
+        if (deltaX > 0 && this.currentPageNumber > 1) {
+          // Swipe right - previous page
+          this.renderPage(this.currentPageNumber - 1);
+        } else if (deltaX < 0 && this.currentPageNumber < this.numPages) {
+          // Swipe left - next page
+          this.renderPage(this.currentPageNumber + 1);
+        }
+      }
+    });
+    
+    // Keyboard navigation
+    document.addEventListener('keydown', (e) => {
+      switch(e.key) {
+        case 'ArrowLeft':
+          if (this.currentPageNumber > 1) {
+            this.renderPage(this.currentPageNumber - 1);
+          }
+          break;
+        case 'ArrowRight':
+          if (this.currentPageNumber < this.numPages) {
+            this.renderPage(this.currentPageNumber + 1);
+          }
+          break;
+        case '+':
+        case '=':
+          this.scale *= 1.2;
+          this.renderPage(this.currentPageNumber);
+          break;
+        case '-':
+          this.scale /= 1.2;
+          this.renderPage(this.currentPageNumber);
+          break;
+      }
     });
     
     // Error close button
