@@ -4995,7 +4995,7 @@ function openFileManager(unitKey, lessonKey = null) {
         <!-- Files List Section -->
         <div class="files-list-section">
           <h4 style="color: #6c4fc1; margin-bottom: 20px;">Uploaded Files</h4>
-          <div id="files-list" style="min-height: 200px;">
+          <div id="filesList" style="min-height: 200px;">
             <div style="text-align: center; padding: 40px; color: #666;">
               Loading files...
             </div>
@@ -5118,7 +5118,6 @@ function loadFiles(unitKey, lessonKey) {
   if (!filesList) return;
   
   let dbPath;
-  
   if (lessonKey) {
     // For lessons, check both old and new file structures
     dbPath = `units/${unitKey}/lessons/${lessonKey}/files`;
@@ -5566,6 +5565,10 @@ function saveFileChanges(fileId, unitKey, lessonKey) {
     return;
   }
   
+  const dbPath = lessonKey ? 
+    `units/${unitKey}/lessons/${lessonKey}/files/${fileId}` : 
+    `units/${unitKey}/files/${fileId}`;
+  
   const updates = {
     name: name,
     type: type,
@@ -5574,53 +5577,11 @@ function saveFileChanges(fileId, unitKey, lessonKey) {
     updatedAt: Date.now()
   };
   
-  if (lessonKey) {
-    // For lessons, try the primary structure first
-    const primaryPath = `units/${unitKey}/lessons/${lessonKey}/files/${fileId}`;
-    const secondaryPath = `units/${unitKey}/lesson${lessonKey}/files/${fileId}`;
-    
-    console.log('Updating lesson file - Primary path:', primaryPath);
-    console.log('Updating lesson file - Secondary path:', secondaryPath);
-    
-    // Check if file exists in primary path
-    db.ref(primaryPath).once('value', (snapshot) => {
-      if (snapshot.exists()) {
-        console.log('Found file in primary path, updating...');
-        db.ref(primaryPath).update(updates).then(() => {
-          alert('File updated successfully!');
-          closeEditFileModal();
-          loadFiles(unitKey, lessonKey);
-        }).catch(error => {
-          console.error('Error updating file in primary path:', error);
-          alert('Error updating file. Please try again.');
-        });
-      } else {
-        console.log('File not found in primary path, trying secondary path...');
-        // Check if file exists in secondary path
-        db.ref(secondaryPath).once('value', (snapshot) => {
-          if (snapshot.exists()) {
-            console.log('Found file in secondary path, updating...');
-            db.ref(secondaryPath).update(updates).then(() => {
-              alert('File updated successfully!');
-              closeEditFileModal();
-              loadFiles(unitKey, lessonKey);
-            }).catch(error => {
-              console.error('Error updating file in secondary path:', error);
-              alert('Error updating file. Please try again.');
-            });
-          } else {
-            console.error('File not found in either path structure');
-            alert('Error: File not found. Please try again.');
-          }
-        });
-      }
-    });
-  } else {
-    // For units, use the unit path
-    const dbPath = `units/${unitKey}/files/${fileId}`;
-    console.log('Updating unit file - Path:', dbPath);
-    
-    db.ref(dbPath).update(updates).then(() => {
+  console.log('Saving file changes to path:', dbPath); // Debug log
+  
+  // Helper function to save changes
+  function saveChanges(pathToUpdate) {
+    db.ref(pathToUpdate).update(updates).then(() => {
       alert('File updated successfully!');
       closeEditFileModal();
       loadFiles(unitKey, lessonKey);
@@ -5629,6 +5590,41 @@ function saveFileChanges(fileId, unitKey, lessonKey) {
       alert('Error updating file. Please try again.');
     });
   }
+  
+  // Check if file exists at the primary path
+  db.ref(dbPath).once('value').then(snapshot => {
+    if (snapshot.exists()) {
+      saveChanges(dbPath);
+    } else {
+      console.log('File not found at primary path:', dbPath); // Debug log
+      
+      // If it's a lesson file and not found, try the new structure
+      if (lessonKey && dbPath.includes('/lessons/')) {
+        console.log('Trying new structure for lesson file save'); // Debug log
+        const newDbPath = `units/${unitKey}/lesson${lessonKey}/files/${fileId}`;
+        console.log('Saving file to new path:', newDbPath); // Debug log
+        
+        db.ref(newDbPath).once('value').then(newSnapshot => {
+          if (newSnapshot.exists()) {
+            console.log('Found file in new structure'); // Debug log
+            saveChanges(newDbPath);
+          } else {
+            console.log('File not found in new structure either'); // Debug log
+            alert('File not found. Please refresh and try again.');
+          }
+        }).catch(error => {
+          console.error('Error checking new structure:', error);
+          alert('Error updating file. Please try again.');
+        });
+        return;
+      }
+      
+      alert('File not found. Please refresh and try again.');
+    }
+  }).catch(error => {
+    console.error('Error checking file existence:', error);
+    alert('Error updating file. Please try again.');
+  });
 }
 
 function deleteFile(fileId, unitKey, lessonKey) {
@@ -5642,13 +5638,13 @@ function deleteFile(fileId, unitKey, lessonKey) {
   
   console.log('Loading teacher dashboard file for deletion from path:', dbPath); // Debug log
   
-  // Helper function to delete file from both storage and database
-  function deleteFileFromPaths(file, dbPath) {
+  // Helper function to delete file from storage and database
+  function deleteFileData(file, pathToDelete) {
     // Delete from Firebase Storage
     const fileRef = firebase.storage().refFromURL(file.url);
     fileRef.delete().then(() => {
       // Delete from database
-      db.ref(dbPath).remove().then(() => {
+      db.ref(pathToDelete).remove().then(() => {
         alert('File deleted successfully!');
         loadFiles(unitKey, lessonKey);
       }).catch(error => {
@@ -5658,7 +5654,7 @@ function deleteFile(fileId, unitKey, lessonKey) {
     }).catch(error => {
       console.error('Error deleting file from storage:', error);
       // Still try to delete from database even if storage deletion fails
-      db.ref(dbPath).remove().then(() => {
+      db.ref(pathToDelete).remove().then(() => {
         alert('File deleted from database (storage deletion may have failed)');
         loadFiles(unitKey, lessonKey);
       });
@@ -5680,7 +5676,7 @@ function deleteFile(fileId, unitKey, lessonKey) {
           if (newSnapshot.exists()) {
             console.log('Found file in new structure'); // Debug log
             const file = newSnapshot.val();
-            deleteFileFromPaths(file, newDbPath);
+            deleteFileData(file, newDbPath);
           } else {
             console.log('File not found in new structure either'); // Debug log
             alert('File not found');
@@ -5697,7 +5693,7 @@ function deleteFile(fileId, unitKey, lessonKey) {
     }
     
     const file = snapshot.val();
-    deleteFileFromPaths(file, dbPath);
+    deleteFileData(file, dbPath);
   }).catch(error => {
     console.error('Error loading file for deletion:', error);
     alert('Error loading file information');
