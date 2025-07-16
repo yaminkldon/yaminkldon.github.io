@@ -6164,7 +6164,7 @@ function displayStudentSubmissions(assessmentId, assessment, type, students, sub
     <div class="assessment-grading-header">
       <h2>${typeLabel}: ${assessment.title}</h2>
       <p>Student submissions for this ${type.toLowerCase()}</p>
-      <div class="assessment-stats" style="background: #f8f9fa; padding: 15px; margin: 15px 0; border-radius: 8px; border-left: 4px solid #6c4fc1;">
+      <div class="assessment-stats" style="background: #f8f9fa; padding: 15px; margin: 15px 0; border-radius: 8px; border-left: 4px solid #6c4fc1; color: #333;">
         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; font-size: 14px;">
           <div><strong>Total Students:</strong> ${students.length}</div>
           <div><strong>Submissions:</strong> ${Object.keys(submissions).length}</div>
