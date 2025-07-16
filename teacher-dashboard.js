@@ -4011,7 +4011,8 @@ function createVideoCard(container, unitKey, lessonKey, lessonData, type) {
     thumbnail = generateLessonThumbnail(lessonKey);
   }
   
-  const title = lessonData.title || lessonKey;
+  // Use lessonKey as the display name instead of title
+  const displayName = lessonKey;
   const description = lessonData.description || 'No description available';
   const videoFile = lessonData.videoFile || lessonData.videoURL || '';
   const createdAt = lessonData.createdAt ? new Date(lessonData.createdAt).toLocaleDateString() : 'Unknown';
@@ -4021,7 +4022,7 @@ function createVideoCard(container, unitKey, lessonKey, lessonData, type) {
       <img src="${thumbnail}" alt="Video thumbnail" style="width: 100px; height: 70px; object-fit: cover; border-radius: 6px;" 
            onerror="this.src='${generateLessonThumbnail(lessonKey)}'">
       <div style="flex: 1;">
-        <h4 style="margin: 0 0 4px 0; font-size: 14px;">${title}</h4>
+        <h4 style="margin: 0 0 4px 0; font-size: 14px;">${displayName}</h4>
         <p style="margin: 0 0 8px 0; font-size: 12px; color: #666; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">${description}</p>
         <div style="font-size: 11px; color: #888;">
           <span>Unit: ${unitKey}</span> | 
@@ -4181,10 +4182,6 @@ function editVideo(unitKey, lessonKey, type) {
               <small style="color: #666; font-size: 11px;">This will rename the entire lesson entry</small>
             </div>
             <div class="form-group">
-              <label class="form-label">Title</label>
-              <input type="text" class="form-input" id="editVideoTitle" value="${lessonData.title || lessonKey}" required>
-            </div>
-            <div class="form-group">
               <label class="form-label">Description</label>
               <textarea class="form-textarea" id="editVideoDescription" rows="3">${lessonData.description || ''}</textarea>
             </div>
@@ -4222,7 +4219,6 @@ function editVideo(unitKey, lessonKey, type) {
 
 function updateVideoData(unitKey, lessonKey, type) {
   const newLessonName = document.getElementById('editVideoLessonName').value.trim();
-  const title = document.getElementById('editVideoTitle').value.trim();
   const description = document.getElementById('editVideoDescription').value.trim();
   const thumbnail = document.getElementById('editVideoThumbnail').value.trim();
   
@@ -4235,7 +4231,6 @@ function updateVideoData(unitKey, lessonKey, type) {
       
       // Prepare the updated data
       const updateData = { ...currentLessonData };
-      if (title) updateData.title = title;
       if (description) updateData.description = description;
       if (thumbnail) {
         if (type === 'lessons') {

@@ -222,7 +222,6 @@ function loadUnitFromParams() {
       Unit Files
     `;
     unitFilesBtn.style.cssText = `
-      margin-left: 16px;
       padding: 8px 16px;
       background: #ffc107;
       color: #212529;
@@ -272,6 +271,7 @@ document.addEventListener('DOMContentLoaded', function() {
     refreshBtn.id = 'refresh-unit-btn';
     refreshBtn.innerHTML = '<span class="material-icons">refresh</span>';
     refreshBtn.style.cssText = `
+      width: 15%;
       background: none;
       border: none;
       color: white;

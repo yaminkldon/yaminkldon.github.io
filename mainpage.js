@@ -955,9 +955,25 @@ function addTeacherDashboardIfApplicable() {
     return; // Already exists, don't add another one
   }
   
+  // Check if we're already processing this (prevent race conditions)
+  if (window.processingTeacherDashboard) {
+    return;
+  }
+  window.processingTeacherDashboard = true;
+  
   // Search for user by email in database
   db.ref('users').orderByChild('email').equalTo(user.email).once('value').then(snapshot => {
-    if (!snapshot.exists()) return;
+    // Double check if teacher dashboard was added while we were waiting
+    const existingTeacherDashboardCheck = unitsList.querySelector('li[data-teacher-dashboard="true"]');
+    if (existingTeacherDashboardCheck) {
+      window.processingTeacherDashboard = false;
+      return; // Already exists, don't add another one
+    }
+    
+    if (!snapshot.exists()) {
+      window.processingTeacherDashboard = false;
+      return;
+    }
     
     // Get the first (and should be only) matching user
     const userData = Object.values(snapshot.val())[0];
@@ -989,8 +1005,11 @@ function addTeacherDashboardIfApplicable() {
         advancedFeatures.updateUITexts();
       }
     }
+    
+    window.processingTeacherDashboard = false;
   }).catch(error => {
     console.error('Error checking user type:', error);
+    window.processingTeacherDashboard = false;
   });
 }
 
