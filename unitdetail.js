@@ -1550,10 +1550,7 @@ function previewStudentFile(fileId, unitKey, lessonKey) {
 }
 
 function showStudentFilePreview(file) {
-  // Get current user email for watermark
-  const currentUser = firebase.auth().currentUser;
-  const userEmail = currentUser ? currentUser.email : 'Unknown Student';
-  
+  // Simple implementation using viewer_readonly.html for PDFs
   const modal = document.createElement('div');
   modal.id = 'studentFilePreviewModal';
   modal.style.cssText = `
@@ -1570,221 +1567,44 @@ function showStudentFilePreview(file) {
     padding: 20px;
     box-sizing: border-box;
   `;
-  
-  let previewContent = '';
-  
-  // Create watermark overlay
-  const watermarkOverlay = `
-    <div class="watermark-overlay" style="
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      pointer-events: none;
-      z-index: 1000;
-      background: repeating-linear-gradient(
-        45deg,
-        transparent,
-        transparent 200px,
-        rgba(255, 255, 255, 0.05) 200px,
-        rgba(255, 255, 255, 0.05) 250px
-      );
-    ">
-      <div style="
-        position: absolute;
-        top: 20px;
-        right: 20px;
-        color: rgba(255, 255, 255, 0.3);
-        font-size: 12px;
-        font-weight: bold;
-        background: rgba(0, 0, 0, 0.3);
-        padding: 8px 12px;
-        border-radius: 4px;
-        backdrop-filter: blur(2px);
-      ">
-        ${userEmail}
+
+  // Only handle PDF files with the readonly viewer
+  if (file.extension.toLowerCase() === 'pdf') {
+    const viewerUrl = `viewer_readonly.html?file=${encodeURIComponent(file.url)}`;
+    
+    modal.innerHTML = `
+      <div style="background: #333; border-radius: 12px; max-width: 95vw; max-height: 95vh; width: 100%; height: 100%; position: relative; overflow: hidden;">
+        <div style="background: #444; padding: 16px; display: flex; justify-content: space-between; align-items: center; border-radius: 12px 12px 0 0;">
+          <h3 style="margin: 0; color: white; font-size: 18px;">📄 ${file.name}</h3>
+          <button onclick="closeStudentFilePreview()" style="background: none; border: none; color: white; font-size: 24px; cursor: pointer; padding: 0; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; border-radius: 50%;">&times;</button>
+        </div>
+        <iframe src="${viewerUrl}" style="width: 100%; height: calc(100% - 68px); border: none; background: white;"></iframe>
       </div>
-      <div style="
-        position: absolute;
-        bottom: 20px;
-        left: 20px;
-        color: rgba(255, 255, 255, 0.2);
-        font-size: 10px;
-        background: rgba(0, 0, 0, 0.3);
-        padding: 4px 8px;
-        border-radius: 4px;
-        backdrop-filter: blur(2px);
-      ">
-        ${new Date().toLocaleString()}
-      </div>
-    </div>
-  `;
-  
-  switch (file.extension.toLowerCase()) {
-    case 'pdf':
-      previewContent = `
-        <div style="position: relative; width: 100%; height: 70vh; background: white; border-radius: 8px; overflow: hidden;">
-          ${watermarkOverlay}
-          <div id="secureDocViewer" style="
-            width: 100%;
-            height: 100%;
-            position: relative;
-            z-index: 1;
-          ">
-            <div style="position: relative; width: 100%; height: 100%; border: 1px solid #ddd; border-radius: 8px; overflow: hidden;">
-              <div style="position: absolute; top: 10px; right: 10px; background: rgba(0,0,0,0.7); color: white; padding: 4px 8px; border-radius: 4px; font-size: 11px; z-index: 1000;">
-                ${userEmail} | ${new Date().toLocaleString()}
-              </div>
-              <div style="position: absolute; top: 10px; left: 10px; background: rgba(0,0,0,0.7); color: white; padding: 4px 8px; border-radius: 4px; font-size: 11px; z-index: 1000;">
-                🔒 Secure View
-              </div>
-              <div id="pdfViewerContainer" style="width: 100%; height: 100%; background: #f5f5f5;">
-                <div style="text-align: center; padding: 40px; color: #666;">
-                  <div style="font-size: 18px; margin-bottom: 16px;">📄 Loading PDF...</div>
-                  <div style="font-size: 14px;">Please wait while the document loads</div>
-                </div>
-              </div>
-              <div style="position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.7); color: white; padding: 4px 8px; border-radius: 4px; font-size: 10px; z-index: 1000;">
-                Viewed by: ${userEmail} | ${new Date().toLocaleString()}
-              </div>
-            </div>
-          </div>
+    `;
+  } else {
+    // For non-PDF files, show a simple preview or download option
+    modal.innerHTML = `
+      <div style="background: #333; border-radius: 12px; max-width: 90vw; max-height: 90vh; width: 100%; position: relative; overflow: hidden;">
+        <div style="background: #444; padding: 16px; display: flex; justify-content: space-between; align-items: center; border-radius: 12px 12px 0 0;">
+          <h3 style="margin: 0; color: white; font-size: 18px;">📄 ${file.name}</h3>
+          <button onclick="closeStudentFilePreview()" style="background: none; border: none; color: white; font-size: 24px; cursor: pointer; padding: 0; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; border-radius: 50%;">&times;</button>
         </div>
-      `;
-      break;
-    case 'jpg':
-    case 'jpeg':
-    case 'png':
-    case 'gif':
-      previewContent = `
-        <div style="position: relative; max-width: 100%; max-height: 70vh; border-radius: 8px; overflow: hidden;">
-          ${watermarkOverlay}
-          <img src="${file.url}" style="max-width: 100%; max-height: 70vh; border-radius: 8px; object-fit: contain; position: relative; z-index: 1;">
-        </div>
-      `;
-      break;
-    case 'mp4':
-      previewContent = `
-        <div style="position: relative; max-width: 100%; max-height: 70vh; border-radius: 8px; overflow: hidden;">
-          ${watermarkOverlay}
-          <video controls style="max-width: 100%; max-height: 70vh; border-radius: 8px; position: relative; z-index: 1;" controlsList="nodownload">
-            <source src="${file.url}" type="video/mp4">
-            Your browser does not support the video tag.
-          </video>
-        </div>
-      `;
-      break;
-    case 'mp3':
-      previewContent = `
-        <div style="position: relative; width: 100%; max-width: 400px; background: #333; border-radius: 8px; padding: 20px;">
-          ${watermarkOverlay}
-          <audio controls style="width: 100%; position: relative; z-index: 1;" controlsList="nodownload">
-            <source src="${file.url}" type="audio/mpeg">
-            Your browser does not support the audio element.
-          </audio>
-        </div>
-      `;
-      break;
-    case 'txt':
-      previewContent = `
-        <div style="position: relative; background: white; padding: 20px; border-radius: 8px; max-width: 100%; max-height: 70vh; overflow-y: auto;">
-          ${watermarkOverlay}
-          <div id="secureTextViewer" style="
-            font-family: monospace;
-            white-space: pre-wrap;
-            color: black;
-            position: relative;
-            z-index: 1;
-            user-select: text;
-            -webkit-user-select: text;
-            -moz-user-select: text;
-            -ms-user-select: text;
-          ">
-            <div style="text-align: center; padding: 20px; color: #666;">Loading text content...</div>
-          </div>
-        </div>
-      `;
-      break;
-    default:
-      previewContent = `
-        <div style="text-align: center; color: white; padding: 40px; position: relative;">
-          ${watermarkOverlay}
+        <div style="padding: 40px; text-align: center; color: white;">
           <span class="material-icons" style="font-size: 48px; margin-bottom: 16px;">insert_drive_file</span>
-          <div>Preview not available for this file type</div>
+          <div style="margin-bottom: 20px;">Preview not available for this file type</div>
+          ${file.access === 'downloadable' ? `
+            <button onclick="downloadStudentFile('${file.url}', '${file.name}')" style="padding: 12px 24px; background: #28a745; color: white; border: none; border-radius: 6px; font-size: 14px; cursor: pointer; display: inline-flex; align-items: center; gap: 8px;">
+              <span class="material-icons" style="font-size: 18px;">download</span>
+              Download File
+            </button>
+          ` : ''}
         </div>
-      `;
+      </div>
+    `;
   }
-  
-  modal.innerHTML = `
-    <div style="background: #333; border-radius: 12px; max-width: 90vw; max-height: 90vh; width: 100%; position: relative; overflow: hidden;">
-      <div style="background: #444; padding: 16px; display: flex; justify-content: space-between; align-items: center; border-radius: 12px 12px 0 0;">
-        <h3 style="margin: 0; color: white; font-size: 18px;">📄 ${file.name}</h3>
-        <div style="display: flex; gap: 8px; align-items: center;">
-          ${file.access === 'downloadable' ? `<button onclick="downloadStudentFile('${file.url}', '${file.name}')" style="padding: 6px 12px; background: #28a745; color: white; border: none; border-radius: 4px; font-size: 12px; cursor: pointer; display: flex; align-items: center; gap: 4px;">
-            <span class="material-icons" style="font-size: 14px;">download</span>
-            Download
-          </button>` : ''}
-          <button onclick="closeStudentFilePreview()" style="background: none; border: none; color: white; font-size: 24px; cursor: pointer; padding: 0; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; border-radius: 50%; transition: background 0.2s;">&times;</button>
-        </div>
-      </div>
-      
-      <div style="padding: 20px; text-align: center; overflow-y: auto; max-height: calc(90vh - 100px);">
-        ${previewContent}
-      </div>
-    </div>
-  `;
-  
+
   document.body.appendChild(modal);
   document.body.style.overflow = 'hidden';
-  
-  // Add spinner animation
-  const spinnerStyle = document.createElement('style');
-  spinnerStyle.textContent = `
-    @keyframes spin {
-      0% { transform: rotate(0deg); }
-      100% { transform: rotate(360deg); }
-    }
-  `;
-  document.head.appendChild(spinnerStyle);
-  
-  // Handle secure content loading
-  if (file.extension.toLowerCase() === 'pdf') {
-    // Override window.print function when secure modal is open
-    const originalPrint = window.print;
-    window.print = function() {
-      const modal = document.getElementById('studentFilePreviewModal');
-      if (modal) {
-        alert('Printing is not allowed for secure content');
-        return false;
-      }
-      return originalPrint.apply(this, arguments);
-    };
-    
-    // Restore original print function when modal closes
-    const originalClose = closeStudentFilePreview;
-    closeStudentFilePreview = function() {
-      window.print = originalPrint;
-      return originalClose.apply(this, arguments);
-    };
-    
-    // Use secure PDF viewer instead of PDFObject
-    initializePDFViewer(file.url, userEmail);
-  } else if (file.extension.toLowerCase() === 'txt') {
-    loadSecureTextContent(file.url, userEmail);
-  }
-  
-  // Prevent right-click context menu on the modal
-  modal.addEventListener('contextmenu', function(e) {
-    e.preventDefault();
-  });
-  
-  // Prevent text selection for secure viewing
-  modal.addEventListener('selectstart', function(e) {
-    if (file.access === 'view-only') {
-      e.preventDefault();
-    }
-  });
 }
 
 function closeStudentFilePreview() {
@@ -1954,104 +1774,10 @@ function downloadStudentFile(url, filename) {
   document.body.removeChild(link);
 }
 
-// Security measures for file viewing
+// Simple security measures for file viewing (as per pdfjs-readonly)
 function addSecurityMeasures() {
-  // Disable right-click context menu on secure content
-  document.addEventListener('contextmenu', function(e) {
-    const modal = document.getElementById('studentFilePreviewModal');
-    if (modal) {
-      e.preventDefault();
-    }
-  });
-  
-  // Disable keyboard shortcuts for developer tools and saving
-  document.addEventListener('keydown', function(e) {
-    const modal = document.getElementById('studentFilePreviewModal');
-    if (modal) {
-      // Disable F12, Ctrl+Shift+I, Ctrl+Shift+J, Ctrl+U, Ctrl+S
-      if (e.key === 'F12' || 
-          (e.ctrlKey && e.shiftKey && (e.key === 'I' || e.key === 'J')) ||
-          (e.ctrlKey && e.key === 'u') ||
-          (e.ctrlKey && e.key === 's')) {
-        e.preventDefault();
-      }
-    }
-  });
-  
-  // Disable print screen
-  document.addEventListener('keyup', function(e) {
-    const modal = document.getElementById('studentFilePreviewModal');
-    if (modal && e.key === 'PrintScreen') {
-      alert('Screenshots are not allowed while viewing secure content');
-    }
-  });
-  
-  // Detect if developer tools are open (Less Aggressive)
-  let devtools = {
-    open: false,
-    orientation: null,
-    warningShown: false
-  };
-  
-  const threshold = 200; // Increased threshold to reduce false positives
-  
-  setInterval(() => {
-    const modal = document.getElementById('studentFilePreviewModal');
-    if (modal) {
-      if (window.outerHeight - window.innerHeight > threshold || 
-          window.outerWidth - window.innerWidth > threshold) {
-        if (!devtools.open) {
-          devtools.open = true;
-          
-          // Show warning only once per session
-          if (!devtools.warningShown) {
-            devtools.warningShown = true;
-            
-            // Show warning but don't immediately close modal
-            const warningDiv = document.createElement('div');
-            warningDiv.style.cssText = `
-              position: fixed;
-              top: 20px;
-              right: 20px;
-              background: #ff9800;
-              color: white;
-              padding: 12px 16px;
-              border-radius: 6px;
-              z-index: 25000;
-              font-size: 14px;
-              font-weight: bold;
-              box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-              max-width: 300px;
-              text-align: center;
-            `;
-            warningDiv.innerHTML = `
-              <div style="margin-bottom: 8px;">⚠️ Developer Tools Detected</div>
-              <div style="font-size: 12px; font-weight: normal;">Please close developer tools for better security. File will close in 10 seconds if not closed.</div>
-            `;
-            
-            document.body.appendChild(warningDiv);
-            
-            // Auto-remove warning after 5 seconds
-            setTimeout(() => {
-              if (warningDiv.parentNode) {
-                warningDiv.parentNode.removeChild(warningDiv);
-              }
-            }, 5000);
-            
-            // Close modal only after 10 seconds if dev tools still open
-            setTimeout(() => {
-              if (devtools.open) {
-                closeStudentFilePreview();
-                alert('File preview closed due to developer tools being open for security reasons.');
-              }
-            }, 10000);
-          }
-        }
-      } else {
-        devtools.open = false;
-      }
-    }
-  }, 2000); // Check every 2 seconds instead of 500ms
+  // Basic readonly restrictions are handled by the viewer itself
+  // No complex security measures needed
 }
 
 // Modal event listeners
@@ -2073,226 +1799,12 @@ document.addEventListener('DOMContentLoaded', function() {
     }
   });
   
-  // Initialize security measures
+  // Initialize simple security measures
   addSecurityMeasures();
 });
 
-// Function to add additional security overlay to PDF iframe
+// Simple PDF security (handled by viewer itself)
 function addPDFSecurityOverlay(iframe, userEmail) {
-  try {
-    // Create watermark overlay on the container
-    const container = iframe.parentElement;
-    const watermark = document.createElement('div');
-    watermark.style.cssText = `
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      pointer-events: none;
-      z-index: 1000;
-      background: repeating-linear-gradient(
-        45deg,
-        transparent,
-        transparent 200px,
-        rgba(255, 255, 255, 0.02) 200px,
-        rgba(255, 255, 255, 0.02) 250px
-      );
-    `;
-    
-    // Add moving watermark with user email
-    const movingWatermark = document.createElement('div');
-    movingWatermark.style.cssText = `
-      position: absolute;
-      color: rgba(0, 0, 0, 0.1);
-      font-size: 14px;
-      font-weight: bold;
-      z-index: 1001;
-      pointer-events: none;
-      animation: moveWatermark 30s linear infinite;
-      transform: rotate(-25deg);
-    `;
-    movingWatermark.textContent = userEmail;
-    
-    // Add timestamp watermark
-    const timestampWatermark = document.createElement('div');
-    timestampWatermark.style.cssText = `
-      position: absolute;
-      bottom: 10px;
-      right: 10px;
-      color: rgba(0, 0, 0, 0.3);
-      font-size: 10px;
-      z-index: 1001;
-      pointer-events: none;
-      background: rgba(255, 255, 255, 0.8);
-      padding: 2px 6px;
-      border-radius: 3px;
-    `;
-    timestampWatermark.textContent = new Date().toLocaleString();
-    
-    watermark.appendChild(movingWatermark);
-    watermark.appendChild(timestampWatermark);
-    container.appendChild(watermark);
-    
-    // Add CSS animation for moving watermark
-    const style = document.createElement('style');
-    style.textContent = `
-      @keyframes moveWatermark {
-        0% { top: 10%; left: 10%; }
-        25% { top: 80%; left: 80%; }
-        50% { top: 40%; left: 70%; }
-        75% { top: 70%; left: 20%; }
-        100% { top: 10%; left: 10%; }
-      }
-    `;
-    document.head.appendChild(style);
-    
-  } catch (e) {
-    console.log('PDF security overlay applied with enhanced protection');
-  }
+  // No additional security overlay needed - pdfjs-readonly handles this
 }
 
-// Enhanced security measures for file viewing
-function addSecurityMeasures() {
-  // Disable right-click context menu on secure content
-  document.addEventListener('contextmenu', function(e) {
-    const modal = document.getElementById('studentFilePreviewModal');
-    if (modal) {
-      e.preventDefault();
-      e.stopPropagation();
-      return false;
-    }
-  });
-  
-  // Disable keyboard shortcuts for developer tools, saving, and printing
-  document.addEventListener('keydown', function(e) {
-    const modal = document.getElementById('studentFilePreviewModal');
-    if (modal) {
-      // Disable F12, Ctrl+Shift+I, Ctrl+Shift+J, Ctrl+U, Ctrl+S, Ctrl+P
-      if (e.key === 'F12' || 
-          (e.ctrlKey && e.shiftKey && (e.key === 'I' || e.key === 'J' || e.key === 'C')) ||
-          (e.ctrlKey && (e.key === 'u' || e.key === 's' || e.key === 'p' || e.key === 'a'))) {
-        e.preventDefault();
-        e.stopPropagation();
-        return false;
-      }
-    }
-  });
-  
-  // Disable print screen and screenshot keys
-  document.addEventListener('keyup', function(e) {
-    const modal = document.getElementById('studentFilePreviewModal');
-    if (modal && (e.key === 'PrintScreen' || e.key === 'Insert' || 
-                  (e.altKey && e.key === 'PrintScreen'))) {
-      alert('Screenshots and printing are not allowed while viewing secure content');
-      // Close modal for security
-      closeStudentFilePreview();
-    }
-  });
-  
-  // Detect if developer tools are open (Less Aggressive - Enhanced Version)
-  let devtools = {
-    open: false,
-    orientation: null,
-    warningShown: false
-  };
-  
-  const threshold = 200; // Increased threshold to reduce false positives
-  
-  setInterval(() => {
-    const modal = document.getElementById('studentFilePreviewModal');
-    if (modal) {
-      if (window.outerHeight - window.innerHeight > threshold || 
-          window.outerWidth - window.innerWidth > threshold) {
-        if (!devtools.open) {
-          devtools.open = true;
-          
-          // Show warning only once per session
-          if (!devtools.warningShown) {
-            devtools.warningShown = true;
-            
-            // Show warning but don't immediately close modal
-            const warningDiv = document.createElement('div');
-            warningDiv.style.cssText = `
-              position: fixed;
-              top: 20px;
-              right: 20px;
-              background: #ff9800;
-              color: white;
-              padding: 12px 16px;
-              border-radius: 6px;
-              z-index: 25000;
-              font-size: 14px;
-              font-weight: bold;
-              box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-              max-width: 300px;
-              text-align: center;
-            `;
-            warningDiv.innerHTML = `
-              <div style="margin-bottom: 8px;">⚠️ Developer Tools Detected</div>
-              <div style="font-size: 12px; font-weight: normal;">Please close developer tools for better security. File will close in 10 seconds if not closed.</div>
-            `;
-            
-            document.body.appendChild(warningDiv);
-            
-            // Auto-remove warning after 5 seconds
-            setTimeout(() => {
-              if (warningDiv.parentNode) {
-                warningDiv.parentNode.removeChild(warningDiv);
-              }
-            }, 5000);
-            
-            // Close modal only after 10 seconds if dev tools still open
-            setTimeout(() => {
-              if (devtools.open) {
-                closeStudentFilePreview();
-                alert('File preview closed due to developer tools being open for security reasons.');
-              }
-            }, 10000);
-          }
-        }
-      } else {
-        devtools.open = false;
-      }
-    }
-  }, 2000); // Check every 2 seconds instead of 500ms
-  
-  // Detect window blur (user switched to another app/window)
-  let blurTimeout;
-  window.addEventListener('blur', function() {
-    const modal = document.getElementById('studentFilePreviewModal');
-    if (modal) {
-      // Start timeout to close modal if user stays away too long
-      blurTimeout = setTimeout(() => {
-        closeStudentFilePreview();
-        alert('Session timeout due to inactivity. Please reopen the file if needed.');
-      }, 30000); // 30 seconds timeout
-    }
-  });
-  
-  window.addEventListener('focus', function() {
-    // Cancel timeout if user returns
-    if (blurTimeout) {
-      clearTimeout(blurTimeout);
-    }
-  });
-  
-  // Disable drag and drop on document
-  document.addEventListener('dragover', function(e) {
-    const modal = document.getElementById('studentFilePreviewModal');
-    if (modal) {
-      e.preventDefault();
-      e.stopPropagation();
-      return false;
-    }
-  });
-  
-  document.addEventListener('drop', function(e) {
-    const modal = document.getElementById('studentFilePreviewModal');
-    if (modal) {
-      e.preventDefault();
-      e.stopPropagation();
-      return false;
-    }
-  });
-}
