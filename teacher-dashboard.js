@@ -7378,14 +7378,6 @@ async function editQuiz(quizId) {
     await loadUnitsForQuiz(quiz.unit);
     console.log('Units loaded');
 
-    // Now set the unit selection after form is reset and units are loaded
-    console.log('Setting unit to:', quiz.unit);
-    const unitSelect = document.getElementById('quizUnit');
-    if (unitSelect && quiz.unit) {
-      unitSelect.value = quiz.unit;
-      console.log('Unit set to:', unitSelect.value);
-    }
-
     // Now populate the form (unit is already set by loadUnitsForQuiz)
     document.getElementById('quizTitle').value = quiz.title || '';
     document.getElementById('quizDescription').value = quiz.description || '';
