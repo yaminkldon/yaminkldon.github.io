@@ -7239,6 +7239,7 @@ function loadAllAssessments() {
         });
         
         // Display assessments with initial filter
+        console.log('Loaded assessments:', allAssessments.length, 'total');
         filterAssessments();
       });
     });
@@ -7270,8 +7271,7 @@ function displayAssessmentsList(assessments) {
     return;
   }
   
-  // Sort by creation date (newest first)
-  assessments.sort((a, b) => b.created - a.created);
+  // Don't sort here - sorting is done in filterAssessments()
   
   let html = '';
   assessments.forEach(assessment => {
@@ -7741,6 +7741,8 @@ function filterAssessments() {
   const sortFilter = document.getElementById('assessmentSortFilter')?.value || 'date-desc';
   const searchFilter = document.getElementById('assessmentSearchFilter')?.value?.toLowerCase() || '';
   
+  console.log('Filtering assessments:', { typeFilter, sortFilter, searchFilter, totalAssessments: allAssessments.length });
+  
   // Start with all assessments
   let filteredAssessments = [...allAssessments];
   
@@ -7763,6 +7765,8 @@ function filterAssessments() {
     });
   }
   
+  console.log('After filtering:', { filteredCount: filteredAssessments.length });
+  
   // Apply sorting
   switch (sortFilter) {
     case 'date-asc':
@@ -7780,6 +7784,8 @@ function filterAssessments() {
     default:
       filteredAssessments.sort((a, b) => b.created - a.created);
   }
+  
+  console.log('After sorting:', filteredAssessments.slice(0, 3).map(a => ({ title: a.title, type: a.type, created: new Date(a.created).toLocaleDateString() })));
   
   // Display filtered assessments
   displayAssessmentsList(filteredAssessments);
