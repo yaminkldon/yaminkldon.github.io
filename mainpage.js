@@ -349,6 +349,9 @@ function displayUnitsWithoutProgress(unitsData) {
   // Clear the units list
   unitsList.innerHTML = '';
   
+  // Add Teacher Dashboard for teachers
+  addTeacherDashboardIfApplicable();
+  
   if (unitsData) {
     Object.keys(unitsData).forEach(unitName => {
       const li = document.createElement('li');

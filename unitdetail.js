@@ -48,7 +48,7 @@ const CacheManager = {
   generateDataHash: function(data) {
     if (!data) return '';
     
-    // For unit data, create hash based on lesson keys
+    // For unit data, create hash based on lesson keys and properties
     if (typeof data === 'object' && data !== null) {
       const keys = Object.keys(data).filter(key => {
         const item = data[key];
@@ -57,11 +57,15 @@ const CacheManager = {
       
       let hashString = keys.join('|');
       
-      // Add lesson properties to detect changes
+      // Add lesson properties to detect changes in names, videos, descriptions, thumbnails
       keys.forEach(key => {
         const lesson = data[key];
-        hashString += `|${key}:${lesson.videoURL || lesson.videoFile}:${lesson.description || ''}`;
+        hashString += `|${key}:${lesson.videoURL || lesson.videoFile || ''}:${lesson.description || ''}:${lesson.thumbnailURL || ''}`;
       });
+      
+      // Also include non-lesson keys to detect structural changes
+      const allKeys = Object.keys(data).sort();
+      hashString += `|all_keys:${allKeys.join(',')}`;
       
       return hashString;
     }
@@ -144,10 +148,53 @@ firebase.auth().onAuthStateChanged(function(user) {
       advancedFeatures.applyFeatures();
     }
     loadUnitFromParams();
+    
+    // Set up periodic cache validation (every 30 seconds)
+    setInterval(function() {
+      if (currentUnitName && document.visibilityState === 'visible') {
+        validateCacheInBackground();
+      }
+    }, 30000);
   } else {
     Navigation.goToLogin();
   }
 });
+
+// Background cache validation
+function validateCacheInBackground() {
+  const cachedUnits = CacheManager.getCache(CacheManager.CACHE_KEYS.UNITS);
+  if (cachedUnits && cachedUnits[currentUnitName]) {
+    // Silently check if cache is still valid
+    db.ref('units/' + currentUnitName).once('value')
+      .then(snapshot => {
+        if (snapshot.exists()) {
+          const freshUnitData = snapshot.val();
+          
+          // Check if cache is still valid
+          if (!CacheManager.isCacheValid(CacheManager.CACHE_KEYS.UNITS, { [currentUnitName]: freshUnitData })) {
+            console.log('Background validation: Cache is stale, updating...');
+            
+            // Update cache with fresh data
+            const existingCache = CacheManager.getCache(CacheManager.CACHE_KEYS.UNITS) || {};
+            existingCache[currentUnitName] = freshUnitData;
+            CacheManager.setCache(CacheManager.CACHE_KEYS.UNITS, existingCache);
+            
+            // Update current data and re-render
+            currentUnitData = freshUnitData;
+            renderLessons();
+            
+            // Show subtle notification
+            if (typeof NotificationManager !== 'undefined') {
+              NotificationManager.showToast('📖 Lessons updated automatically', 'info');
+            }
+          }
+        }
+      })
+      .catch(error => {
+        console.error('Background cache validation error:', error);
+      });
+  }
+}
 
 function loadUnitFromParams() {
   // Get unit name from URL parameters or localStorage
@@ -193,6 +240,65 @@ function loadUnitFromParams() {
   
   loadUnitLessons(unitName, selectedLesson);
 }
+
+// Function to refresh cache and reload lessons
+function refreshUnitCache() {
+  if (!currentUnitName) return;
+  
+  // Clear the unit cache
+  CacheManager.clearCache(CacheManager.CACHE_KEYS.UNITS);
+  
+  // Show loading message
+  const container = document.getElementById('lessons-grid');
+  if (container) {
+    container.innerHTML = '<div style="text-align: center; padding: 20px; color: #666;">Refreshing lessons...</div>';
+  }
+  
+  // Reload lessons from database
+  loadUnitLessons(currentUnitName);
+  
+  // Show success message
+  if (typeof NotificationManager !== 'undefined') {
+    NotificationManager.showToast('🔄 Lessons refreshed successfully!', 'success');
+  }
+}
+
+// Add refresh button to app bar when page loads
+document.addEventListener('DOMContentLoaded', function() {
+  // Add refresh button to app bar
+  const appBar = document.querySelector('.appbar');
+  if (appBar && !document.getElementById('refresh-unit-btn')) {
+    const refreshBtn = document.createElement('button');
+    refreshBtn.id = 'refresh-unit-btn';
+    refreshBtn.innerHTML = '<span class="material-icons">refresh</span>';
+    refreshBtn.style.cssText = `
+      background: none;
+      border: none;
+      color: white;
+      padding: 8px;
+      margin-left: 8px;
+      border-radius: 4px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background-color 0.2s;
+    `;
+    refreshBtn.title = 'Refresh lessons';
+    refreshBtn.onclick = refreshUnitCache;
+    
+    // Add hover effect
+    refreshBtn.onmouseover = function() {
+      this.style.backgroundColor = 'rgba(255, 255, 255, 0.1)';
+    };
+    refreshBtn.onmouseout = function() {
+      this.style.backgroundColor = 'transparent';
+    };
+    
+    appBar.appendChild(refreshBtn);
+  }
+});
+
 function loadUnitLessons(unitName, selectedLesson = null) {
   console.log('Loading unit:', unitName, 'Selected lesson:', selectedLesson); // Debug log
   
@@ -211,10 +317,10 @@ function loadUnitLessons(unitName, selectedLesson = null) {
           return;
         }
         
-        const currentUnitData = snapshot.val();
+        const freshUnitData = snapshot.val();
         
         // Check if cache is still valid
-        if (CacheManager.isCacheValid(CacheManager.CACHE_KEYS.UNITS, { [unitName]: currentUnitData })) {
+        if (CacheManager.isCacheValid(CacheManager.CACHE_KEYS.UNITS, { [unitName]: freshUnitData })) {
           console.log('Cache is valid, using cached data');
           currentUnitData = cachedUnits[unitName];
           renderLessons(selectedLesson);
@@ -224,11 +330,11 @@ function loadUnitLessons(unitName, selectedLesson = null) {
           if (typeof NotificationManager !== 'undefined') {
             NotificationManager.showToast('📖 New lessons detected! Loading latest content...', 'success');
           }
-          currentUnitData = currentUnitData;
+          currentUnitData = freshUnitData;
           
           // Update cache with fresh data
           const existingCache = CacheManager.getCache(CacheManager.CACHE_KEYS.UNITS) || {};
-          existingCache[unitName] = currentUnitData;
+          existingCache[unitName] = freshUnitData;
           CacheManager.setCache(CacheManager.CACHE_KEYS.UNITS, existingCache);
           
           renderLessons(selectedLesson);
@@ -846,6 +952,13 @@ function addVideoWatermark(userEmail, lessonKey) {
 }
 
 function goBack() {
+  // Clear current unit cache to ensure fresh data on return
+  if (currentUnitName) {
+    const existingCache = CacheManager.getCache(CacheManager.CACHE_KEYS.UNITS) || {};
+    delete existingCache[currentUnitName];
+    CacheManager.setCache(CacheManager.CACHE_KEYS.UNITS, existingCache);
+  }
+  
   Navigation.goToMainPage();
 }
 
