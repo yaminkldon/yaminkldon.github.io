@@ -7163,10 +7163,10 @@ function viewAssessments() {
           <select class="form-input" id="assessmentSortFilter" onchange="filterAssessments()" style="width: 180px;">
             <option value="date-desc">Newest First</option>
             <option value="date-asc">Oldest First</option>
-            <option value="type-asc">Type (A-Z)</option>
-            <option value="type-desc">Type (Z-A)</option>
+            <option value="title-asc">Title (A-Z)</option>
+            <option value="title-desc">Title (Z-A)</option>
           </select>
-          <input type="text" class="form-input" id="assessmentSearchFilter" onkeyup="filterAssessments()" placeholder="Search assessments..." style="width: 300px;">
+          <input type="text" class="form-input" id="assessmentSearchFilter" onkeyup="filterAssessments()" placeholder="Search by title..." style="width: 300px;">
         </div>
       </div>
       
@@ -7751,17 +7751,11 @@ function filterAssessments() {
     filteredAssessments = filteredAssessments.filter(assessment => assessment.type === typeFilter);
   }
   
-  // Apply search filter
+  // Apply search filter - search by title only
   if (searchFilter) {
     filteredAssessments = filteredAssessments.filter(assessment => {
-      const searchableText = [
-        assessment.title || '',
-        assessment.unit || '',
-        assessment.description || '',
-        assessment.type || ''
-      ].join(' ').toLowerCase();
-      
-      return searchableText.includes(searchFilter);
+      const title = (assessment.title || '').toLowerCase();
+      return title.includes(searchFilter);
     });
   }
   
@@ -7775,11 +7769,11 @@ function filterAssessments() {
     case 'date-desc':
       filteredAssessments.sort((a, b) => b.created - a.created);
       break;
-    case 'type-asc':
-      filteredAssessments.sort((a, b) => a.type.localeCompare(b.type));
+    case 'title-asc':
+      filteredAssessments.sort((a, b) => (a.title || '').localeCompare(b.title || ''));
       break;
-    case 'type-desc':
-      filteredAssessments.sort((a, b) => b.type.localeCompare(a.type));
+    case 'title-desc':
+      filteredAssessments.sort((a, b) => (b.title || '').localeCompare(a.title || ''));
       break;
     default:
       filteredAssessments.sort((a, b) => b.created - a.created);
