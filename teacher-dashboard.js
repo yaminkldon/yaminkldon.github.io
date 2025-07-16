@@ -7373,10 +7373,18 @@ async function editQuiz(quizId) {
     // Reset form to ensure clean state BEFORE loading units
     resetQuizForm();
 
-    // Wait for loadUnitsForQuiz to complete and get the available units
-    console.log('Waiting for units to load...');
-    const availableUnits = await loadUnitsForQuiz(quiz.unit);
-    console.log('Units loaded:', availableUnits);
+    // Load units first without setting selection
+    console.log('Loading units...');
+    await loadUnitsForQuiz();
+    console.log('Units loaded');
+
+    // Now set the unit selection after form is reset and units are loaded
+    console.log('Setting unit to:', quiz.unit);
+    const unitSelect = document.getElementById('quizUnit');
+    if (unitSelect && quiz.unit) {
+      unitSelect.value = quiz.unit;
+      console.log('Unit set to:', unitSelect.value);
+    }
 
     // Now populate the form (unit is already set by loadUnitsForQuiz)
     document.getElementById('quizTitle').value = quiz.title || '';
