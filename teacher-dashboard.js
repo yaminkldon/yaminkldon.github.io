@@ -5887,26 +5887,93 @@ function loadStudentSubmissions(assessmentId, type) {
     
     const assessment = assessmentSnapshot.val();
     
-    // Get all students
+    // Get all students - try multiple approaches
+    console.log('Attempting to load students...');
+    
+    // First try with role filter
     db.ref('users').orderByChild('role').equalTo('student').once('value').then(studentsSnapshot => {
       const students = [];
       
+      console.log('Students snapshot exists:', studentsSnapshot.exists());
+      
       if (studentsSnapshot.exists()) {
         studentsSnapshot.forEach(child => {
+          console.log('Found student:', child.key, child.val());
           students.push({
             id: child.key,
-            name: child.val().name,
+            name: child.val().name || child.val().email,
             email: child.val().email
           });
         });
       }
       
-      // Get submissions for this assessment
-      if (type === 'quiz') {
-        loadQuizSubmissionsForStudents(assessmentId, assessment, students, container);
+      console.log('Students found with role filter:', students.length);
+      
+      // If no students found with role filter, try loading all users
+      if (students.length === 0) {
+        console.log('No students found with role filter, trying all users...');
+        db.ref('users').once('value').then(allUsersSnapshot => {
+          if (allUsersSnapshot.exists()) {
+            allUsersSnapshot.forEach(child => {
+              const user = child.val();
+              console.log('Checking user:', child.key, user);
+              
+              // Include user if they have a role of 'student' or if they don't have a role specified
+              // (assuming users without role are students)
+              if (!user.role || user.role === 'student') {
+                students.push({
+                  id: child.key,
+                  name: user.name || user.email,
+                  email: user.email
+                });
+              }
+            });
+          }
+          
+          console.log('Total students found:', students.length);
+          
+          // Get submissions for this assessment
+          if (type === 'quiz') {
+            loadQuizSubmissionsForStudents(assessmentId, assessment, students, container);
+          } else {
+            loadAssignmentSubmissionsForStudents(assessmentId, assessment, students, container);
+          }
+        });
       } else {
-        loadAssignmentSubmissionsForStudents(assessmentId, assessment, students, container);
+        // Get submissions for this assessment
+        if (type === 'quiz') {
+          loadQuizSubmissionsForStudents(assessmentId, assessment, students, container);
+        } else {
+          loadAssignmentSubmissionsForStudents(assessmentId, assessment, students, container);
+        }
       }
+    }).catch(error => {
+      console.error('Error loading students:', error);
+      // Fallback: try loading all users
+      db.ref('users').once('value').then(allUsersSnapshot => {
+        const students = [];
+        if (allUsersSnapshot.exists()) {
+          allUsersSnapshot.forEach(child => {
+            const user = child.val();
+            if (!user.role || user.role === 'student') {
+              students.push({
+                id: child.key,
+                name: user.name || user.email,
+                email: user.email
+              });
+            }
+          });
+        }
+        
+        console.log('Fallback students found:', students.length);
+        
+        // Get submissions for this assessment
+        if (type === 'quiz') {
+          loadQuizSubmissionsForStudents(assessmentId, assessment, students, container);
+        } else {
+          loadAssignmentSubmissionsForStudents(assessmentId, assessment, students, container);
+        }
+      });
     });
   });
 }
@@ -5975,6 +6042,22 @@ function displayStudentSubmissions(assessmentId, assessment, type, students, sub
     submissions,
     submissionsCount: Object.keys(submissions).length
   });
+  
+  // If no students found but we have submissions, create student objects from submissions
+  if (students.length === 0 && Object.keys(submissions).length > 0) {
+    console.log('No students found, creating student objects from submissions...');
+    Object.keys(submissions).forEach(studentId => {
+      const submissionData = submissions[studentId];
+      if (submissionData && submissionData.studentEmail) {
+        students.push({
+          id: studentId,
+          name: submissionData.studentName || submissionData.studentEmail,
+          email: submissionData.studentEmail
+        });
+      }
+    });
+    console.log('Students created from submissions:', students.length);
+  }
   
   let html = `
     <div class="back-to-assessments">
