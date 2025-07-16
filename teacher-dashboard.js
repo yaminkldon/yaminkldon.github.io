@@ -6854,7 +6854,7 @@ function displayQuizSubmissionModal(attempts, quiz) {
           <div style="position: relative; display: inline-block; min-width: 250px;">
             <div class="custom-dropdown" id="attemptDropdown" onclick="toggleAttemptDropdown()">
               <div class="dropdown-selected">
-                <span id="selectedAttemptText">Attempt 1 (${attempts[0].score ? attempts[0].score.toFixed(1) : 'N/A'}%)</span>
+                <span id="selectedAttemptText">Attempt 1 (${attempts[0].score ? attempts[0].score.toFixed(1) : '0'}%)</span>
                 <span class="material-icons dropdown-arrow">arrow_drop_down</span>
               </div>
               <div class="dropdown-options" id="attemptDropdownOptions">
@@ -6863,7 +6863,7 @@ function displayQuizSubmissionModal(attempts, quiz) {
                        onclick="selectAttemptFromDropdown(${index})"
                        data-index="${index}">
                     <span class="attempt-label">Attempt ${index + 1}</span>
-                    <span class="attempt-score">${attempt.score ? attempt.score.toFixed(1) : 'N/A'}%</span>
+                    <span class="attempt-score">${attempt.score ? attempt.score.toFixed(1) : '0'}%</span>
                     <span class="attempt-date">${new Date(attempt.submittedAt).toLocaleString()}</span>
                   </div>
                 `).join('')}
@@ -6911,7 +6911,7 @@ function selectAttempt(index) {
   // Update selected text
   const selectedText = document.getElementById('selectedAttemptText');
   if (selectedText) {
-    selectedText.textContent = `Attempt ${index + 1} (${selectedAttempt.score ? selectedAttempt.score.toFixed(1) : 'N/A'}%)`;
+    selectedText.textContent = `Attempt ${index + 1} (${selectedAttempt.score ? selectedAttempt.score.toFixed(1) : '0'}%)`;
   }
   
   // Display attempt content
@@ -6920,7 +6920,7 @@ function selectAttempt(index) {
   attemptContent.innerHTML = `
     <div style="margin-bottom: 20px; padding: 16px; border-radius: 8px;">
       <h4 style="margin: 0 0 8px 0; color: #6c4fc1; text-decoration: underline;">Attempt ${index + 1} Details</h4>
-      <p style="margin: 4px 0;"><strong>Score:</strong> ${selectedAttempt.score ? selectedAttempt.score.toFixed(1) : 'N/A'}%</p>
+      <p style="margin: 4px 0;"><strong>Score:</strong> ${selectedAttempt.score ? selectedAttempt.score.toFixed(1) : '0'}%</p>
       <p style="margin: 4px 0;"><strong>Correct Answers:</strong> ${selectedAttempt.correctAnswers}/${selectedAttempt.totalQuestions}</p>
       <p style="margin: 4px 0;"><strong>Submitted:</strong> ${new Date(selectedAttempt.submittedAt).toLocaleString()}</p>
       <p style="margin: 4px 0;"><strong>Auto-graded:</strong> ${selectedAttempt.autoGraded ? 'Yes' : 'No'}</p>
