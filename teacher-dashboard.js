@@ -7370,13 +7370,13 @@ async function editQuiz(quizId) {
     // First, open the create quiz modal to ensure it exists in the DOM
     openModal('createQuizModal');
 
+    // Reset form to ensure clean state BEFORE loading units
+    resetQuizForm();
+
     // Wait for loadUnitsForQuiz to complete and get the available units
     console.log('Waiting for units to load...');
     const availableUnits = await loadUnitsForQuiz(quiz.unit);
     console.log('Units loaded:', availableUnits);
-
-    // Reset form to ensure clean state
-    resetQuizForm();
 
     // Now populate the form (unit is already set by loadUnitsForQuiz)
     document.getElementById('quizTitle').value = quiz.title || '';
