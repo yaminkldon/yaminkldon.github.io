@@ -1,4 +1,4 @@
-// Firebase Storage CORS Handler
+ // Firebase Storage CORS Handler
 // This script provides utilities to handle Firebase Storage CORS issues
 
 class FirebaseStorageCORSHandler {
