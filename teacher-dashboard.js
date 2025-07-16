@@ -7354,26 +7354,18 @@ async function editQuiz(quizId) {
 
     const quiz = snapshot.val();
 
-    // Wait for units to be loaded and get the available units
-    const availableUnits = await loadUnitsForQuiz();
+    // First, open the create quiz modal to ensure it exists in the DOM
+    openCreateQuizModal();
+
+    // Wait a moment for the modal to be rendered
+    await new Promise(resolve => setTimeout(resolve, 100));
+
+    // Now get the unit dropdown and set it to the quiz's unit
     const unitSelect = document.getElementById('quizUnit');
-    
     if (unitSelect && quiz.unit) {
       console.log('Quiz unit found:', quiz.unit);
-      console.log('Available units:', availableUnits);
-      
-      // Find the matching unit in the available units
-      const matchingUnit = availableUnits.find(unit => unit.id === quiz.unit);
-      
-      if (matchingUnit) {
-        unitSelect.value = matchingUnit.id;
-        console.log('Unit successfully set to:', matchingUnit.name);
-      } else {
-        console.warn('Quiz unit not found in available units:', quiz.unit);
-        // Show all available option values for debugging
-        const options = Array.from(unitSelect.options).map(opt => opt.value);
-        console.log('Available option values:', options);
-      }
+      unitSelect.value = quiz.unit;
+      console.log('Unit set to:', quiz.unit);
     }
 
     // Now populate the form
@@ -7440,7 +7432,6 @@ async function editQuiz(quizId) {
 
     currentQuizQuestionCount = quiz.questions.length;
 
-    openCreateQuizModal();
     updateQuizFormForEditing();
 
   } catch (error) {
