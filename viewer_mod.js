@@ -154,7 +154,7 @@ const PDFViewerApplication = {
   pdfDocument: null,
   currentPageNumber: 1,
   numPages: 0,
-  scale: 1.0, // Default zoom
+  scale: 1.0,
   
   async initialize() {
     this.container = document.getElementById('viewer');

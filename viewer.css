@@ -70,7 +70,7 @@ body {
   height: 100%;
   width: 100%;
   overflow: hidden;
-  padding-bottom: 3rem;
+  padding-bottom: 5rem;
 }
 
 section {
@@ -264,21 +264,6 @@ footer {
   margin: 0.6rem 0;
 }
 
-.toolbarButton.pageUp {
-  position: absolute;
-  left: 0;
-.toolbarButton {
-  display: none !important;
-}
-
-/* Hide all toolbar button styles */
-.toolbarButton.pageUp,
-.toolbarButton.pageDown,
-.toolbarButton.zoomOut,
-.toolbarButton.zoomIn {
-  display: none !important;
-}
-
 .hidden {
   display: none !important;
 }
@@ -288,7 +273,7 @@ footer {
   overflow: auto;
   width: 100%;
   top: 5rem;
-  bottom: 3rem;
+  bottom: 4rem;
   left: 0;
   right: 0;
   -webkit-overflow-scrolling: touch; /* Smooth scrolling on mobile */
@@ -297,12 +282,12 @@ footer {
 /* Mobile responsive adjustments */
 @media (max-width: 768px) {
   #viewerContainer {
-    bottom: 3rem;
+    bottom: 5rem;
     top: 4rem;
   }
   
   body {
-    padding-bottom: 3rem;
+    padding-bottom: 5rem;
   }
 }
 
