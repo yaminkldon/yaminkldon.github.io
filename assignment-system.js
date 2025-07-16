@@ -37,6 +37,7 @@ class AssignmentSubmissionSystem {
 
   createSubmissionInterface(assignmentId, assignment, containerId) {
     const container = document.getElementById(containerId);
+    const maxFiles = assignment.maxFileUploads || 1;
     
     const interfaceHtml = `
       <div class="assignment-submission-container">
@@ -51,7 +52,7 @@ class AssignmentSubmissionSystem {
         
         <div class="submission-interface">
           ${assignment.submissionType === 'file' || assignment.submissionType === 'both' ? 
-            this.createFileUploadInterface(assignment.allowedFileTypes) : ''
+            this.createFileUploadInterface(assignment.allowedFileTypes, maxFiles) : ''
           }
           
           ${assignment.submissionType === 'text' || assignment.submissionType === 'both' ? 
@@ -72,6 +73,10 @@ class AssignmentSubmissionSystem {
     
     container.innerHTML = interfaceHtml;
     
+    // Store max files for validation
+    this.maxFiles = maxFiles;
+    this.assignmentId = assignmentId;
+    
     // Initialize drag and drop for file uploads
     this.initializeDragAndDrop();
     
@@ -79,17 +84,17 @@ class AssignmentSubmissionSystem {
     this.loadExistingSubmission(assignmentId);
   }
 
-  createFileUploadInterface(allowedTypes) {
+  createFileUploadInterface(allowedTypes, maxFiles = 1) {
     return `
       <div class="file-upload-section">
-        <h4>File Upload</h4>
+        <h4>File Upload (Max: ${maxFiles} file${maxFiles > 1 ? 's' : ''})</h4>
         <div class="file-upload" id="fileUploadArea">
           <div class="upload-icon">
             <span class="material-icons" style="font-size: 48px; color: #6c4fc1;">cloud_upload</span>
           </div>
-          <p>Drag and drop your file here or click to browse</p>
+          <p>Drag and drop your ${maxFiles > 1 ? 'files' : 'file'} here or click to browse</p>
           <p class="file-types">Allowed types: ${allowedTypes.join(', ')}</p>
-          <input type="file" id="fileInput" accept="${allowedTypes.join(',')}" style="display: none;">
+          <input type="file" id="fileInput" accept="${allowedTypes.join(',')}" ${maxFiles > 1 ? 'multiple' : ''} style="display: none;">
           <div class="progress-bar" id="uploadProgress" style="display: none;">
             <div class="progress-fill" id="progressFill"></div>
           </div>
@@ -143,7 +148,18 @@ class AssignmentSubmissionSystem {
   }
 
   handleFileSelection(files) {
-    Array.from(files).forEach(file => {
+    const uploadedFiles = document.getElementById('uploadedFiles');
+    const currentFileCount = uploadedFiles.children.length;
+    const maxFiles = this.maxFiles || 1;
+    const fileArray = Array.from(files);
+    
+    // Check if adding these files would exceed the limit
+    if (currentFileCount + fileArray.length > maxFiles) {
+      alert(`Maximum ${maxFiles} file${maxFiles > 1 ? 's' : ''} allowed. Current: ${currentFileCount}, Trying to add: ${fileArray.length}`);
+      return;
+    }
+    
+    fileArray.forEach(file => {
       if (this.validateFile(file)) {
         this.uploadFile(file);
       }
@@ -231,7 +247,7 @@ class AssignmentSubmissionSystem {
     fileItem.remove();
   }
 
-  loadExistingSubmission(assignmentId) {
+  async loadExistingSubmission(assignmentId) {
     if (!this.db) {
       console.error('Database not initialized yet');
       return;
@@ -240,16 +256,11 @@ class AssignmentSubmissionSystem {
     const currentUser = firebase.auth().currentUser;
     if (!currentUser) return;
     
-    this.db.ref('submissions').orderByChild('assignmentId').equalTo(assignmentId).once('value').then(snapshot => {
-      if (snapshot.exists()) {
-        snapshot.forEach(child => {
-          const submission = child.val();
-          if (submission.studentId === currentUser.uid) {
-            this.populateExistingSubmission(submission);
-          }
-        });
-      }
-    });
+    const existingSubmission = await this.findExistingSubmission(assignmentId, currentUser.uid);
+    
+    if (existingSubmission) {
+      this.populateExistingSubmission(existingSubmission);
+    }
   }
 
   populateExistingSubmission(submission) {
@@ -260,7 +271,13 @@ class AssignmentSubmissionSystem {
     }
     
     // Populate file uploads if exists
-    if (submission.fileUrl) {
+    if (submission.fileUrls && submission.fileUrls.length > 0) {
+      submission.fileUrls.forEach((fileUrl, index) => {
+        const fileName = submission.fileNames && submission.fileNames[index] ? submission.fileNames[index] : `File ${index + 1}`;
+        this.addUploadedFileToInterface(fileName, fileUrl);
+      });
+    } else if (submission.fileUrl) {
+      // Handle legacy single file format
       this.addUploadedFileToInterface(submission.fileName || 'Uploaded File', submission.fileUrl);
     }
     
@@ -329,6 +346,9 @@ class AssignmentSubmissionSystem {
       return;
     }
     
+    // Check for existing submission first
+    const existingSubmission = await this.findExistingSubmission(assignmentId, currentUser.uid);
+    
     const submissionData = {
       assignmentId: assignmentId,
       studentId: currentUser.uid,
@@ -341,9 +361,20 @@ class AssignmentSubmissionSystem {
     
     // Add file information if uploaded
     if (uploadedFiles.length > 0) {
-      const fileItem = uploadedFiles[0]; // For now, handle single file
-      submissionData.fileUrl = fileItem.dataset.url;
-      submissionData.fileName = fileItem.querySelector('.file-name').textContent;
+      const fileUrls = [];
+      const fileNames = [];
+      
+      uploadedFiles.forEach(fileItem => {
+        fileUrls.push(fileItem.dataset.url);
+        fileNames.push(fileItem.querySelector('.file-name').textContent);
+      });
+      
+      submissionData.fileUrls = fileUrls;
+      submissionData.fileNames = fileNames;
+      
+      // For backward compatibility, keep the first file in the old format
+      submissionData.fileUrl = fileUrls[0];
+      submissionData.fileName = fileNames[0];
     }
     
     // Get assignment details for additional info
@@ -364,13 +395,50 @@ class AssignmentSubmissionSystem {
     
     // Save submission
     try {
-      await this.db.ref('submissions').push(submissionData);
-      alert('Assignment submitted successfully!');
-      this.loadExistingSubmission(assignmentId);
+      if (existingSubmission) {
+        // Update existing submission
+        await this.db.ref(`submissions/${existingSubmission.id}`).update(submissionData);
+        alert('Assignment updated successfully!');
+      } else {
+        // Create new submission
+        await this.db.ref('submissions').push(submissionData);
+        alert('Assignment submitted successfully!');
+      }
+      
+      // Close modal and refresh
+      const modal = document.getElementById('assignmentModal');
+      if (modal) {
+        modal.style.display = 'none';
+      }
+      
+      // Refresh the assignments page
+      if (typeof loadAssignments === 'function') {
+        loadAssignments();
+      }
     } catch (error) {
       console.error('Error submitting assignment:', error);
       alert('Error submitting assignment. Please try again.');
     }
+  }
+  
+  async findExistingSubmission(assignmentId, studentId) {
+    const snapshot = await this.db.ref('submissions').orderByChild('assignmentId').equalTo(assignmentId).once('value');
+    
+    if (snapshot.exists()) {
+      let existingSubmission = null;
+      snapshot.forEach(child => {
+        const submission = child.val();
+        if (submission.studentId === studentId) {
+          existingSubmission = {
+            id: child.key,
+            ...submission
+          };
+        }
+      });
+      return existingSubmission;
+    }
+    
+    return null;
   }
 
   async saveDraft(assignmentId) {
@@ -385,6 +453,9 @@ class AssignmentSubmissionSystem {
     const textContent = document.getElementById('textSubmission')?.value || '';
     const uploadedFiles = document.querySelectorAll('.uploaded-file-item');
     
+    // Check for existing submission first
+    const existingSubmission = await this.findExistingSubmission(assignmentId, currentUser.uid);
+    
     const draftData = {
       assignmentId: assignmentId,
       studentId: currentUser.uid,
@@ -396,14 +467,32 @@ class AssignmentSubmissionSystem {
     
     // Add file information if uploaded
     if (uploadedFiles.length > 0) {
-      const fileItem = uploadedFiles[0];
-      draftData.fileUrl = fileItem.dataset.url;
-      draftData.fileName = fileItem.querySelector('.file-name').textContent;
+      const fileUrls = [];
+      const fileNames = [];
+      
+      uploadedFiles.forEach(fileItem => {
+        fileUrls.push(fileItem.dataset.url);
+        fileNames.push(fileItem.querySelector('.file-name').textContent);
+      });
+      
+      draftData.fileUrls = fileUrls;
+      draftData.fileNames = fileNames;
+      
+      // For backward compatibility, keep the first file in the old format
+      draftData.fileUrl = fileUrls[0];
+      draftData.fileName = fileNames[0];
     }
     
     try {
-      await this.db.ref('submissions').push(draftData);
-      alert('Draft saved successfully!');
+      if (existingSubmission) {
+        // Update existing draft
+        await this.db.ref(`submissions/${existingSubmission.id}`).update(draftData);
+        alert('Draft updated successfully!');
+      } else {
+        // Create new draft
+        await this.db.ref('submissions').push(draftData);
+        alert('Draft saved successfully!');
+      }
     } catch (error) {
       console.error('Error saving draft:', error);
       alert('Error saving draft. Please try again.');

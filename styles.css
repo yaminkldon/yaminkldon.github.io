@@ -68,3 +68,192 @@ button:hover {
   border-radius: 5px;
   display: block;
 }
+
+/* Grading Center Styles */
+.grading-assessments-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 20px;
+  padding: 20px;
+}
+
+.grading-assessment-card {
+  background: white;
+  border-radius: 8px;
+  padding: 20px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.grading-assessment-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
+.assessment-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.assessment-icon {
+  font-size: 32px;
+}
+
+.assessment-info h3 {
+  margin: 0 0 4px 0;
+  color: #333;
+}
+
+.assessment-meta {
+  margin: 0;
+  color: #666;
+  font-size: 14px;
+}
+
+.assessment-actions {
+  text-align: right;
+}
+
+.students-list {
+  margin-top: 20px;
+}
+
+.student-submission-card {
+  background: #f8f9fa;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  padding: 16px;
+  margin-bottom: 12px;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.student-submission-card:hover {
+  background: #e9ecef;
+}
+
+.student-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.student-name {
+  font-weight: bold;
+  color: #333;
+}
+
+.submission-status {
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: bold;
+}
+
+.submission-status.graded {
+  background: #d4edda;
+  color: #155724;
+}
+
+.submission-status.pending {
+  background: #fff3cd;
+  color: #856404;
+}
+
+.submission-status.no-submission {
+  background: #f8d7da;
+  color: #721c24;
+}
+
+.back-to-assessments {
+  margin-bottom: 20px;
+}
+
+.assignment-grading-header {
+  margin-bottom: 20px;
+  padding-bottom: 10px;
+  border-bottom: 2px solid #6c4fc1;
+}
+
+.assignment-grading-header h2 {
+  margin: 0;
+  color: #6c4fc1;
+}
+
+.assignment-grading-header p {
+  margin: 8px 0 0 0;
+  color: #666;
+}
+
+/* Multiple file upload styles */
+.uploaded-file-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  margin-bottom: 8px;
+  background: #f8f9fa;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+}
+
+.uploaded-file-item .material-icons {
+  color: #6c4fc1;
+  font-size: 18px;
+}
+
+.uploaded-file-item .file-name {
+  flex: 1;
+  font-size: 14px;
+  color: #333;
+}
+
+.uploaded-file-item .action-btn {
+  padding: 4px 8px;
+  font-size: 12px;
+  min-width: auto;
+  margin: 0;
+}
+
+.file-upload.drag-over {
+  background: #e8f4fd;
+  border-color: #6c4fc1;
+}
+
+.file-upload {
+  border: 2px dashed #ddd;
+  border-radius: 8px;
+  padding: 20px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.file-upload:hover {
+  border-color: #6c4fc1;
+  background: #f8f9fa;
+}
+
+.file-types {
+  color: #666;
+  font-size: 12px;
+  margin-top: 8px;
+}
+
+.progress-bar {
+  height: 4px;
+  background: #e9ecef;
+  border-radius: 2px;
+  overflow: hidden;
+  margin-top: 12px;
+}
+
+.progress-fill {
+  height: 100%;
+  background: #6c4fc1;
+  transition: width 0.3s ease;
+}

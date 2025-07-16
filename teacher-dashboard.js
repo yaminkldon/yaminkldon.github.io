@@ -5536,6 +5536,7 @@ document.getElementById('createAssignmentForm').addEventListener('submit', funct
     maxPoints: parseInt(document.getElementById('assignmentMaxPoints').value),
     submissionType: document.getElementById('assignmentSubmissionType').value,
     allowedFileTypes: document.getElementById('assignmentFileTypes').value.split(',').map(type => type.trim()),
+    maxFileUploads: parseInt(document.getElementById('assignmentMaxFiles').value) || 1,
     rubric: document.getElementById('assignmentRubric').value,
     createdBy: firebase.auth().currentUser.uid,
     createdAt: Date.now(),
@@ -5676,103 +5677,409 @@ document.getElementById('createRubricForm').addEventListener('submit', function(
 // Grading Center Functions
 function loadSubmissions() {
   const container = document.getElementById('submissionsContainer');
-  container.innerHTML = '<div style="text-align: center; padding: 20px;">Loading submissions...</div>';
+  container.innerHTML = '<div style="text-align: center; padding: 20px;">Loading assessments...</div>';
   
-  const allSubmissions = [];
+  // Load all assessments (quizzes and assignments)
+  loadAssessmentsForGrading();
+}
+
+function loadAssessmentsForGrading() {
+  const container = document.getElementById('submissionsContainer');
+  const assessments = [];
   
-  // Load assignment submissions
-  db.ref('submissions').once('value').then(snapshot => {
-    if (snapshot.exists()) {
-      snapshot.forEach(child => {
-        const submission = child.val();
-        allSubmissions.push({
+  // Load quizzes
+  db.ref('quizzes').once('value').then(quizSnapshot => {
+    if (quizSnapshot.exists()) {
+      quizSnapshot.forEach(child => {
+        assessments.push({
           id: child.key,
-          type: 'assignment',
-          data: submission,
-          submittedAt: submission.submittedAt,
-          graded: submission.graded,
-          studentName: submission.studentName || 'Unknown Student',
-          title: submission.assignmentTitle,
-          grade: submission.grade,
-          maxPoints: submission.maxPoints
+          type: 'quiz',
+          title: child.val().title,
+          unit: child.val().unit,
+          created: child.val().createdAt || Date.now()
         });
       });
     }
     
-    // Load quiz submissions - group by quiz and student
-    db.ref('quizSubmissions').once('value').then(quizSnapshot => {
-      if (quizSnapshot.exists()) {
-        const quizSubmissions = {};
-        
-        quizSnapshot.forEach(child => {
-          const quizSubmission = child.val();
-          const key = `${quizSubmission.quizId}_${quizSubmission.studentId}`;
-          
-          if (!quizSubmissions[key]) {
-            quizSubmissions[key] = {
-              quizId: quizSubmission.quizId,
-              studentId: quizSubmission.studentId,
-              studentEmail: quizSubmission.studentEmail,
-              attempts: []
-            };
-          }
-          
-          quizSubmissions[key].attempts.push({
+    // Load assignments
+    db.ref('assignments').once('value').then(assignmentSnapshot => {
+      if (assignmentSnapshot.exists()) {
+        assignmentSnapshot.forEach(child => {
+          assessments.push({
             id: child.key,
-            ...quizSubmission
+            type: 'assignment',
+            title: child.val().title,
+            unit: child.val().unit,
+            created: child.val().createdAt || Date.now()
           });
         });
-        
-        // Process grouped quiz submissions
-        let processedQuizzes = 0;
-        const totalQuizzes = Object.keys(quizSubmissions).length;
-        
-        if (totalQuizzes === 0) {
-          displayAllSubmissions(allSubmissions, container);
-          return;
-        }
-        
-        Object.values(quizSubmissions).forEach(groupedSubmission => {
-          // Sort attempts by submission date (newest first)
-          groupedSubmission.attempts.sort((a, b) => b.submittedAt - a.submittedAt);
-          
-          // Get quiz title
-          db.ref(`quizzes/${groupedSubmission.quizId}`).once('value').then(quizData => {
-            if (quizData.exists()) {
-              const quiz = quizData.val();
-              const latestAttempt = groupedSubmission.attempts[0];
-              
-              allSubmissions.push({
-                id: `quiz_${groupedSubmission.quizId}_${groupedSubmission.studentId}`,
-                type: 'quiz',
-                data: groupedSubmission,
-                submittedAt: latestAttempt.submittedAt,
-                graded: latestAttempt.autoGraded || false,
-                studentName: groupedSubmission.studentEmail || 'Unknown Student',
-                title: quiz.title,
-                grade: latestAttempt.score ? latestAttempt.score.toFixed(1) : 'N/A',
-                maxPoints: '100',
-                correctAnswers: latestAttempt.correctAnswers,
-                totalQuestions: latestAttempt.totalQuestions,
-                attemptCount: groupedSubmission.attempts.length
-              });
-            }
-            
-            processedQuizzes++;
-            if (processedQuizzes === totalQuizzes) {
-              displayAllSubmissions(allSubmissions, container);
-            }
+      }
+      
+      displayAssessmentsForGrading(assessments, container);
+    });
+  });
+}
+
+function displayAssessmentsForGrading(assessments, container) {
+  if (assessments.length === 0) {
+    container.innerHTML = `
+      <div style="text-align: center; padding: 40px; color: #666;">
+        <span class="material-icons" style="font-size: 48px; margin-bottom: 16px;">assignment</span>
+        <p>No assessments available for grading</p>
+      </div>
+    `;
+    return;
+  }
+  
+  // Sort assessments by creation date (newest first)
+  assessments.sort((a, b) => b.created - a.created);
+  
+  let html = '<div class="grading-assessments-grid">';
+  
+  assessments.forEach(assessment => {
+    const typeIcon = assessment.type === 'quiz' ? 'quiz' : 'assignment';
+    const typeLabel = assessment.type === 'quiz' ? 'Quiz' : 'Assignment';
+    
+    html += `
+      <div class="grading-assessment-card" onclick="loadStudentSubmissions('${assessment.id}', '${assessment.type}')">
+        <div class="assessment-header">
+          <span class="material-icons assessment-icon" style="color: #6c4fc1;">${typeIcon}</span>
+          <div class="assessment-info">
+            <h3>${assessment.title}</h3>
+            <p class="assessment-meta">${typeLabel} • ${assessment.unit}</p>
+          </div>
+        </div>
+        <div class="assessment-actions">
+          <button class="action-btn" onclick="event.stopPropagation(); loadStudentSubmissions('${assessment.id}', '${assessment.type}')">
+            View Submissions
+          </button>
+        </div>
+      </div>
+    `;
+  });
+  
+  html += '</div>';
+  
+  // Add styles for the new grading interface
+  const styles = `
+    <style>
+      .grading-assessments-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        gap: 20px;
+        padding: 20px;
+      }
+      
+      .grading-assessment-card {
+        background: white;
+        border-radius: 8px;
+        padding: 20px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        cursor: pointer;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+      }
+      
+      .grading-assessment-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      }
+      
+      .assessment-header {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 16px;
+      }
+      
+      .assessment-icon {
+        font-size: 32px;
+      }
+      
+      .assessment-info h3 {
+        margin: 0 0 4px 0;
+        color: #333;
+      }
+      
+      .assessment-meta {
+        margin: 0;
+        color: #666;
+        font-size: 14px;
+      }
+      
+      .assessment-actions {
+        text-align: right;
+      }
+      
+      .students-list {
+        margin-top: 20px;
+      }
+      
+      .student-submission-card {
+        background: #f8f9fa;
+        border: 1px solid #ddd;
+        border-radius: 6px;
+        padding: 16px;
+        margin-bottom: 12px;
+        cursor: pointer;
+        transition: background-color 0.2s ease;
+      }
+      
+      .student-submission-card:hover {
+        background: #e9ecef;
+      }
+      
+      .student-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 8px;
+      }
+      
+      .student-name {
+        font-weight: bold;
+        color: #333;
+      }
+      
+      .submission-status {
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-size: 12px;
+        font-weight: bold;
+      }
+      
+      .submission-status.graded {
+        background: #d4edda;
+        color: #155724;
+      }
+      
+      .submission-status.pending {
+        background: #fff3cd;
+        color: #856404;
+      }
+      
+      .submission-status.no-submission {
+        background: #f8d7da;
+        color: #721c24;
+      }
+      
+      .back-to-assessments {
+        margin-bottom: 20px;
+      }
+    </style>
+  `;
+  
+  container.innerHTML = styles + html;
+}
+
+function loadStudentSubmissions(assessmentId, type) {
+  const container = document.getElementById('submissionsContainer');
+  container.innerHTML = '<div style="text-align: center; padding: 20px;">Loading student submissions...</div>';
+  
+  // Get assessment details first
+  const assessmentRef = type === 'quiz' ? `quizzes/${assessmentId}` : `assignments/${assessmentId}`;
+  
+  db.ref(assessmentRef).once('value').then(assessmentSnapshot => {
+    if (!assessmentSnapshot.exists()) {
+      container.innerHTML = '<div style="text-align: center; padding: 20px; color: #666;">Assessment not found</div>';
+      return;
+    }
+    
+    const assessment = assessmentSnapshot.val();
+    
+    // Get all students
+    db.ref('users').orderByChild('role').equalTo('student').once('value').then(studentsSnapshot => {
+      const students = [];
+      
+      if (studentsSnapshot.exists()) {
+        studentsSnapshot.forEach(child => {
+          students.push({
+            id: child.key,
+            name: child.val().name,
+            email: child.val().email
           });
         });
+      }
+      
+      // Get submissions for this assessment
+      if (type === 'quiz') {
+        loadQuizSubmissionsForStudents(assessmentId, assessment, students, container);
       } else {
-        // No quiz submissions, just display assignment submissions
-        displayAllSubmissions(allSubmissions, container);
+        loadAssignmentSubmissionsForStudents(assessmentId, assessment, students, container);
       }
     });
   });
+}
+
+function loadQuizSubmissionsForStudents(quizId, quiz, students, container) {
+  db.ref('quizSubmissions').orderByChild('quizId').equalTo(quizId).once('value').then(snapshot => {
+    const submissions = {};
+    
+    if (snapshot.exists()) {
+      snapshot.forEach(child => {
+        const submission = child.val();
+        const studentId = submission.studentId;
+        
+        if (!submissions[studentId]) {
+          submissions[studentId] = [];
+        }
+        
+        submissions[studentId].push({
+          id: child.key,
+          ...submission
+        });
+      });
+    }
+    
+    displayStudentSubmissions(quizId, quiz, 'quiz', students, submissions, container);
+  });
+}
+
+function loadAssignmentSubmissionsForStudents(assignmentId, assignment, students, container) {
+  db.ref('submissions').orderByChild('assignmentId').equalTo(assignmentId).once('value').then(snapshot => {
+    const submissions = {};
+    
+    if (snapshot.exists()) {
+      snapshot.forEach(child => {
+        const submission = child.val();
+        const studentId = submission.studentId;
+        
+        submissions[studentId] = {
+          id: child.key,
+          ...submission
+        };
+      });
+    }
+    
+    displayStudentSubmissions(assignmentId, assignment, 'assignment', students, submissions, container);
+  });
+}
+
+function displayStudentSubmissions(assessmentId, assessment, type, students, submissions, container) {
+  const typeLabel = type === 'quiz' ? 'Quiz' : 'Assignment';
   
-  // Load assignment and quiz filter options
-  loadAssignmentFilterOptions();
+  let html = `
+    <div class="back-to-assessments">
+      <button class="action-btn secondary" onclick="loadAssessmentsForGrading()">
+        <span class="material-icons">arrow_back</span> Back to Assessments
+      </button>
+    </div>
+    
+    <div class="assessment-grading-header">
+      <h2>${typeLabel}: ${assessment.title}</h2>
+      <p>Student submissions for this ${type.toLowerCase()}</p>
+    </div>
+    
+    <div class="students-list">
+  `;
+  
+  if (students.length === 0) {
+    html += '<p>No students found</p>';
+  } else {
+    students.forEach(student => {
+      const studentSubmissions = submissions[student.id];
+      let statusHtml = '';
+      let actionHtml = '';
+      
+      if (type === 'quiz') {
+        if (studentSubmissions && studentSubmissions.length > 0) {
+          const latestSubmission = studentSubmissions.sort((a, b) => b.submittedAt - a.submittedAt)[0];
+          const score = latestSubmission.score !== undefined ? latestSubmission.score.toFixed(1) : '0';
+          
+          statusHtml = `
+            <div class="submission-status graded">
+              ${studentSubmissions.length} attempt(s) • Best: ${score}%
+            </div>
+          `;
+          
+          actionHtml = `
+            <button class="action-btn" onclick="viewStudentQuizAttempts('${quizId}', '${student.id}', '${student.name}')">
+              View Attempts
+            </button>
+          `;
+        } else {
+          statusHtml = '<div class="submission-status no-submission">No attempts</div>';
+          actionHtml = '<span style="color: #666;">No submission</span>';
+        }
+      } else {
+        if (studentSubmissions) {
+          const isGraded = studentSubmissions.graded;
+          const statusClass = isGraded ? 'graded' : 'pending';
+          const statusText = isGraded ? `Graded: ${studentSubmissions.grade}/${studentSubmissions.maxPoints}` : 'Pending grading';
+          
+          statusHtml = `<div class="submission-status ${statusClass}">${statusText}</div>`;
+          
+          actionHtml = `
+            <button class="action-btn" onclick="viewStudentAssignmentSubmission('${studentSubmissions.id}', '${student.name}')">
+              ${isGraded ? 'View Grade' : 'Grade'}
+            </button>
+          `;
+        } else {
+          statusHtml = '<div class="submission-status no-submission">No submission</div>';
+          actionHtml = '<span style="color: #666;">No submission</span>';
+        }
+      }
+      
+      html += `
+        <div class="student-submission-card">
+          <div class="student-header">
+            <span class="student-name">${student.name}</span>
+            ${statusHtml}
+          </div>
+          <div class="student-actions">
+            ${actionHtml}
+          </div>
+        </div>
+      `;
+    });
+  }
+  
+  html += '</div>';
+  
+  container.innerHTML = html;
+}
+
+function viewStudentQuizAttempts(quizId, studentId, studentName) {
+  // Get all attempts for this quiz and student
+  db.ref('quizSubmissions').orderByChild('quizId').equalTo(quizId).once('value').then(snapshot => {
+    const attempts = [];
+    
+    if (snapshot.exists()) {
+      snapshot.forEach(child => {
+        const submission = child.val();
+        if (submission.studentId === studentId) {
+          attempts.push({
+            id: child.key,
+            ...submission
+          });
+        }
+      });
+    }
+    
+    if (attempts.length === 0) {
+      showNotification('No attempts found for this student', 'info');
+      return;
+    }
+    
+    // Get quiz details
+    db.ref(`quizzes/${quizId}`).once('value').then(quizSnapshot => {
+      if (quizSnapshot.exists()) {
+        const quiz = quizSnapshot.val();
+        quiz.id = quizId;
+        displayQuizSubmissionModal(attempts, quiz);
+      }
+    });
+  });
+}
+
+function viewStudentAssignmentSubmission(submissionId, studentName) {
+  // Set the current submission ID for the grading modal
+  window.currentSubmissionId = submissionId;
+  
+  // Load the submission details
+  loadSubmissionDetails(submissionId);
+  
+  // Open the grading modal
+  document.getElementById('gradeSubmissionModal').style.display = 'flex';
 }
 
 function clearSearchFilter() {
@@ -6828,7 +7135,7 @@ function displaySubmissionDetails(submissionId, submission) {
     </div>
     <div style="margin-bottom: 20px;">
       <h4>Submission Content:</h4>
-      <div style="background: #f5f5f5; padding: 15px; border-radius: 5px;">
+      <div style="background: #f5f5f5; padding: 15px; border-radius: 5px; color: #333;">
         ${submission.content || 'No text content'}
       </div>
     </div>
@@ -7727,6 +8034,7 @@ async function editAssignment(assignmentId) {
     document.getElementById('assignmentMaxPoints').value = assignment.maxPoints || '';
     document.getElementById('assignmentSubmissionType').value = assignment.submissionType || 'text';
     document.getElementById('assignmentFileTypes').value = assignment.allowedFileTypes ? assignment.allowedFileTypes.join(', ') : '';
+    document.getElementById('assignmentMaxFiles').value = assignment.maxFileUploads || 1;
 
     // Store the assignment ID for updating
     window.editingAssignmentId = assignmentId;
@@ -7769,6 +8077,7 @@ function updateAssignment() {
     maxPoints: parseInt(document.getElementById('assignmentMaxPoints').value),
     submissionType: document.getElementById('assignmentSubmissionType').value,
     allowedFileTypes: document.getElementById('assignmentFileTypes').value.split(',').map(type => type.trim()),
+    maxFileUploads: parseInt(document.getElementById('assignmentMaxFiles').value) || 1,
     rubric: document.getElementById('assignmentRubric').value,
     updatedAt: Date.now()
   };
@@ -7880,12 +8189,38 @@ function updateQuiz() {
 }
 
 function deleteAssessment(assessmentId, type) {
-  if (confirm(`Are you sure you want to delete this ${type}? This action cannot be undone.`)) {
+  if (confirm(`Are you sure you want to delete this ${type}? This action cannot be undone and will also delete all related submissions and attempts.`)) {
     const ref = type === 'quiz' ? `quizzes/${assessmentId}` : `assignments/${assessmentId}`;
     
+    // First delete the assessment
     db.ref(ref).remove().then(() => {
+      // Then delete all related submissions/attempts
+      if (type === 'quiz') {
+        // Delete all quiz submissions for this quiz
+        db.ref('quizSubmissions').orderByChild('quizId').equalTo(assessmentId).once('value').then(snapshot => {
+          const updates = {};
+          snapshot.forEach(child => {
+            updates[child.key] = null;
+          });
+          if (Object.keys(updates).length > 0) {
+            db.ref('quizSubmissions').update(updates);
+          }
+        });
+      } else {
+        // Delete all assignment submissions for this assignment
+        db.ref('submissions').orderByChild('assignmentId').equalTo(assessmentId).once('value').then(snapshot => {
+          const updates = {};
+          snapshot.forEach(child => {
+            updates[child.key] = null;
+          });
+          if (Object.keys(updates).length > 0) {
+            db.ref('submissions').update(updates);
+          }
+        });
+      }
+      
       showNotification(
-        `${type.charAt(0).toUpperCase() + type.slice(1)} has been deleted successfully!`,
+        `${type.charAt(0).toUpperCase() + type.slice(1)} and all related submissions have been deleted successfully!`,
         'success',
         'Deleted'
       );
@@ -8463,6 +8798,12 @@ function resetAssignmentForm() {
   const form = document.getElementById('createAssignmentForm');
   if (form) {
     form.reset();
+  }
+  
+  // Reset max files to default
+  const maxFilesInput = document.getElementById('assignmentMaxFiles');
+  if (maxFilesInput) {
+    maxFilesInput.value = 1;
   }
 }
 
