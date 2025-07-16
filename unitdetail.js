@@ -301,6 +301,12 @@ function toggleFilePreviewFullscreen() {
       appbar.style.display = 'none';
     }
     
+    // Update modal content styling for fullscreen
+    const modalContent = modal.querySelector('div[style*="background: #333"]');
+    if (modalContent) {
+      modalContent.style.cssText = 'background: #333; border-radius: 12px; width: 100%; height: 100%; position: relative; overflow: hidden;';
+    }
+    
     isFilePreviewFullscreen = true;
     
     // Update button text
@@ -323,7 +329,15 @@ function toggleFilePreviewFullscreen() {
       appbar.style.display = 'flex';
     }
     
+    // Restore original modal content styling
+    const modalContent = modal.querySelector('div[style*="background: #333"]');
+    if (modalContent) {
+      modalContent.style.cssText = 'background: #333; border-radius: 12px; max-width: 95vw; max-height: 95vh; width: 100%; height: 100%; position: relative; overflow: hidden;';
+    }
+    
     isFilePreviewFullscreen = false;
+
+    modal.style.padding = '0%';
     
     // Update button text
     const fullscreenBtn = modal.querySelector('button[onclick="toggleFilePreviewFullscreen()"]');
@@ -342,6 +356,14 @@ document.addEventListener('fullscreenchange', function() {
     // Show the appbar
     if (appbar) {
       appbar.style.display = 'flex';
+    }
+    
+    // Restore original modal content styling
+    if (modal) {
+      const modalContent = modal.querySelector('div[style*="background: #333"]');
+      if (modalContent) {
+        modalContent.style.cssText = 'background: #333; border-radius: 12px; max-width: 95vw; max-height: 95vh; width: 100%; height: 100%; position: relative; overflow: hidden;';
+      }
     }
     
     isFilePreviewFullscreen = false;
@@ -365,6 +387,14 @@ document.addEventListener('webkitfullscreenchange', function() {
     // Show the appbar
     if (appbar) {
       appbar.style.display = 'flex';
+    }
+    
+    // Restore original modal content styling
+    if (modal) {
+      const modalContent = modal.querySelector('div[style*="background: #333"]');
+      if (modalContent) {
+        modalContent.style.cssText = 'background: #333; border-radius: 12px; max-width: 95vw; max-height: 95vh; width: 100%; height: 100%; position: relative; overflow: hidden;';
+      }
     }
     
     isFilePreviewFullscreen = false;
