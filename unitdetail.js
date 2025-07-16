@@ -2278,22 +2278,27 @@ function addPDFNavigationControls(modal) {
     return;
   }
   
-  // Create navigation controls container
+  // Create navigation controls container positioned in header
   const navControls = document.createElement('div');
   navControls.id = 'pdfNavigationControls';
   navControls.style.cssText = `
     position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
+    top: 60px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: auto;
+    height: auto;
     pointer-events: none;
     z-index: 16000;
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    padding: 0 20px;
-    box-sizing: border-box;
+    justify-content: center;
+    gap: 20px;
+    padding: 10px 20px;
+    background: rgba(0, 0, 0, 0.1);
+    border-radius: 25px;
+    backdrop-filter: blur(10px);
+    transition: opacity 0.3s ease;
   `;
   
   // Create previous page button
@@ -2301,21 +2306,21 @@ function addPDFNavigationControls(modal) {
   prevBtn.id = 'pdfPrevBtn';
   prevBtn.innerHTML = '◀';
   prevBtn.style.cssText = `
-    width: 60px;
-    height: 60px;
-    background: rgba(0, 0, 0, 0.3);
+    width: 50px;
+    height: 50px;
+    background: rgba(0, 0, 0, 0.2);
     color: white;
     border: none;
     border-radius: 50%;
-    font-size: 24px;
+    font-size: 20px;
     cursor: pointer;
     pointer-events: auto;
     display: flex;
     align-items: center;
     justify-content: center;
     transition: all 0.3s ease;
-    backdrop-filter: blur(10px);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    backdrop-filter: blur(5px);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
   `;
   
   // Create next page button
@@ -2323,32 +2328,32 @@ function addPDFNavigationControls(modal) {
   nextBtn.id = 'pdfNextBtn';
   nextBtn.innerHTML = '▶';
   nextBtn.style.cssText = `
-    width: 60px;
-    height: 60px;
-    background: rgba(0, 0, 0, 0.3);
+    width: 50px;
+    height: 50px;
+    background: rgba(0, 0, 0, 0.2);
     color: white;
     border: none;
     border-radius: 50%;
-    font-size: 24px;
+    font-size: 20px;
     cursor: pointer;
     pointer-events: auto;
     display: flex;
     align-items: center;
     justify-content: center;
     transition: all 0.3s ease;
-    backdrop-filter: blur(10px);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    backdrop-filter: blur(5px);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
   `;
   
   // Add hover effects
   const addHoverEffects = (btn) => {
     btn.addEventListener('mouseenter', () => {
-      btn.style.background = 'rgba(0, 0, 0, 0.5)';
-      btn.style.transform = 'scale(1.1)';
+      btn.style.background = 'rgba(0, 0, 0, 0.4)';
+      btn.style.transform = 'scale(1.05)';
     });
     
     btn.addEventListener('mouseleave', () => {
-      btn.style.background = 'rgba(0, 0, 0, 0.3)';
+      btn.style.background = 'rgba(0, 0, 0, 0.2)';
       btn.style.transform = 'scale(1)';
     });
   };
@@ -2383,14 +2388,14 @@ function addPDFNavigationControls(modal) {
   const addTouchHandlers = (btn, action) => {
     btn.addEventListener('touchstart', (e) => {
       e.preventDefault();
-      btn.style.background = 'rgba(0, 0, 0, 0.5)';
-      btn.style.transform = 'scale(1.1)';
+      btn.style.background = 'rgba(0, 0, 0, 0.4)';
+      btn.style.transform = 'scale(1.05)';
       btn.click();
     });
     
     btn.addEventListener('touchend', (e) => {
       e.preventDefault();
-      btn.style.background = 'rgba(0, 0, 0, 0.3)';
+      btn.style.background = 'rgba(0, 0, 0, 0.2)';
       btn.style.transform = 'scale(1)';
     });
   };
