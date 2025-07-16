@@ -318,17 +318,9 @@ window.playLessonVideo = function(videoURL) {
   // Enable mobile UI (double-tap seek, better fullscreen, etc.)
   vjsPlayer.mobileUi();
 
-  // Track video completion for progress
-  vjsPlayer.on('ended', function() {
-    // Mark lesson as completed when video ends
-    if (window.currentUnitId && window.currentLessonId) {
-      ProgressTracker.markLessonCompleted(window.currentUnitId, window.currentLessonId);
-      NotificationManager.showToast('Lesson completed! 🎉');
-    }
-  });
-
-  // Auto fullscreen on play (optional)
+  // Add moving watermark with user email
   vjsPlayer.ready(function() {
+    addVideoWatermark();
     vjsPlayer.play();
     if (vjsPlayer.requestFullscreen) {
       vjsPlayer.requestFullscreen();
@@ -336,6 +328,15 @@ window.playLessonVideo = function(videoURL) {
       if (screen.orientation && screen.orientation.lock) {
         screen.orientation.lock('landscape').catch(() => {});
       }
+    }
+  });
+
+  // Track video completion for progress
+  vjsPlayer.on('ended', function() {
+    // Mark lesson as completed when video ends
+    if (window.currentUnitId && window.currentLessonId) {
+      ProgressTracker.markLessonCompleted(window.currentUnitId, window.currentLessonId);
+      NotificationManager.showToast('Lesson completed! 🎉');
     }
   });
 
@@ -358,6 +359,111 @@ window.closeVideoModal = function() {
     screen.orientation.unlock();
   }
 };
+
+// Add moving watermark to video player
+function addVideoWatermark() {
+  if (!vjsPlayer) return;
+  
+  const currentUser = firebase.auth().currentUser;
+  const userEmail = currentUser ? currentUser.email : 'Unknown User';
+  
+  // Remove existing watermark if any
+  const existingWatermark = document.querySelector('.video-watermark-overlay');
+  if (existingWatermark) {
+    existingWatermark.remove();
+  }
+  
+  // Create watermark overlay
+  const watermarkOverlay = document.createElement('div');
+  watermarkOverlay.className = 'video-watermark-overlay';
+  watermarkOverlay.style.cssText = `
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    pointer-events: none;
+    z-index: 9999;
+    overflow: hidden;
+  `;
+  
+  // Create moving watermark element
+  const watermark = document.createElement('div');
+  watermark.className = 'moving-watermark';
+  watermark.textContent = userEmail;
+  watermark.style.cssText = `
+    position: absolute;
+    color: rgba(255, 255, 255, 0.6);
+    font-size: 16px;
+    font-weight: bold;
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8);
+    white-space: nowrap;
+    user-select: none;
+    animation: moveWatermark 15s linear infinite;
+  `;
+  
+  // Add CSS animation keyframes
+  const style = document.createElement('style');
+  style.textContent = `
+    @keyframes moveWatermark {
+      0% { 
+        top: 10%; 
+        left: 10%; 
+        transform: rotate(0deg); 
+      }
+      25% { 
+        top: 20%; 
+        left: 80%; 
+        transform: rotate(-15deg); 
+      }
+      50% { 
+        top: 70%; 
+        left: 70%; 
+        transform: rotate(15deg); 
+      }
+      75% { 
+        top: 80%; 
+        left: 20%; 
+        transform: rotate(-10deg); 
+      }
+      100% { 
+        top: 10%; 
+        left: 10%; 
+        transform: rotate(0deg); 
+      }
+    }
+  `;
+  
+  document.head.appendChild(style);
+  watermarkOverlay.appendChild(watermark);
+  document.body.appendChild(watermarkOverlay);
+  
+  // Clean up watermark when video ends or is closed
+  vjsPlayer.on('dispose', function() {
+    if (watermarkOverlay && watermarkOverlay.parentNode) {
+      watermarkOverlay.parentNode.removeChild(watermarkOverlay);
+    }
+    if (style && style.parentNode) {
+      style.parentNode.removeChild(style);
+    }
+  });
+  
+  // Handle fullscreen changes
+  const handleFullscreenChange = () => {
+    const isFullscreen = document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement;
+    if (isFullscreen) {
+      watermarkOverlay.style.position = 'fixed';
+      watermarkOverlay.style.zIndex = '9999';
+    } else {
+      watermarkOverlay.style.position = 'fixed';
+      watermarkOverlay.style.zIndex = '9999';
+    }
+  };
+  
+  document.addEventListener('fullscreenchange', handleFullscreenChange);
+  document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
+  document.addEventListener('mozfullscreenchange', handleFullscreenChange);
+}
 
 // Drawer open/close logic (matches HTML)
 window.openDrawer = function() {
@@ -818,16 +924,34 @@ function loadMainPageFiles(unitKey, lessonKey) {
   
   console.log('Loading main page files from path:', dbPath); // Debug log
   
-  db.ref(dbPath).once('value').then(snapshot => {
+  // Helper function to handle files snapshot
+  function handleMainPageFilesSnapshot(snapshot) {
     console.log('Main page files snapshot exists:', snapshot.exists()); // Debug log
     if (!snapshot.exists()) {
-      filesList.innerHTML = `
-        <div style="text-align: center; padding: 40px; color: #666;">
-          <span class="material-icons" style="font-size: 48px; color: #ddd; margin-bottom: 16px;">folder_open</span>
-          <div>No files available for this ${lessonKey ? 'lesson' : 'unit'}</div>
-          <div style="font-size: 12px; color: #999; margin-top: 8px;">Files will appear here once uploaded by your teacher</div>
-        </div>
-      `;
+      console.log('No files found at path:', dbPath); // Debug log
+      
+      // If it's a lesson and we didn't find files, try the new structure
+      if (lessonKey && dbPath.includes('/lessons/')) {
+        console.log('Trying new structure for lesson files'); // Debug log
+        const newDbPath = `units/${unitKey}/lesson${lessonKey}/files`;
+        console.log('Loading files from new path:', newDbPath); // Debug log
+        
+        db.ref(newDbPath).once('value').then(newSnapshot => {
+          if (newSnapshot.exists()) {
+            console.log('Found files in new structure'); // Debug log
+            handleMainPageFilesSnapshot(newSnapshot);
+          } else {
+            console.log('No files found in new structure either'); // Debug log
+            showMainPageNoFiles(lessonKey);
+          }
+        }).catch(error => {
+          console.error('Error loading files from new structure:', error);
+          showMainPageNoFiles(lessonKey);
+        });
+        return;
+      }
+      
+      showMainPageNoFiles(lessonKey);
       return;
     }
     
@@ -835,6 +959,7 @@ function loadMainPageFiles(unitKey, lessonKey) {
     snapshot.forEach(child => {
       const fileData = child.val();
       fileData.id = child.key;
+      console.log('Found main page file:', child.key, fileData); // Debug log
       
       // Only show files that students can access (not restricted)
       if (fileData.access !== 'restricted') {
@@ -855,6 +980,22 @@ function loadMainPageFiles(unitKey, lessonKey) {
     // Sort files by upload date (newest first)
     files.sort((a, b) => b.uploadedAt - a.uploadedAt);
     
+    displayMainPageFiles(files, unitKey, lessonKey);
+  }
+  
+  // Helper function to show no files message
+  function showMainPageNoFiles(lessonKey) {
+    filesList.innerHTML = `
+      <div style="text-align: center; padding: 40px; color: #666;">
+        <span class="material-icons" style="font-size: 48px; color: #ddd; margin-bottom: 16px;">folder_open</span>
+        <div>No files available for this ${lessonKey ? 'lesson' : 'unit'}</div>
+        <div style="font-size: 12px; color: #999; margin-top: 8px;">Files will appear here once uploaded by your teacher</div>
+      </div>
+    `;
+  }
+  
+  // Helper function to display files
+  function displayMainPageFiles(files, unitKey, lessonKey) {
     let html = '<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px;">';
     
     files.forEach(file => {
@@ -901,7 +1042,10 @@ function loadMainPageFiles(unitKey, lessonKey) {
     
     html += '</div>';
     filesList.innerHTML = html;
-  }).catch(error => {
+  }
+  
+  // Start the file loading process
+  db.ref(dbPath).once('value').then(handleMainPageFilesSnapshot).catch(error => {
     console.error('Error loading files:', error);
     filesList.innerHTML = `
       <div style="text-align: center; padding: 40px; color: #dc3545;">
@@ -951,8 +1095,34 @@ function previewMainPageFile(fileId, unitKey, lessonKey) {
     `units/${unitKey}/lessons/${lessonKey}/files/${fileId}` : 
     `units/${unitKey}/files/${fileId}`;
   
+  console.log('Loading main page file for preview from path:', dbPath); // Debug log
+  
   db.ref(dbPath).once('value').then(snapshot => {
     if (!snapshot.exists()) {
+      console.log('File not found at path:', dbPath); // Debug log
+      
+      // If it's a lesson file and not found, try the new structure
+      if (lessonKey && dbPath.includes('/lessons/')) {
+        console.log('Trying new structure for lesson file preview'); // Debug log
+        const newDbPath = `units/${unitKey}/lesson${lessonKey}/files/${fileId}`;
+        console.log('Loading file from new path:', newDbPath); // Debug log
+        
+        db.ref(newDbPath).once('value').then(newSnapshot => {
+          if (newSnapshot.exists()) {
+            console.log('Found file in new structure'); // Debug log
+            const file = newSnapshot.val();
+            showMainPageFilePreview(file);
+          } else {
+            console.log('File not found in new structure either'); // Debug log
+            alert('File not found');
+          }
+        }).catch(error => {
+          console.error('Error loading file from new structure:', error);
+          alert('Error loading file');
+        });
+        return;
+      }
+      
       alert('File not found');
       return;
     }
@@ -1188,23 +1358,29 @@ function loadMainPageSecurePDFContent(url, userEmail) {
   const viewer = document.getElementById('mainPageSecureDocViewer');
   if (!viewer) return;
   
+  // Use iframe with PDF.js viewer to avoid Chrome blocking
   viewer.innerHTML = `
     <div style="position: relative; width: 100%; height: 600px; border: 1px solid #ddd; border-radius: 8px; overflow: hidden;">
-      <div style="position: absolute; top: 10px; right: 10px; background: rgba(0,0,0,0.7); color: white; padding: 4px 8px; border-radius: 4px; font-size: 11px; z-index: 1000;">
-        ${userEmail} | ${new Date().toLocaleString()}
+      <div style="position: absolute; top: 10px; right: 10px; background: rgba(0,0,0,0.8); color: white; padding: 6px 12px; border-radius: 4px; font-size: 12px; z-index: 1000; backdrop-filter: blur(2px);">
+        👤 ${userEmail}
       </div>
-      <div style="position: absolute; top: 10px; left: 10px; background: rgba(0,0,0,0.7); color: white; padding: 4px 8px; border-radius: 4px; font-size: 11px; z-index: 1000;">
-        🔒 Secure View
+      <div style="position: absolute; top: 10px; left: 10px; background: rgba(0,0,0,0.8); color: white; padding: 6px 12px; border-radius: 4px; font-size: 12px; z-index: 1000; backdrop-filter: blur(2px);">
+        🔒 Secure PDF View
+      </div>
+      <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(0,0,0,0.1); color: rgba(0,0,0,0.3); font-size: 24px; font-weight: bold; z-index: 999; pointer-events: none; writing-mode: vertical-lr; text-orientation: mixed;">
+        ${userEmail} - ${new Date().toLocaleDateString()}
       </div>
       <iframe 
-        src="${url}#toolbar=0&navpanes=0&scrollbar=0" 
-        style="width: 100%; height: 100%; border: none; pointer-events: auto;"
+        src="${url}" 
+        type="application/pdf" 
+        width="100%" 
+        height="100%" 
+        style="border: none;"
+        sandbox="allow-same-origin allow-scripts allow-popups allow-forms"
         onload="addMainPagePDFSecurityOverlay(this)"
-        oncontextmenu="return false;"
-        sandbox="allow-same-origin allow-scripts"
       ></iframe>
-      <div style="position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.7); color: white; padding: 4px 8px; border-radius: 4px; font-size: 10px; z-index: 1000;">
-        Viewed by: ${userEmail} | ${new Date().toLocaleString()}
+      <div style="position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.8); color: white; padding: 4px 8px; border-radius: 4px; font-size: 10px; z-index: 1000; backdrop-filter: blur(2px);">
+        📄 Viewed: ${new Date().toLocaleString()}
       </div>
     </div>
   `;
