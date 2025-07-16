@@ -29,13 +29,38 @@ const TeacherCacheManager = {
     USERS: 'teacher_users'
   },
   
-  // Set cache with timestamp
+  // Set cache with timestamp and data hash
   setCache: function(key, data) {
     const cacheData = {
       timestamp: Date.now(),
-      data: data
+      data: data,
+      hash: this.generateDataHash(data)
     };
     localStorage.setItem(key, JSON.stringify(cacheData));
+  },
+  
+  // Generate a simple hash of the data structure
+  generateDataHash: function(data) {
+    if (!data) return '';
+    
+    // Create a hash based on the structure keys and basic properties
+    if (typeof data === 'object' && data !== null) {
+      const keys = Object.keys(data).sort();
+      let hashString = keys.join('|');
+      
+      // Add basic properties to detect changes
+      keys.forEach(key => {
+        const item = data[key];
+        if (typeof item === 'object' && item !== null) {
+          // For teacher dashboard, include key identifiers
+          hashString += `|${key}:${item.title || item.name || item.email || ''}`;
+        }
+      });
+      
+      return hashString;
+    }
+    
+    return JSON.stringify(data);
   },
   
   // Get cache if not expired
@@ -58,6 +83,36 @@ const TeacherCacheManager = {
       console.error('Error parsing teacher cache:', error);
       localStorage.removeItem(key);
       return null;
+    }
+  },
+  
+  // Check if cached data is still valid by comparing structure
+  isCacheValid: function(key, currentData) {
+    const cachedItem = localStorage.getItem(key);
+    if (!cachedItem) return false;
+    
+    try {
+      const parsedItem = JSON.parse(cachedItem);
+      const now = Date.now();
+      
+      // Check if cache is expired
+      if (now - parsedItem.timestamp > this.CACHE_DURATION) {
+        return false;
+      }
+      
+      // Check if structure has changed
+      const currentHash = this.generateDataHash(currentData);
+      const cachedHash = parsedItem.hash;
+      
+      if (currentHash !== cachedHash) {
+        console.log('Teacher cache invalidated: structure changed');
+        return false;
+      }
+      
+      return true;
+    } catch (error) {
+      console.error('Error validating teacher cache:', error);
+      return false;
     }
   },
   

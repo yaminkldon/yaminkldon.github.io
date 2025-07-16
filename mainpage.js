@@ -65,19 +65,43 @@ const CacheManager = {
     LESSONS: 'cached_lessons',
     PROGRESS: 'cached_progress',
     ASSIGNMENTS: 'cached_assignments',
-    QUIZZES: 'cached_quizzes'
+    QUIZZES: 'cached_quizzes',
+    UNITS_HASH: 'cached_units_hash'
   },
   
-  // Set cache with timestamp
+  // Set cache with timestamp and data hash
   setCache: function(key, data) {
     const cacheData = {
       timestamp: Date.now(),
-      data: data
+      data: data,
+      hash: this.generateDataHash(data)
     };
     localStorage.setItem(key, JSON.stringify(cacheData));
   },
   
-  // Get cache if not expired
+  // Generate a simple hash of the data structure
+  generateDataHash: function(data) {
+    if (!data) return '';
+    
+    // Create a hash based on the structure keys and basic properties
+    const keys = Object.keys(data).sort();
+    let hashString = keys.join('|');
+    
+    // Add lesson counts for each unit to detect structural changes
+    keys.forEach(key => {
+      if (typeof data[key] === 'object' && data[key] !== null) {
+        const subKeys = Object.keys(data[key]).filter(subKey => {
+          const item = data[key][subKey];
+          return typeof item === 'object' && item !== null && (item.videoURL || item.videoFile);
+        });
+        hashString += `|${key}:${subKeys.length}`;
+      }
+    });
+    
+    return hashString;
+  },
+  
+  // Get cache if not expired and structure hasn't changed
   getCache: function(key) {
     const cachedItem = localStorage.getItem(key);
     if (!cachedItem) return null;
@@ -100,6 +124,36 @@ const CacheManager = {
     }
   },
   
+  // Check if cached data is still valid by comparing structure
+  isCacheValid: function(key, currentData) {
+    const cachedItem = localStorage.getItem(key);
+    if (!cachedItem) return false;
+    
+    try {
+      const parsedItem = JSON.parse(cachedItem);
+      const now = Date.now();
+      
+      // Check if cache is expired
+      if (now - parsedItem.timestamp > this.CACHE_DURATION) {
+        return false;
+      }
+      
+      // Check if structure has changed
+      const currentHash = this.generateDataHash(currentData);
+      const cachedHash = parsedItem.hash;
+      
+      if (currentHash !== cachedHash) {
+        console.log('Cache invalidated: structure changed');
+        return false;
+      }
+      
+      return true;
+    } catch (error) {
+      console.error('Error validating cache:', error);
+      return false;
+    }
+  },
+  
   // Clear specific cache
   clearCache: function(key) {
     localStorage.removeItem(key);
@@ -119,20 +173,47 @@ const CacheManager = {
   }
 };
 
-// Load units into drawer with caching
+// Load units into drawer with smart caching
 function loadUnits() {
-  // Try to load from cache first
+  console.log('Loading units with smart cache validation');
+  
+  // First, check if we have cached data
   const cachedUnits = CacheManager.getCache(CacheManager.CACHE_KEYS.UNITS);
   const cachedProgress = CacheManager.getCache(CacheManager.CACHE_KEYS.PROGRESS);
   
   if (cachedUnits && cachedProgress) {
-    console.log('Loading units from cache');
-    displayUnits(cachedUnits, cachedProgress);
-    return;
+    // We have cached data, but let's validate it against current database structure
+    console.log('Found cached data, validating against database...');
+    
+    // Load just the keys from database to check for structural changes
+    db.ref('units').once('value').then(snapshot => {
+      const currentUnitsData = snapshot.val();
+      
+      // Check if cache is still valid
+      if (CacheManager.isCacheValid(CacheManager.CACHE_KEYS.UNITS, currentUnitsData)) {
+        console.log('Cache is valid, using cached data');
+        displayUnits(cachedUnits, cachedProgress);
+      } else {
+        console.log('Cache is invalid, loading fresh data');
+        // Show notification about new content
+        if (typeof NotificationManager !== 'undefined') {
+          NotificationManager.showToast('📚 New content detected! Loading latest units...', 'success');
+        }
+        loadFreshUnitsData();
+      }
+    }).catch(error => {
+      console.error('Error validating cache:', error);
+      // If validation fails, use cached data anyway
+      displayUnits(cachedUnits, cachedProgress);
+    });
+  } else {
+    console.log('No cached data found, loading fresh data');
+    loadFreshUnitsData();
   }
-  
-  console.log('Loading units from database');
-  
+}
+
+// Load fresh units data from database
+function loadFreshUnitsData() {
   // Load user progress first, then units
   ProgressTracker.getUserProgress()
     .then(userProgress => {
@@ -142,7 +223,7 @@ function loadUnits() {
       return db.ref('units').once('value').then(snapshot => {
         const unitsData = snapshot.val();
         
-        // Cache units data
+        // Cache units data with new hash validation
         CacheManager.setCache(CacheManager.CACHE_KEYS.UNITS, unitsData);
         
         displayUnits(unitsData, userProgress);
@@ -205,25 +286,61 @@ function goToUnit(unitName) {
 }
 
 function loadUnitsWithoutProgress() {
-  // Try to load from cache first
+  console.log('Loading units without progress with smart cache validation');
+  
+  // Check if we have cached data
   const cachedUnits = CacheManager.getCache(CacheManager.CACHE_KEYS.UNITS);
   
   if (cachedUnits) {
-    console.log('Loading units from cache (no progress)');
-    displayUnitsWithoutProgress(cachedUnits);
-    return;
+    // We have cached data, but let's validate it against current database structure
+    console.log('Found cached units data, validating against database...');
+    
+    // Load just the keys from database to check for structural changes
+    db.ref('units').once('value').then(snapshot => {
+      const currentUnitsData = snapshot.val();
+      
+      // Check if cache is still valid
+      if (CacheManager.isCacheValid(CacheManager.CACHE_KEYS.UNITS, currentUnitsData)) {
+        console.log('Cache is valid, using cached data');
+        displayUnitsWithoutProgress(cachedUnits);
+      } else {
+        console.log('Cache is invalid, loading fresh data');
+        // Show notification about new content
+        if (typeof NotificationManager !== 'undefined') {
+          NotificationManager.showToast('📚 New content detected! Loading latest units...', 'success');
+        }
+        loadFreshUnitsWithoutProgress(currentUnitsData);
+      }
+    }).catch(error => {
+      console.error('Error validating cache:', error);
+      // If validation fails, use cached data anyway
+      displayUnitsWithoutProgress(cachedUnits);
+    });
+  } else {
+    console.log('No cached data found, loading fresh data');
+    loadFreshUnitsWithoutProgress();
   }
-  
-  console.log('Loading units from database (no progress)');
-  
-  db.ref('units').once('value').then(snapshot => {
-    const unitsData = snapshot.val();
-    
-    // Cache units data
+}
+
+// Load fresh units data without progress
+function loadFreshUnitsWithoutProgress(unitsData = null) {
+  if (unitsData) {
+    // We already have the data from validation
     CacheManager.setCache(CacheManager.CACHE_KEYS.UNITS, unitsData);
-    
     displayUnitsWithoutProgress(unitsData);
-  });
+  } else {
+    // Load from database
+    db.ref('units').once('value').then(snapshot => {
+      const unitsData = snapshot.val();
+      
+      // Cache units data with new hash validation
+      CacheManager.setCache(CacheManager.CACHE_KEYS.UNITS, unitsData);
+      
+      displayUnitsWithoutProgress(unitsData);
+    }).catch(error => {
+      console.error('Error loading units without progress:', error);
+    });
+  }
 }
 
 function displayUnitsWithoutProgress(unitsData) {

@@ -34,13 +34,39 @@ const CacheManager = {
     QUIZZES: 'cached_quizzes'
   },
   
-  // Set cache with timestamp
+  // Set cache with timestamp and data hash
   setCache: function(key, data) {
     const cacheData = {
       timestamp: Date.now(),
-      data: data
+      data: data,
+      hash: this.generateDataHash(data)
     };
     localStorage.setItem(key, JSON.stringify(cacheData));
+  },
+  
+  // Generate a simple hash of the data structure
+  generateDataHash: function(data) {
+    if (!data) return '';
+    
+    // For unit data, create hash based on lesson keys
+    if (typeof data === 'object' && data !== null) {
+      const keys = Object.keys(data).filter(key => {
+        const item = data[key];
+        return typeof item === 'object' && item !== null && (item.videoURL || item.videoFile);
+      }).sort();
+      
+      let hashString = keys.join('|');
+      
+      // Add lesson properties to detect changes
+      keys.forEach(key => {
+        const lesson = data[key];
+        hashString += `|${key}:${lesson.videoURL || lesson.videoFile}:${lesson.description || ''}`;
+      });
+      
+      return hashString;
+    }
+    
+    return JSON.stringify(data);
   },
   
   // Get cache if not expired
@@ -63,6 +89,36 @@ const CacheManager = {
       console.error('Error parsing cache:', error);
       localStorage.removeItem(key);
       return null;
+    }
+  },
+  
+  // Check if cached data is still valid by comparing structure
+  isCacheValid: function(key, currentData) {
+    const cachedItem = localStorage.getItem(key);
+    if (!cachedItem) return false;
+    
+    try {
+      const parsedItem = JSON.parse(cachedItem);
+      const now = Date.now();
+      
+      // Check if cache is expired
+      if (now - parsedItem.timestamp > this.CACHE_DURATION) {
+        return false;
+      }
+      
+      // Check if structure has changed
+      const currentHash = this.generateDataHash(currentData);
+      const cachedHash = parsedItem.hash;
+      
+      if (currentHash !== cachedHash) {
+        console.log('Cache invalidated: structure changed');
+        return false;
+      }
+      
+      return true;
+    } catch (error) {
+      console.error('Error validating cache:', error);
+      return false;
     }
   },
   
@@ -143,36 +199,73 @@ function loadUnitLessons(unitName, selectedLesson = null) {
   // Try to load from cache first
   const cachedUnits = CacheManager.getCache(CacheManager.CACHE_KEYS.UNITS);
   if (cachedUnits && cachedUnits[unitName]) {
-    console.log('Loading unit from cache:', unitName);
-    currentUnitData = cachedUnits[unitName];
-    renderLessons(selectedLesson);
-    return;
+    console.log('Found cached unit data, validating against database...');
+    
+    // Validate cache against current database structure
+    db.ref('units/' + unitName).once('value')
+      .then(snapshot => {
+        if (!snapshot.exists()) {
+          console.log('Unit not found in database'); // Debug log
+          NotificationManager.showToast('Unit not found');
+          Navigation.goToMainPage();
+          return;
+        }
+        
+        const currentUnitData = snapshot.val();
+        
+        // Check if cache is still valid
+        if (CacheManager.isCacheValid(CacheManager.CACHE_KEYS.UNITS, { [unitName]: currentUnitData })) {
+          console.log('Cache is valid, using cached data');
+          currentUnitData = cachedUnits[unitName];
+          renderLessons(selectedLesson);
+        } else {
+          console.log('Cache is invalid, using fresh data');
+          // Show notification about new content
+          if (typeof NotificationManager !== 'undefined') {
+            NotificationManager.showToast('📖 New lessons detected! Loading latest content...', 'success');
+          }
+          currentUnitData = currentUnitData;
+          
+          // Update cache with fresh data
+          const existingCache = CacheManager.getCache(CacheManager.CACHE_KEYS.UNITS) || {};
+          existingCache[unitName] = currentUnitData;
+          CacheManager.setCache(CacheManager.CACHE_KEYS.UNITS, existingCache);
+          
+          renderLessons(selectedLesson);
+        }
+      })
+      .catch(error => {
+        console.error('Error validating cache:', error);
+        // If validation fails, use cached data anyway
+        currentUnitData = cachedUnits[unitName];
+        renderLessons(selectedLesson);
+      });
+  } else {
+    console.log('No cached data found, loading from database:', unitName);
+    db.ref('units/' + unitName).once('value')
+      .then(snapshot => {
+        if (!snapshot.exists()) {
+          console.log('Unit not found in database'); // Debug log
+          NotificationManager.showToast('Unit not found');
+          Navigation.goToMainPage();
+          return;
+        }
+        
+        currentUnitData = snapshot.val();
+        console.log('Unit data loaded:', currentUnitData); // Debug log
+        
+        // Cache the unit data
+        const existingCache = CacheManager.getCache(CacheManager.CACHE_KEYS.UNITS) || {};
+        existingCache[unitName] = currentUnitData;
+        CacheManager.setCache(CacheManager.CACHE_KEYS.UNITS, existingCache);
+        
+        renderLessons(selectedLesson);
+      })
+      .catch(error => {
+        console.error('Error loading unit:', error);
+        NotificationManager.showToast('Error loading unit: ' + error.message);
+      });
   }
-  
-  console.log('Loading unit from database:', unitName);
-  db.ref('units/' + unitName).once('value')
-    .then(snapshot => {
-      if (!snapshot.exists()) {
-        console.log('Unit not found in database'); // Debug log
-        NotificationManager.showToast('Unit not found');
-        Navigation.goToMainPage();
-        return;
-      }
-      
-      currentUnitData = snapshot.val();
-      console.log('Unit data loaded:', currentUnitData); // Debug log
-      
-      // Cache the unit data
-      const existingCache = CacheManager.getCache(CacheManager.CACHE_KEYS.UNITS) || {};
-      existingCache[unitName] = currentUnitData;
-      CacheManager.setCache(CacheManager.CACHE_KEYS.UNITS, existingCache);
-      
-      renderLessons(selectedLesson);
-    })
-    .catch(error => {
-      console.error('Error loading unit:', error);
-      NotificationManager.showToast('Error loading unit: ' + error.message);
-    });
 }
 
 function renderLessons(selectedLesson = null) {

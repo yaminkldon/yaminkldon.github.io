@@ -771,13 +771,37 @@
         QUIZZES: 'cached_quizzes'
       },
       
-      // Set cache with timestamp
+      // Set cache with timestamp and data hash
       setCache: function(key, data) {
         const cacheData = {
           timestamp: Date.now(),
-          data: data
+          data: data,
+          hash: this.generateDataHash(data)
         };
         localStorage.setItem(key, JSON.stringify(cacheData));
+      },
+      
+      // Generate a simple hash of the data structure
+      generateDataHash: function(data) {
+        if (!data) return '';
+        
+        // For assignments/quizzes, create hash based on keys and basic properties
+        if (typeof data === 'object' && data !== null) {
+          const keys = Object.keys(data).sort();
+          let hashString = keys.join('|');
+          
+          // Add basic properties to detect changes
+          keys.forEach(key => {
+            const item = data[key];
+            if (typeof item === 'object' && item !== null) {
+              hashString += `|${key}:${item.title || ''}:${item.deadline || ''}:${item.status || ''}`;
+            }
+          });
+          
+          return hashString;
+        }
+        
+        return JSON.stringify(data);
       },
       
       // Get cache if not expired
@@ -800,6 +824,36 @@
           console.error('Error parsing cache:', error);
           localStorage.removeItem(key);
           return null;
+        }
+      },
+      
+      // Check if cached data is still valid by comparing structure
+      isCacheValid: function(key, currentData) {
+        const cachedItem = localStorage.getItem(key);
+        if (!cachedItem) return false;
+        
+        try {
+          const parsedItem = JSON.parse(cachedItem);
+          const now = Date.now();
+          
+          // Check if cache is expired
+          if (now - parsedItem.timestamp > this.CACHE_DURATION) {
+            return false;
+          }
+          
+          // Check if structure has changed
+          const currentHash = this.generateDataHash(currentData);
+          const cachedHash = parsedItem.hash;
+          
+          if (currentHash !== cachedHash) {
+            console.log('Cache invalidated: structure changed');
+            return false;
+          }
+          
+          return true;
+        } catch (error) {
+          console.error('Error validating cache:', error);
+          return false;
         }
       },
       
@@ -861,37 +915,67 @@
       // Try to load from cache first
       const cachedAssignments = CacheManager.getCache(CacheManager.CACHE_KEYS.ASSIGNMENTS);
       if (cachedAssignments) {
-        console.log('Loading assignments from cache');
-        displayAssignments(cachedAssignments);
-        return;
-      }
-      
-      console.log('Loading assignments from database');
-      db.ref('assignments').once('value').then(snapshot => {
-        grid.innerHTML = '';
-        if (snapshot.exists()) {
-          const assignments = [];
-          snapshot.forEach(child => {
-            assignments.push({
-              id: child.key,
-              ...child.val()
+        console.log('Found cached assignments, validating against database...');
+        
+        // Validate cache against current database structure
+        db.ref('assignments').once('value').then(snapshot => {
+          const currentAssignments = [];
+          if (snapshot.exists()) {
+            snapshot.forEach(child => {
+              currentAssignments.push({
+                id: child.key,
+                ...child.val()
+              });
             });
-          });
+          }
           
-          // Cache the assignments
-          CacheManager.setCache(CacheManager.CACHE_KEYS.ASSIGNMENTS, assignments);
-          
-          displayAssignments(assignments);
-        } else {
-          grid.innerHTML = `
-            <div class="empty-state">
-              <span class="material-icons">assignment</span>
-              <h3>No assignments available</h3>
-              <p>Check back later for new assignments</p>
-            </div>
-          `;
-        }
-      });
+          // Check if cache is still valid
+          if (CacheManager.isCacheValid(CacheManager.CACHE_KEYS.ASSIGNMENTS, currentAssignments)) {
+            console.log('Cache is valid, using cached assignments');
+            displayAssignments(cachedAssignments);
+          } else {
+            console.log('Cache is invalid, using fresh assignments');
+            // Show notification about new content
+            if (typeof NotificationManager !== 'undefined') {
+              NotificationManager.showToast('📋 New assignments detected! Loading latest content...', 'success');
+            }
+            // Cache the fresh assignments
+            CacheManager.setCache(CacheManager.CACHE_KEYS.ASSIGNMENTS, currentAssignments);
+            displayAssignments(currentAssignments);
+          }
+        }).catch(error => {
+          console.error('Error validating assignments cache:', error);
+          // If validation fails, use cached data anyway
+          displayAssignments(cachedAssignments);
+        });
+      } else {
+        console.log('No cached assignments found, loading from database');
+        db.ref('assignments').once('value').then(snapshot => {
+          grid.innerHTML = '';
+          if (snapshot.exists()) {
+            const assignments = [];
+            snapshot.forEach(child => {
+              assignments.push({
+                id: child.key,
+                ...child.val()
+              });
+            });
+            
+            // Cache the assignments
+            CacheManager.setCache(CacheManager.CACHE_KEYS.ASSIGNMENTS, assignments);
+            
+            displayAssignments(assignments);
+          } else {
+            grid.innerHTML = `
+              <div class="empty-state">
+                <span class="material-icons">assignment</span>
+                <h3>No assignments available</h3>
+                <p>Check back later for new assignments</p>
+              </div>
+            `;
+          }
+        });
+      }
     }
     
     // Display assignments
@@ -915,28 +999,57 @@
       // Try to load from cache first
       const cachedQuizzes = CacheManager.getCache(CacheManager.CACHE_KEYS.QUIZZES);
       if (cachedQuizzes) {
-        console.log('Loading quizzes from cache');
-        displayQuizzes(cachedQuizzes);
-        return;
-      }
-      
-      console.log('Loading quizzes from database');
-      db.ref('quizzes').once('value').then(snapshot => {
-        container.innerHTML = '';
-        if (snapshot.exists()) {
-          const quizzes = [];
-          snapshot.forEach(child => {
-            quizzes.push({
-              id: child.key,
-              ...child.val()
+        console.log('Found cached quizzes, validating against database...');
+        
+        // Validate cache against current database structure
+        db.ref('quizzes').once('value').then(snapshot => {
+          const currentQuizzes = [];
+          if (snapshot.exists()) {
+            snapshot.forEach(child => {
+              currentQuizzes.push({
+                id: child.key,
+                ...child.val()
+              });
             });
-          });
+          }
           
-          // Cache the quizzes
-          CacheManager.setCache(CacheManager.CACHE_KEYS.QUIZZES, quizzes);
-          
-          displayQuizzes(quizzes);
-        } else {
+          // Check if cache is still valid
+          if (CacheManager.isCacheValid(CacheManager.CACHE_KEYS.QUIZZES, currentQuizzes)) {
+            console.log('Cache is valid, using cached quizzes');
+            displayQuizzes(cachedQuizzes);
+          } else {
+            console.log('Cache is invalid, using fresh quizzes');
+            // Show notification about new content
+            if (typeof NotificationManager !== 'undefined') {
+              NotificationManager.showToast('📝 New quizzes detected! Loading latest content...', 'success');
+            }
+            // Cache the fresh quizzes
+            CacheManager.setCache(CacheManager.CACHE_KEYS.QUIZZES, currentQuizzes);
+            displayQuizzes(currentQuizzes);
+          }
+        }).catch(error => {
+          console.error('Error validating quizzes cache:', error);
+          // If validation fails, use cached data anyway
+          displayQuizzes(cachedQuizzes);
+        });
+      } else {
+        console.log('No cached quizzes found, loading from database');
+        db.ref('quizzes').once('value').then(snapshot => {
+          container.innerHTML = '';
+          if (snapshot.exists()) {
+            const quizzes = [];
+            snapshot.forEach(child => {
+              quizzes.push({
+                id: child.key,
+                ...child.val()
+              });
+            });
+            
+            // Cache the quizzes
+            CacheManager.setCache(CacheManager.CACHE_KEYS.QUIZZES, quizzes);
+            
+            displayQuizzes(quizzes);
+          } else {
           container.innerHTML = `
             <div class="empty-state">
               <span class="material-icons">quiz</span>
