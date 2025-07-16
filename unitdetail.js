@@ -1550,6 +1550,22 @@ function previewStudentFile(fileId, unitKey, lessonKey) {
 }
 
 function showStudentFilePreview(file) {
+  // Check if preview is disabled due to developer tools
+  if (previewDisabled) {
+    alert('⚠️ PDF preview is disabled due to security violation. Please close developer tools and refresh the page.');
+    return;
+  }
+  
+  // Check for developer tools before showing preview
+  if (devToolsDetected) {
+    const currentUser = firebase.auth().currentUser;
+    if (currentUser) {
+      logSecurityViolation(currentUser.email, 'Attempted PDF Preview with Dev Tools', currentUnitName, file.name);
+    }
+    showDevToolsWarning();
+    return;
+  }
+  
   // Simple implementation using viewer_readonly.html for PDFs
   const modal = document.createElement('div');
   modal.id = 'studentFilePreviewModal';
@@ -1570,7 +1586,8 @@ function showStudentFilePreview(file) {
 
   // Only handle PDF files with the readonly viewer
   if (file.extension.toLowerCase() === 'pdf') {
-    const viewerUrl = `viewer_readonly.html?file=${encodeURIComponent(file.url)}`;
+    // Use secure proxy to hide original URL
+    const secureViewerUrl = createSecureProxy(file.url);
     
     modal.innerHTML = `
       <div style="background: #333; border-radius: 12px; max-width: 95vw; max-height: 95vh; width: 100%; height: 100%; position: relative; overflow: hidden;">
@@ -1578,7 +1595,7 @@ function showStudentFilePreview(file) {
           <h3 style="margin: 0; color: white; font-size: 18px;">📄 ${file.name}</h3>
           <button onclick="closeStudentFilePreview()" style="background: none; border: none; color: white; font-size: 24px; cursor: pointer; padding: 0; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; border-radius: 50%;">&times;</button>
         </div>
-        <iframe src="${viewerUrl}" style="width: 100%; height: calc(100% - 10%); border: none; background: white;"></iframe>
+        <iframe src="${secureViewerUrl}" style="width: 100%; height: 100%; border: none; background: white;" sandbox="allow-same-origin allow-scripts allow-forms"></iframe>
       </div>
     `;
   } else {
@@ -1774,6 +1791,147 @@ function downloadStudentFile(url, filename) {
   document.body.removeChild(link);
 }
 
+// Advanced security measures for PDF viewing
+let devToolsDetected = false;
+let previewDisabled = false;
+
+function logSecurityViolation(userEmail, violationType, unitName, fileName) {
+  const violation = {
+    userEmail: userEmail,
+    violationType: violationType,
+    unitName: unitName,
+    fileName: fileName,
+    timestamp: Date.now(),
+    userAgent: navigator.userAgent,
+    url: window.location.href
+  };
+  
+  // Log to Firebase
+  db.ref('security_violations').push(violation).then(() => {
+    console.log('Security violation logged:', violation);
+  }).catch(error => {
+    console.error('Error logging security violation:', error);
+  });
+}
+
+function detectDevTools() {
+  let devtools = {
+    open: false,
+    orientation: null
+  };
+  
+  const threshold = 160;
+  
+  function checkDevTools() {
+    if (window.outerHeight - window.innerHeight > threshold || 
+        window.outerWidth - window.innerWidth > threshold) {
+      if (!devtools.open) {
+        devtools.open = true;
+        devToolsDetected = true;
+        
+        // Log violation
+        const currentUser = firebase.auth().currentUser;
+        if (currentUser) {
+          logSecurityViolation(currentUser.email, 'Developer Tools Opened', currentUnitName, 'PDF Preview');
+        }
+        
+        // Close any open PDF previews
+        closeStudentFilePreview();
+        
+        // Disable preview functionality
+        previewDisabled = true;
+        
+        // Show persistent warning
+        showDevToolsWarning();
+      }
+    } else {
+      if (devtools.open) {
+        devtools.open = false;
+        devToolsDetected = false;
+        previewDisabled = false;
+        hideDevToolsWarning();
+      }
+    }
+  }
+  
+  // Check every 500ms
+  setInterval(checkDevTools, 500);
+  
+  // Also check on resize
+  window.addEventListener('resize', checkDevTools);
+}
+
+function showDevToolsWarning() {
+  // Remove existing warning
+  const existingWarning = document.getElementById('devToolsWarning');
+  if (existingWarning) {
+    existingWarning.remove();
+  }
+  
+  const warning = document.createElement('div');
+  warning.id = 'devToolsWarning';
+  warning.style.cssText = `
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(220, 53, 69, 0.95);
+    color: white;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    z-index: 30000;
+    font-family: Arial, sans-serif;
+    text-align: center;
+    padding: 20px;
+    box-sizing: border-box;
+  `;
+  
+  warning.innerHTML = `
+    <div style="max-width: 500px;">
+      <span class="material-icons" style="font-size: 72px; margin-bottom: 20px;">warning</span>
+      <h2 style="margin: 0 0 20px 0; font-size: 24px;">⚠️ Security Violation Detected</h2>
+      <p style="font-size: 16px; line-height: 1.6; margin-bottom: 20px;">
+        Developer tools have been detected. For security reasons, PDF preview has been disabled.
+      </p>
+      <p style="font-size: 14px; line-height: 1.4; margin-bottom: 20px; opacity: 0.9;">
+        This incident has been logged and reported to your teacher. Close developer tools to continue.
+      </p>
+      <div style="padding: 12px 20px; background: rgba(255, 255, 255, 0.2); border-radius: 8px; font-size: 14px;">
+        📧 User: ${firebase.auth().currentUser?.email || 'Unknown'}<br>
+        🕐 Time: ${new Date().toLocaleString()}
+      </div>
+    </div>
+  `;
+  
+  document.body.appendChild(warning);
+}
+
+function hideDevToolsWarning() {
+  const warning = document.getElementById('devToolsWarning');
+  if (warning) {
+    warning.remove();
+  }
+}
+
+function createSecureProxy(originalUrl) {
+  // Create a secure proxy to hide the original URL
+  const proxyData = {
+    url: originalUrl,
+    timestamp: Date.now(),
+    user: firebase.auth().currentUser?.email || 'anonymous'
+  };
+  
+  // Store in session storage with encrypted key
+  const proxyKey = btoa(Date.now().toString()).replace(/[^a-zA-Z0-9]/g, '');
+  sessionStorage.setItem('proxy_' + proxyKey, btoa(JSON.stringify(proxyData)));
+  
+  // Return obfuscated URL
+  return `viewer_readonly.html?p=${proxyKey}&t=${Date.now()}`;
+}
+
 // Simple security measures for file viewing (as per pdfjs-readonly)
 function addSecurityMeasures() {
   // Basic readonly restrictions are handled by the viewer itself
@@ -1801,6 +1959,9 @@ document.addEventListener('DOMContentLoaded', function() {
   
   // Initialize simple security measures
   addSecurityMeasures();
+  
+  // Initialize developer tools detection
+  detectDevTools();
 });
 
 // Simple PDF security (handled by viewer itself)

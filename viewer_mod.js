@@ -1,21 +1,127 @@
-// PDF.js Readonly Viewer - CDN Version
+// PDF.js Readonly Viewer - CDN Version with Security Features
 // Set up PDF.js worker
 pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
 // Firebase configuration
 const firebaseConfig = {
-  apiKey: "AIzaSyBjJHjfFQnBq-5jbgHgPIZNmZJEEBm8m8w",
-  authDomain: "mcqbyeach.firebaseapp.com",
-  databaseURL: "https://mcqbyeach-default-rtdb.firebaseio.com",
-  projectId: "mcqbyeach",
-  storageBucket: "mcqbyeach.appspot.com",
-  messagingSenderId: "1062619085720",
-  appId: "1:1062619085720:web:42b5e6d3636e9f8e10a5b7"
+  apiKey: "AIzaSyCVoy2aBaQO1RDpoGGPIBqriFnGdKeNqHk",
+  authDomain: "raednusairat-68b52.firebaseapp.com",
+  databaseURL: "https://raednusairat-68b52-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "raednusairat-68b52",
+  storageBucket: "raednusairat-68b52.appspot.com",
+  messagingSenderId: "852022576722",
+  appId: "1:852022576722:web:8546d7cd4d3f6b0f8fc18b",
+  measurementId: "G-HDLMYVXH5T"
 };
 
 // Initialize Firebase
 firebase.initializeApp(firebaseConfig);
 const storage = firebase.storage();
+
+// Security functions
+function detectDevToolsInViewer() {
+  let devtools = {
+    open: false,
+    orientation: null
+  };
+  
+  const threshold = 160;
+  
+  setInterval(() => {
+    if (window.outerHeight - window.innerHeight > threshold || 
+        window.outerWidth - window.innerWidth > threshold) {
+      if (!devtools.open) {
+        devtools.open = true;
+        
+        // Send message to parent window
+        if (window.parent) {
+          window.parent.postMessage({
+            type: 'pdf-security-warning',
+            message: 'Developer tools detected in PDF viewer'
+          }, '*');
+        }
+        
+        // Close viewer
+        document.body.innerHTML = `
+          <div style="display: flex; justify-content: center; align-items: center; height: 100vh; background: #dc3545; color: white; font-family: Arial, sans-serif; text-align: center;">
+            <div>
+              <h2>⚠️ Security Violation</h2>
+              <p>Developer tools detected. PDF viewer has been closed.</p>
+            </div>
+          </div>
+        `;
+      }
+    } else {
+      devtools.open = false;
+    }
+  }, 500);
+}
+
+function addStaticWatermark(userEmail) {
+  const watermarkContainer = document.getElementById('pdfWatermark');
+  if (!watermarkContainer) return;
+  
+  // Clear existing watermarks
+  watermarkContainer.innerHTML = '';
+  
+  // Create multiple static watermarks
+  const watermarkPositions = [
+    { top: '10%', left: '10%' },
+    { top: '10%', right: '10%' },
+    { top: '50%', left: '50%', transform: 'translate(-50%, -50%)' },
+    { bottom: '10%', left: '10%' },
+    { bottom: '10%', right: '10%' },
+    { top: '30%', left: '30%' },
+    { top: '70%', right: '30%' }
+  ];
+  
+  watermarkPositions.forEach(position => {
+    const watermark = document.createElement('div');
+    watermark.style.cssText = `
+      position: absolute;
+      color: rgba(0, 0, 0, 0.1);
+      font-size: 12px;
+      font-weight: bold;
+      font-family: Arial, sans-serif;
+      user-select: none;
+      pointer-events: none;
+      transform: rotate(-20deg);
+      z-index: 1001;
+      ${position.top ? `top: ${position.top};` : ''}
+      ${position.bottom ? `bottom: ${position.bottom};` : ''}
+      ${position.left ? `left: ${position.left};` : ''}
+      ${position.right ? `right: ${position.right};` : ''}
+      ${position.transform ? `transform: ${position.transform} rotate(-20deg);` : ''}
+    `;
+    watermark.textContent = userEmail;
+    watermarkContainer.appendChild(watermark);
+  });
+  
+  // Show watermark container
+  watermarkContainer.style.display = 'block';
+}
+
+function getSecureFileUrl() {
+  const urlParams = new URLSearchParams(window.location.search);
+  const proxyKey = urlParams.get('p');
+  
+  if (proxyKey) {
+    // Get URL from secure proxy
+    const proxyData = sessionStorage.getItem('proxy_' + proxyKey);
+    if (proxyData) {
+      try {
+        const data = JSON.parse(atob(proxyData));
+        return data.url;
+      } catch (e) {
+        console.error('Error parsing proxy data');
+        return null;
+      }
+    }
+  }
+  
+  // Fallback to direct file parameter (less secure)
+  return urlParams.get('file');
+}
 
 // PDF Viewer Application
 const PDFViewerApplication = {
@@ -30,9 +136,11 @@ const PDFViewerApplication = {
     this.customProgress = document.getElementById('customProgress');
     this.errorWrapper = document.getElementById('errorWrapper');
     
-    // Get file parameter from URL
-    const urlParams = new URLSearchParams(window.location.search);
-    const fileParam = urlParams.get('file');
+    // Start developer tools detection
+    detectDevToolsInViewer();
+    
+    // Get file parameter from secure proxy or URL
+    const fileParam = getSecureFileUrl();
     
     if (fileParam) {
       await this.loadPDF(fileParam);
@@ -62,13 +170,41 @@ const PDFViewerApplication = {
       // Handle CORS if needed
       pdfUrl = await corsHandler.handleFirebaseStorageUrl(pdfUrl);
       
-      // Load PDF document
-      const loadingTask = pdfjsLib.getDocument(pdfUrl);
+      // Load PDF document with higher quality settings
+      const loadingTask = pdfjsLib.getDocument({
+        url: pdfUrl,
+        maxImageSize: -1, // Unlimited image size for better quality
+        disableAutoFetch: false,
+        disableStream: false,
+        disableFontFace: false,
+        cMapUrl: 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/cmaps/',
+        cMapPacked: true
+      });
+      
       this.pdfDocument = await loadingTask.promise;
       this.numPages = this.pdfDocument.numPages;
       
       // Update page number input
       this.pageNumber.max = this.numPages;
+      
+      // Add watermark with user email
+      const urlParams = new URLSearchParams(window.location.search);
+      const proxyKey = urlParams.get('p');
+      let userEmail = 'Student';
+      
+      if (proxyKey) {
+        const proxyData = sessionStorage.getItem('proxy_' + proxyKey);
+        if (proxyData) {
+          try {
+            const data = JSON.parse(atob(proxyData));
+            userEmail = data.user || 'Student';
+          } catch (e) {
+            console.error('Error parsing user data');
+          }
+        }
+      }
+      
+      addStaticWatermark(userEmail);
       
       // Render first page
       await this.renderPage(1);
@@ -84,22 +220,43 @@ const PDFViewerApplication = {
   async renderPage(pageNum) {
     try {
       const page = await this.pdfDocument.getPage(pageNum);
-      const viewport = page.getViewport({ scale: this.scale });
       
-      // Create canvas
+      // Use higher scale for better quality when zoomed out
+      const baseScale = this.scale;
+      const renderScale = Math.max(baseScale, 1.5); // Minimum render scale for quality
+      
+      const viewport = page.getViewport({ scale: renderScale });
+      
+      // Create canvas with higher resolution
       const canvas = document.createElement('canvas');
       const context = canvas.getContext('2d');
-      canvas.height = viewport.height;
-      canvas.width = viewport.width;
+      
+      // Set up high-DPI rendering
+      const devicePixelRatio = window.devicePixelRatio || 1;
+      const backingStoreRatio = context.webkitBackingStorePixelRatio ||
+                               context.mozBackingStorePixelRatio ||
+                               context.msBackingStorePixelRatio ||
+                               context.oBackingStorePixelRatio ||
+                               context.backingStorePixelRatio || 1;
+      
+      const ratio = devicePixelRatio / backingStoreRatio;
+      
+      canvas.width = viewport.width * ratio;
+      canvas.height = viewport.height * ratio;
+      canvas.style.width = viewport.width * (baseScale / renderScale) + 'px';
+      canvas.style.height = viewport.height * (baseScale / renderScale) + 'px';
+      
+      context.scale(ratio, ratio);
       
       // Clear container and add canvas
       this.container.innerHTML = '';
       this.container.appendChild(canvas);
       
-      // Render page
+      // Render page with high quality
       const renderContext = {
         canvasContext: context,
-        viewport: viewport
+        viewport: viewport,
+        intent: 'display'
       };
       
       await page.render(renderContext).promise;
