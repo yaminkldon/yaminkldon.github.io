@@ -1804,15 +1804,15 @@ function loadPDFObjectLibrary() {
 
 // Add comprehensive security protections for PDF viewer
 function addSecurePDFProtections(container, iframe) {
-  // Create overlay to prevent direct access
+  // Create invisible overlay to prevent some interactions
   const securityOverlay = document.createElement('div');
   securityOverlay.style.cssText = `
     position: absolute;
     top: 0;
     left: 0;
     width: 100%;
-    height: 100%;
-    z-index: 999;
+    height: 30px;
+    z-index: 1002;
     pointer-events: none;
     background: transparent;
   `;
@@ -1820,7 +1820,7 @@ function addSecurePDFProtections(container, iframe) {
   container.style.position = 'relative';
   container.appendChild(securityOverlay);
   
-  // Disable right-click and selection
+  // Disable right-click and selection on container
   container.addEventListener('contextmenu', function(e) {
     e.preventDefault();
     e.stopPropagation();
@@ -1838,20 +1838,6 @@ function addSecurePDFProtections(container, iframe) {
     e.preventDefault();
     e.stopPropagation();
     return false;
-  });
-  
-  // Monitor for iframe source changes
-  const observer = new MutationObserver(function(mutations) {
-    mutations.forEach(function(mutation) {
-      if (mutation.type === 'attributes' && mutation.attributeName === 'src') {
-        console.log('PDF iframe source access blocked');
-      }
-    });
-  });
-  
-  observer.observe(iframe, {
-    attributes: true,
-    attributeFilter: ['src']
   });
   
   // Block keyboard shortcuts
@@ -1873,55 +1859,12 @@ function addSecurePDFProtections(container, iframe) {
   });
 }
 
-// Obfuscate iframe src to prevent easy URL extraction from DOM
-function obfuscateIframeSrc(iframe) {
-  try {
-    // Store the original src
-    const originalSrc = iframe.src;
-    
-    // Create a proxy function to handle src access
-    Object.defineProperty(iframe, 'src', {
-      get: function() {
-        return 'data:text/html,<html><body>Secure Content</body></html>';
-      },
-      set: function(value) {
-        // Still allow setting but don't expose the real URL
-        iframe.setAttribute('data-secure-src', value);
-      },
-      configurable: false
-    });
-    
-    // Hide the actual src attribute
-    iframe.removeAttribute('src');
-    iframe.setAttribute('data-secure-src', originalSrc);
-    
-    // Monitor for attempts to access the real URL
-    const observer = new MutationObserver(function(mutations) {
-      mutations.forEach(function(mutation) {
-        if (mutation.type === 'attributes' && mutation.attributeName === 'src') {
-          console.log('Attempted to access secure PDF URL - blocked');
-          // Reset to obfuscated value
-          iframe.src = 'data:text/html,<html><body>Secure Content</body></html>';
-        }
-      });
-    });
-    
-    observer.observe(iframe, {
-      attributes: true,
-      attributeFilter: ['src']
-    });
-    
-  } catch (e) {
-    console.log('PDF URL obfuscation applied');
-  }
-}
-
-// Initialize secure PDF viewer for students (no PDFObject to prevent URL exposure)
+// Initialize secure PDF viewer for students (secure iframe approach)
 function initializePDFViewer(pdfUrl, userEmail) {
   const container = document.getElementById('pdfViewerContainer');
   if (!container) return;
   
-  // Create a secure iframe instead of PDFObject to prevent URL exposure and print access
+  // Create a secure iframe that still allows PDF to load
   const iframe = document.createElement('iframe');
   iframe.style.cssText = `
     width: 100%;
@@ -1930,8 +1873,8 @@ function initializePDFViewer(pdfUrl, userEmail) {
     background: white;
   `;
   
-  // Use secure iframe with restrictive sandbox
-  iframe.sandbox = 'allow-same-origin allow-scripts';
+  // Use secure iframe with restrictive sandbox but allow PDF to load
+  iframe.sandbox = 'allow-same-origin allow-scripts allow-forms';
   iframe.src = pdfUrl + '#toolbar=0&navpanes=0&scrollbar=0&statusbar=0&messages=0&view=FitH&zoom=page-fit';
   
   // Add security attributes
@@ -1946,8 +1889,6 @@ function initializePDFViewer(pdfUrl, userEmail) {
   setTimeout(() => {
     addPDFSecurityOverlay(iframe, userEmail);
     addSecurePDFProtections(container, iframe);
-    // Obfuscate iframe src to prevent easy URL extraction
-    obfuscateIframeSrc(iframe);
   }, 1000);
 }
 
