@@ -307,6 +307,9 @@ function toggleFilePreviewFullscreen() {
       modalContent.style.cssText = 'background: #333; border-radius: 12px; width: 100%; height: 100%; position: relative; overflow: hidden;';
     }
     
+    // Remove modal padding in fullscreen
+    modal.style.padding = '0%';
+    
     isFilePreviewFullscreen = true;
     
     // Update button text
@@ -334,6 +337,9 @@ function toggleFilePreviewFullscreen() {
     if (modalContent) {
       modalContent.style.cssText = 'background: #333; border-radius: 12px; max-width: 95vw; max-height: 95vh; width: 100%; height: 100%; position: relative; overflow: hidden;';
     }
+    
+    // Restore modal padding
+    modal.style.padding = '20px';
     
     isFilePreviewFullscreen = false;
 
@@ -364,6 +370,8 @@ document.addEventListener('fullscreenchange', function() {
       if (modalContent) {
         modalContent.style.cssText = 'background: #333; border-radius: 12px; max-width: 95vw; max-height: 95vh; width: 100%; height: 100%; position: relative; overflow: hidden;';
       }
+      // Restore modal padding
+      modal.style.padding = '20px';
     }
     
     isFilePreviewFullscreen = false;
@@ -395,6 +403,8 @@ document.addEventListener('webkitfullscreenchange', function() {
       if (modalContent) {
         modalContent.style.cssText = 'background: #333; border-radius: 12px; max-width: 95vw; max-height: 95vh; width: 100%; height: 100%; position: relative; overflow: hidden;';
       }
+      // Restore modal padding
+      modal.style.padding = '20px';
     }
     
     isFilePreviewFullscreen = false;
