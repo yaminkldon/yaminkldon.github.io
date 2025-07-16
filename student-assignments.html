@@ -324,6 +324,49 @@
       color: #ccc;
     }
     
+    /* Feedback Modal Styles */
+    .feedback-section {
+      background: #f8f9fa;
+      padding: 16px;
+      border-radius: 8px;
+      margin-bottom: 16px;
+    }
+    
+    .feedback-section h4 {
+      margin: 0 0 10px 0;
+      color: #6c4fc1;
+      font-size: 16px;
+    }
+    
+    .feedback-highlight {
+      background: #fff3cd;
+      border: 1px solid #ffeaa7;
+      padding: 16px;
+      border-radius: 8px;
+      margin-bottom: 16px;
+    }
+    
+    .grade-display {
+      color: #28a745;
+      font-weight: bold;
+      font-size: 18px;
+    }
+    
+    body.dark-mode .feedback-section {
+      background: #333;
+      color: #fff;
+    }
+    
+    body.dark-mode .feedback-highlight {
+      background: #3a3a3a;
+      border-color: #555;
+      color: #fff;
+    }
+    
+    body.dark-mode .feedback-section h4 {
+      color: #8b7cf6;
+    }
+    
     @media (max-width: 768px) {
       .assignments-grid {
         grid-template-columns: 1fr;
@@ -678,6 +721,26 @@
       
       <div class="modal-footer">
         <button class="action-btn secondary" onclick="closeModal('quizReviewModal')">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Assignment Feedback Modal -->
+  <div id="feedbackModal" class="modal">
+    <div class="modal-content" style="max-width: 600px;">
+      <div class="modal-header">
+        <h3 class="modal-title" id="feedbackModalTitle">Assignment Feedback</h3>
+        <button class="modal-close" onclick="closeModal('feedbackModal')">&times;</button>
+      </div>
+      
+      <div class="modal-body">
+        <div id="feedbackContent" style="max-height: 400px; overflow-y: auto;">
+          <!-- Feedback content will be loaded here -->
+        </div>
+      </div>
+      
+      <div class="modal-footer">
+        <button class="action-btn secondary" onclick="closeModal('feedbackModal')">Close</button>
       </div>
     </div>
   </div>
@@ -1248,8 +1311,135 @@
     }
 
     function showFeedback(assignmentId) {
-      // Implementation for showing feedback
       console.log('Showing feedback for assignment:', assignmentId);
+      
+      // Get current user
+      const currentUser = firebase.auth().currentUser;
+      if (!currentUser) {
+        showNotification('Please log in to view feedback', 'error');
+        return;
+      }
+      
+      // Get assignment details and student submission
+      Promise.all([
+        db.ref(`assignments/${assignmentId}`).once('value'),
+        db.ref('assignmentSubmissions').orderByChild('assignmentId').equalTo(assignmentId).once('value')
+      ]).then(([assignmentSnapshot, submissionsSnapshot]) => {
+        if (!assignmentSnapshot.exists()) {
+          showNotification('Assignment not found', 'error');
+          return;
+        }
+        
+        const assignment = assignmentSnapshot.val();
+        const submissions = submissionsSnapshot.val() || {};
+        
+        // Find the current user's submission
+        let userSubmission = null;
+        Object.values(submissions).forEach(submission => {
+          if (submission.studentId === currentUser.uid) {
+            userSubmission = submission;
+          }
+        });
+        
+        if (!userSubmission) {
+          showNotification('No submission found for this assignment', 'error');
+          return;
+        }
+        
+        if (!userSubmission.graded) {
+          showNotification('This assignment has not been graded yet', 'info');
+          return;
+        }
+        
+        // Display feedback modal
+        displayFeedbackModal(assignment, userSubmission);
+      }).catch(error => {
+        console.error('Error loading feedback:', error);
+        showNotification('Error loading feedback', 'error');
+      });
+    }
+    
+    function displayFeedbackModal(assignment, submission) {
+      const feedbackModalTitle = document.getElementById('feedbackModalTitle');
+      const feedbackContent = document.getElementById('feedbackContent');
+      
+      // Set modal title
+      feedbackModalTitle.textContent = `Feedback: ${assignment.title}`;
+      
+      // Build feedback content
+      const submissionDate = new Date(submission.submittedAt).toLocaleString();
+      const gradedDate = submission.gradedAt ? new Date(submission.gradedAt).toLocaleString() : 'N/A';
+      
+      let feedbackHtml = `
+        <div style="margin-bottom: 20px;">
+          <h4 class="feedback-section h4">Assignment Details</h4>
+          <div class="feedback-section">
+            <p><strong>Title:</strong> ${assignment.title}</p>
+            <p><strong>Description:</strong> ${assignment.description || 'No description provided'}</p>
+            <p><strong>Max Points:</strong> ${assignment.maxPoints}</p>
+            <p><strong>Due Date:</strong> ${new Date(assignment.dueDate).toLocaleString()}</p>
+          </div>
+        </div>
+        
+        <div style="margin-bottom: 20px;">
+          <h4 class="feedback-section h4">Submission Information</h4>
+          <div class="feedback-section">
+            <p><strong>Submitted:</strong> ${submissionDate}</p>
+            <p><strong>Graded:</strong> ${gradedDate}</p>
+            <p><strong>Grade:</strong> <span class="grade-display">${submission.grade}/${submission.maxPoints}</span></p>
+          </div>
+        </div>
+        
+        <div style="margin-bottom: 20px;">
+          <h4 class="feedback-section h4">Teacher Feedback</h4>
+          <div class="feedback-highlight">
+            ${submission.feedback ? 
+              `<p style="margin: 0; line-height: 1.6; white-space: pre-wrap;">${submission.feedback}</p>` : 
+              '<p style="margin: 0; color: #666; font-style: italic;">No feedback provided</p>'
+            }
+          </div>
+        </div>
+      `;
+      
+      // Add submission content if available
+      if (submission.content) {
+        feedbackHtml += `
+          <div style="margin-bottom: 20px;">
+            <h4 class="feedback-section h4">Your Submission</h4>
+            <div class="feedback-section">
+              <p style="margin: 0; line-height: 1.6; white-space: pre-wrap;">${submission.content}</p>
+            </div>
+          </div>
+        `;
+      }
+      
+      // Add file attachments if available
+      if (submission.attachments && submission.attachments.length > 0) {
+        feedbackHtml += `
+          <div style="margin-bottom: 20px;">
+            <h4 class="feedback-section h4">Submitted Files</h4>
+            <div class="feedback-section">
+        `;
+        
+        submission.attachments.forEach(attachment => {
+          feedbackHtml += `
+            <div style="display: flex; align-items: center; margin-bottom: 8px;">
+              <span class="material-icons" style="margin-right: 8px; color: #6c4fc1;">attach_file</span>
+              <span>${attachment.name}</span>
+            </div>
+          `;
+        });
+        
+        feedbackHtml += `
+            </div>
+          </div>
+        `;
+      }
+      
+      feedbackContent.innerHTML = feedbackHtml;
+      
+      // Show modal
+      document.getElementById('feedbackModal').style.display = 'block';
     }
 
     // Review quiz answers function
