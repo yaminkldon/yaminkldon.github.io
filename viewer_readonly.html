@@ -80,8 +80,8 @@
         
         /* Mobile touch zoom styles */
         #viewerContainer {
-            touch-action: manipulation;
-            overflow: hidden;
+            touch-action: pan-x pan-y pinch-zoom;
+            overflow: auto;
         }
         
         #viewer {
@@ -95,6 +95,8 @@
         (function() {
             let pdfZoomState = {
                 scale: 1,
+                translateX: 0,
+                translateY: 0,
                 initialDistance: 0,
                 isZooming: false,
                 isDragging: false,
@@ -102,7 +104,9 @@
                 minScale: 0.5,
                 maxScale: 4,
                 zoomCenterX: 0,
-                zoomCenterY: 0
+                zoomCenterY: 0,
+                startX: 0,
+                startY: 0
             };
 
             function initializePDFZoom() {
@@ -154,13 +158,14 @@
                     
                     e.preventDefault();
                 } else if (touches.length === 1) {
-                    // One finger - only allow scrolling, no dragging to avoid watermark interference
-                    pdfZoomState.isDragging = false;
+                    // One finger - enable dragging and scrolling
+                    const touch = touches[0];
+                    pdfZoomState.isDragging = true;
                     pdfZoomState.isZooming = false;
-                    pdfZoomState.isScrolling = true;
+                    pdfZoomState.isScrolling = false;
                     
-                    // Don't prevent default to allow natural scrolling
-                    return;
+                    pdfZoomState.startX = touch.clientX - pdfZoomState.translateX;
+                    pdfZoomState.startY = touch.clientY - pdfZoomState.translateY;
                 }
             }
 
@@ -191,8 +196,13 @@
                     applyPDFTransform();
                     e.preventDefault();
                 } else if (pdfZoomState.isDragging && touches.length === 1) {
-                    // One finger - allow natural scrolling only, no dragging
-                    return;
+                    // One finger - allow horizontal and vertical movement
+                    const touch = touches[0];
+                    pdfZoomState.translateX = touch.clientX - pdfZoomState.startX;
+                    pdfZoomState.translateY = touch.clientY - pdfZoomState.startY;
+                    
+                    applyPDFTransform();
+                    e.preventDefault();
                 }
             }
 
@@ -201,6 +211,7 @@
                     pdfZoomState.isZooming = false;
                     pdfZoomState.isDragging = false;
                     pdfZoomState.isScrolling = false;
+                    // Don't reset zoom - maintain current scale and position
                 }
             }
 
@@ -208,8 +219,8 @@
                 const viewer = document.getElementById('viewer');
                 if (!viewer) return;
                 
-                // Only apply pinch-to-zoom scale, let PDF.js handle zoom buttons
-                viewer.style.transform = `scale(${pdfZoomState.scale})`;
+                // Apply both scale and translation for full functionality
+                viewer.style.transform = `translate(${pdfZoomState.translateX}px, ${pdfZoomState.translateY}px) scale(${pdfZoomState.scale})`;
                 viewer.style.transformOrigin = `${pdfZoomState.zoomCenterX}px ${pdfZoomState.zoomCenterY}px`;
                 viewer.style.transition = 'transform 0.1s ease-out';
             }

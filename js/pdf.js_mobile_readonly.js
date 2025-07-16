@@ -153,7 +153,7 @@ $(document).ready(function() {
   // Add mobile-specific styles for better touch experience
   if (allowPinchZoom) {
     $('body').css({
-      'touch-action': 'pan-y pinch-zoom',
+      'touch-action': 'pan-x pan-y pinch-zoom',
       'user-select': 'none',
       '-webkit-user-select': 'none',
       '-moz-user-select': 'none',
@@ -161,9 +161,8 @@ $(document).ready(function() {
     });
     
     $('#viewerContainer').css({
-      'touch-action': 'pan-y pinch-zoom',
-      'overflow-y': 'auto',
-      'overflow-x': 'hidden'
+      'touch-action': 'pan-x pan-y pinch-zoom',
+      'overflow': 'auto'
     });
   }
 });
