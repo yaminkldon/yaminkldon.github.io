@@ -1323,7 +1323,7 @@
       // Get assignment details and student submission
       Promise.all([
         db.ref(`assignments/${assignmentId}`).once('value'),
-        db.ref('assignmentSubmissions').orderByChild('assignmentId').equalTo(assignmentId).once('value')
+        db.ref('submissions').orderByChild('assignmentId').equalTo(assignmentId).once('value')
       ]).then(([assignmentSnapshot, submissionsSnapshot]) => {
         if (!assignmentSnapshot.exists()) {
           showNotification('Assignment not found', 'error');
