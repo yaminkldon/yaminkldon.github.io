@@ -6664,6 +6664,7 @@ let currentQuizTimer = null;
 let currentQuizIndex = 0;
 let currentQuizData = null;
 let userAnswers = [];
+let allAssessments = []; // Global variable to store all assessments for filtering
 
 // Assessment Management Functions
 function openAssessmentManagement() {
@@ -7160,14 +7161,16 @@ function removeCriteria(button) {
 }
 
 // Rubric Form Submission
-document.getElementById('createRubricForm').addEventListener('submit', function(e) {
-  e.preventDefault();
-  
-  const rubricData = {
-    name: document.getElementById('rubricName').value,
-    description: document.getElementById('rubricDescription').value,
-    criteria: [],
-    createdBy: firebase.auth().currentUser.uid,
+const createRubricForm = document.getElementById('createRubricForm');
+if (createRubricForm) {
+  createRubricForm.addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const rubricData = {
+      name: document.getElementById('rubricName').value,
+      description: document.getElementById('rubricDescription').value,
+      criteria: [],
+      createdBy: firebase.auth().currentUser.uid,
     createdAt: Date.now()
   };
   
@@ -7199,7 +7202,10 @@ document.getElementById('createRubricForm').addEventListener('submit', function(
   rubricRef.set(rubricData).then(() => {
     alert('Rubric created successfully!');
     closeModal('createRubricModal');
-    document.getElementById('createRubricForm').reset();
+    const createRubricForm = document.getElementById('createRubricForm');
+    if (createRubricForm) {
+      createRubricForm.reset();
+    }
     currentCriteriaCount = 1;
     document.getElementById('criteriaContainer').innerHTML = `
       <div class="criteria-item" data-criteria="1">
@@ -7231,7 +7237,8 @@ document.getElementById('createRubricForm').addEventListener('submit', function(
     console.error('Error creating rubric:', error);
     alert('Error creating rubric. Please try again.');
   });
-});
+  });
+}
 
 // Grading Center Functions
 function loadSubmissions() {
@@ -9223,9 +9230,6 @@ function viewAssessments() {
   // Load assessments data
   loadAllAssessments();
 }
-
-// Global variable to store all assessments for filtering
-let allAssessments = [];
 
 function loadAllAssessments() {
   if (typeof firebase !== 'undefined' && firebase.apps && firebase.apps.length > 0) {
