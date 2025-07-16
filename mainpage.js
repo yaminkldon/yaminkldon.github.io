@@ -1495,13 +1495,12 @@ function showMainPageFilePreview(file) {
               <div style="position: absolute; top: 10px; left: 10px; background: rgba(0,0,0,0.7); color: white; padding: 4px 8px; border-radius: 4px; font-size: 11px; z-index: 1000;">
                 🔒 Secure View
               </div>
-              <iframe 
-                src="${file.url}#toolbar=0&navpanes=0&scrollbar=0&view=FitH" 
-                style="width: 100%; height: 100%; border: none;"
-                oncontextmenu="return false;"
-                sandbox="allow-same-origin allow-scripts allow-forms"
-                title="Secure PDF Viewer"
-              ></iframe>
+              <div id="mainPagePDFContainer" style="width: 100%; height: 100%; background: #f5f5f5;">
+                <div style="text-align: center; padding: 40px; color: #666;">
+                  <div style="font-size: 18px; margin-bottom: 16px;">📄 Loading PDF...</div>
+                  <div style="font-size: 14px;">Please wait while the document loads</div>
+                </div>
+              </div>
               <div style="position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.7); color: white; padding: 4px 8px; border-radius: 4px; font-size: 10px; z-index: 1000;">
                 Viewed by: ${userEmail} | ${new Date().toLocaleString()}
               </div>
@@ -1597,7 +1596,9 @@ function showMainPageFilePreview(file) {
   
   // Handle secure content loading
   if (file.extension.toLowerCase() === 'pdf') {
-    loadMainPageSecurePDFContent(file.url, userEmail);
+    loadMainPagePDFObjectLibrary().then(() => {
+      initializeMainPagePDFViewer(file.url, userEmail);
+    });
   } else if (file.extension.toLowerCase() === 'txt') {
     loadMainPageSecureTextContent(file.url, userEmail, file.access);
   }
@@ -1624,6 +1625,60 @@ function closeMainPageFilePreview() {
 }
 
 // Secure content loading functions for main page
+// PDFObject library loading for mainpage
+function loadMainPagePDFObjectLibrary() {
+  return new Promise((resolve, reject) => {
+    // Check if PDFObject is already loaded
+    if (typeof PDFObject !== 'undefined') {
+      resolve();
+      return;
+    }
+    
+    const script = document.createElement('script');
+    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdfobject/2.2.8/pdfobject.min.js';
+    script.onload = () => resolve();
+    script.onerror = () => reject(new Error('Failed to load PDFObject library'));
+    document.head.appendChild(script);
+  });
+}
+
+// Initialize PDFObject viewer for mainpage students
+function initializeMainPagePDFViewer(pdfUrl, userEmail) {
+  const container = document.getElementById('mainPagePDFContainer');
+  if (!container) return;
+  
+  const options = {
+    page: 1,
+    width: "100%",
+    height: "100%",
+    fallbackLink: `<div style="text-align: center; padding: 40px; color: #666;">
+      <div style="font-size: 18px; margin-bottom: 16px;">📄 PDF Preview Not Available</div>
+      <div style="font-size: 14px; margin-bottom: 16px;">Your browser doesn't support PDF viewing</div>
+      <div style="font-size: 12px; color: #999;">Please use a modern browser to view this document</div>
+    </div>`,
+    PDFJS_URL: false, // Disable PDF.js to use browser's native PDF viewer
+    supportRedirect: true
+  };
+  
+  // Use PDFObject to embed the PDF
+  const success = PDFObject.embed(pdfUrl, container, options);
+  
+  if (!success) {
+    container.innerHTML = `
+      <div style="text-align: center; padding: 40px; color: #ff5722;">
+        <div style="font-size: 18px; margin-bottom: 16px;">⚠️ PDF Loading Error</div>
+        <div style="font-size: 14px; margin-bottom: 16px;">Unable to load PDF document</div>
+        <div style="font-size: 12px; color: #999;">Please try refreshing the page</div>
+      </div>
+    `;
+  } else {
+    // Add security overlay after PDF loads
+    setTimeout(() => {
+      addMainPagePDFSecurityOverlay(container, userEmail);
+    }, 1000);
+  }
+}
+
 function loadMainPageSecurePDFContent(url, userEmail) {
   const viewer = document.getElementById('mainPageSecureDocViewer');
   if (!viewer) return;

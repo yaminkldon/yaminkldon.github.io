@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PDFObject Test</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfobject/2.2.8/pdfobject.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .pdf-container {
+            width: 100%;
+            height: 600px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            background: #f9f9f9;
+            position: relative;
+            overflow: hidden;
+        }
+        .test-button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 10px 5px;
+            font-size: 14px;
+        }
+        .test-button:hover {
+            background: #0056b3;
+        }
+        .info {
+            background: #e9ecef;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 10px 0;
+            border-left: 4px solid #007bff;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>PDFObject Implementation Test</h1>
+        
+        <div class="info">
+            <strong>Test Purpose:</strong> This page tests the PDFObject library integration for student PDF previews.
+            <br><strong>Note:</strong> Teachers will still use normal iframe previews, only students get PDFObject.
+        </div>
+        
+        <div style="margin: 20px 0;">
+            <button class="test-button" onclick="testPDFObject()">Test PDFObject with Sample PDF</button>
+            <button class="test-button" onclick="testFallback()">Test Fallback (No PDF)</button>
+            <button class="test-button" onclick="clearContainer()">Clear Container</button>
+        </div>
+        
+        <div id="pdfContainer" class="pdf-container">
+            <div style="text-align: center; padding: 100px; color: #666;">
+                <div style="font-size: 18px; margin-bottom: 16px;">📄 PDF Container Ready</div>
+                <div style="font-size: 14px;">Click "Test PDFObject" to load a sample PDF</div>
+            </div>
+        </div>
+        
+        <div style="margin-top: 20px;">
+            <h3>Test Results:</h3>
+            <div id="testResults" style="background: #f8f9fa; padding: 15px; border-radius: 4px; min-height: 60px;">
+                Ready to test...
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function testPDFObject() {
+            const container = document.getElementById('pdfContainer');
+            const results = document.getElementById('testResults');
+            
+            // Show loading
+            container.innerHTML = `
+                <div style="text-align: center; padding: 100px; color: #666;">
+                    <div style="font-size: 18px; margin-bottom: 16px;">📄 Loading PDF...</div>
+                    <div style="font-size: 14px;">Testing PDFObject implementation...</div>
+                </div>
+            `;
+            
+            results.innerHTML = 'Testing PDFObject library...';
+            
+            // Test with a sample PDF (you can replace with your own)
+            const samplePDFUrl = 'https://www.w3.org/WAI/WCAG21/WD/PDF/dummy.pdf';
+            
+            const options = {
+                page: 1,
+                width: "100%",
+                height: "100%",
+                fallbackLink: `<div style="text-align: center; padding: 40px; color: #666;">
+                    <div style="font-size: 18px; margin-bottom: 16px;">📄 PDF Preview Not Available</div>
+                    <div style="font-size: 14px; margin-bottom: 16px;">Your browser doesn't support PDF viewing</div>
+                    <div style="font-size: 12px; color: #999;">Please use a modern browser to view this document</div>
+                </div>`,
+                PDFJS_URL: false,
+                supportRedirect: true
+            };
+            
+            const success = PDFObject.embed(samplePDFUrl, container, options);
+            
+            if (success) {
+                results.innerHTML = `
+                    <div style="color: #28a745; font-weight: bold;">✅ SUCCESS</div>
+                    <div>PDFObject successfully embedded the PDF</div>
+                    <div style="font-size: 12px; color: #6c757d; margin-top: 10px;">
+                        Browser: ${navigator.userAgent.split(' ')[0]}<br>
+                        PDFObject Version: ${PDFObject.version || 'Unknown'}<br>
+                        Test Time: ${new Date().toLocaleString()}
+                    </div>
+                `;
+                
+                // Add security overlay simulation
+                setTimeout(() => {
+                    addTestSecurityOverlay(container, 'test@student.com');
+                }, 1000);
+            } else {
+                results.innerHTML = `
+                    <div style="color: #dc3545; font-weight: bold;">❌ FAILED</div>
+                    <div>PDFObject could not embed the PDF</div>
+                    <div style="font-size: 12px; color: #6c757d; margin-top: 10px;">
+                        This might be due to browser restrictions or PDF availability
+                    </div>
+                `;
+            }
+        }
+        
+        function testFallback() {
+            const container = document.getElementById('pdfContainer');
+            const results = document.getElementById('testResults');
+            
+            // Test fallback with invalid URL
+            const options = {
+                fallbackLink: `<div style="text-align: center; padding: 40px; color: #ff5722;">
+                    <div style="font-size: 18px; margin-bottom: 16px;">⚠️ PDF Loading Error</div>
+                    <div style="font-size: 14px; margin-bottom: 16px;">Unable to load PDF document</div>
+                    <div style="font-size: 12px; color: #999;">Please try refreshing the page</div>
+                </div>`
+            };
+            
+            const success = PDFObject.embed('invalid-url.pdf', container, options);
+            
+            results.innerHTML = `
+                <div style="color: #ffc107; font-weight: bold;">⚠️ FALLBACK TEST</div>
+                <div>Testing fallback behavior with invalid PDF URL</div>
+                <div style="font-size: 12px; color: #6c757d; margin-top: 10px;">
+                    Result: ${success ? 'Unexpected success' : 'Fallback triggered as expected'}
+                </div>
+            `;
+        }
+        
+        function clearContainer() {
+            const container = document.getElementById('pdfContainer');
+            const results = document.getElementById('testResults');
+            
+            container.innerHTML = `
+                <div style="text-align: center; padding: 100px; color: #666;">
+                    <div style="font-size: 18px; margin-bottom: 16px;">📄 PDF Container Ready</div>
+                    <div style="font-size: 14px;">Click "Test PDFObject" to load a sample PDF</div>
+                </div>
+            `;
+            
+            results.innerHTML = 'Container cleared. Ready to test...';
+        }
+        
+        function addTestSecurityOverlay(container, userEmail) {
+            // Create security overlay for testing
+            const overlay = document.createElement('div');
+            overlay.style.cssText = `
+                position: absolute;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                pointer-events: none;
+                z-index: 1000;
+            `;
+            
+            overlay.innerHTML = `
+                <div style="position: absolute; top: 10px; right: 10px; background: rgba(0,0,0,0.7); color: white; padding: 4px 8px; border-radius: 4px; font-size: 11px;">
+                    ${userEmail} | ${new Date().toLocaleString()}
+                </div>
+                <div style="position: absolute; top: 10px; left: 10px; background: rgba(0,0,0,0.7); color: white; padding: 4px 8px; border-radius: 4px; font-size: 11px;">
+                    🔒 Secure View
+                </div>
+                <div style="position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.7); color: white; padding: 4px 8px; border-radius: 4px; font-size: 10px;">
+                    Viewed by: ${userEmail}
+                </div>
+            `;
+            
+            container.appendChild(overlay);
+        }
+        
+        // Check if PDFObject is loaded
+        document.addEventListener('DOMContentLoaded', function() {
+            const results = document.getElementById('testResults');
+            if (typeof PDFObject !== 'undefined') {
+                results.innerHTML = `
+                    <div style="color: #28a745; font-weight: bold;">✅ PDFObject Library Loaded</div>
+                    <div>Version: ${PDFObject.version || 'Unknown'}</div>
+                    <div style="font-size: 12px; color: #6c757d; margin-top: 10px;">Ready to test PDF embedding</div>
+                `;
+            } else {
+                results.innerHTML = `
+                    <div style="color: #dc3545; font-weight: bold;">❌ PDFObject Library NOT Loaded</div>
+                    <div>Check console for errors</div>
+                `;
+            }
+        });
+    </script>
+</body>
+</html>
