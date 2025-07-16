@@ -1301,15 +1301,18 @@ function showStudentFilePreview(file) {
     const secureViewerUrl = createSecureProxy(file.url);
     
     modal.innerHTML = `
-      <div style="background: #333; border-radius: 12px; max-width: 95vw; max-height: 95vh; width: 100%; height: 100%; position: relative; overflow: hidden;">
+      <div id="studentFileContainer" style="background: #333; border-radius: 12px; max-width: 95vw; max-height: 95vh; width: 100%; height: 100%; position: relative; overflow: hidden;">
         <div style="background: #444; padding: 16px; display: flex; justify-content: space-between; align-items: center; border-radius: 12px 12px 0 0;">
           <h3 style="margin: 0; color: white; font-size: 18px;">📄 ${file.name}</h3>
           <div style="display: flex; gap: 10px;">
+            <button onclick="resetStudentFileZoom()" style="background: none; border: none; color: white; font-size: 20px; cursor: pointer; padding: 0; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; border-radius: 50%;" title="Reset Zoom">🔍</button>
             <button onclick="toggleStudentFilePreviewFullscreen()" style="background: none; border: none; color: white; font-size: 24px; cursor: pointer; padding: 0; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; border-radius: 50%;" title="Toggle Fullscreen">⛶</button>
             <button onclick="closeStudentFilePreview()" style="background: none; border: none; color: white; font-size: 24px; cursor: pointer; padding: 0; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; border-radius: 50%;">&times;</button>
           </div>
         </div>
-        <iframe src="${secureViewerUrl}" style="width: 100%; height: 85%; border: none; background: white;" sandbox="allow-same-origin allow-scripts allow-forms"></iframe>
+        <div id="studentFileViewport" style="width: 100%; height: 85%; position: relative; overflow: hidden;">
+          <iframe id="studentFileFrame" src="${secureViewerUrl}" style="width: 100%; height: 100%; border: none; background: white; transform-origin: 0 0; transition: transform 0.3s ease;" sandbox="allow-same-origin allow-scripts allow-forms"></iframe>
+        </div>
       </div>
     `;
   } else {
@@ -1336,11 +1339,211 @@ function showStudentFilePreview(file) {
 
   document.body.appendChild(modal);
   document.body.style.overflow = 'hidden';
+
+  // Add touch zoom functionality for mobile devices
+  if (file.extension.toLowerCase() === 'pdf') {
+    initializeStudentFileZoom();
+  }
+}
+
+// Touch zoom functionality for student file preview
+let studentFileZoomState = {
+  scale: 1,
+  originX: 0,
+  originY: 0,
+  initialDistance: 0,
+  isZooming: false,
+  startX: 0,
+  startY: 0,
+  currentX: 0,
+  currentY: 0,
+  isDragging: false,
+  minScale: 0.5,
+  maxScale: 3
+};
+
+function initializeStudentFileZoom() {
+  const viewport = document.getElementById('studentFileViewport');
+  const frame = document.getElementById('studentFileFrame');
+  
+  if (!viewport || !frame) return;
+
+  // Reset zoom state
+  studentFileZoomState = {
+    scale: 1,
+    originX: 0,
+    originY: 0,
+    initialDistance: 0,
+    isZooming: false,
+    startX: 0,
+    startY: 0,
+    currentX: 0,
+    currentY: 0,
+    isDragging: false,
+    minScale: 0.5,
+    maxScale: 3
+  };
+
+  // Touch event handlers
+  viewport.addEventListener('touchstart', handleStudentFileZoomStart, { passive: false });
+  viewport.addEventListener('touchmove', handleStudentFileZoomMove, { passive: false });
+  viewport.addEventListener('touchend', handleStudentFileZoomEnd, { passive: false });
+
+  // Mouse wheel support for desktop
+  viewport.addEventListener('wheel', handleStudentFileWheel, { passive: false });
+
+  // Prevent default touch behaviors
+  viewport.addEventListener('touchstart', (e) => {
+    if (e.touches.length > 1) e.preventDefault();
+  }, { passive: false });
+}
+
+function handleStudentFileZoomStart(e) {
+  const touches = e.touches;
+  
+  if (touches.length === 2) {
+    // Two fingers - start zoom
+    studentFileZoomState.isZooming = true;
+    studentFileZoomState.isDragging = false;
+    
+    const touch1 = touches[0];
+    const touch2 = touches[1];
+    
+    studentFileZoomState.initialDistance = Math.sqrt(
+      Math.pow(touch1.clientX - touch2.clientX, 2) + 
+      Math.pow(touch1.clientY - touch2.clientY, 2)
+    );
+    
+    // Calculate center point
+    const centerX = (touch1.clientX + touch2.clientX) / 2;
+    const centerY = (touch1.clientY + touch2.clientY) / 2;
+    
+    const viewport = document.getElementById('studentFileViewport');
+    const rect = viewport.getBoundingClientRect();
+    
+    studentFileZoomState.originX = centerX - rect.left;
+    studentFileZoomState.originY = centerY - rect.top;
+    
+    e.preventDefault();
+  } else if (touches.length === 1 && studentFileZoomState.scale > 1) {
+    // One finger - start drag if zoomed
+    studentFileZoomState.isDragging = true;
+    studentFileZoomState.isZooming = false;
+    
+    studentFileZoomState.startX = touches[0].clientX - studentFileZoomState.currentX;
+    studentFileZoomState.startY = touches[0].clientY - studentFileZoomState.currentY;
+  }
+}
+
+function handleStudentFileZoomMove(e) {
+  const touches = e.touches;
+  
+  if (studentFileZoomState.isZooming && touches.length === 2) {
+    const touch1 = touches[0];
+    const touch2 = touches[1];
+    
+    const currentDistance = Math.sqrt(
+      Math.pow(touch1.clientX - touch2.clientX, 2) + 
+      Math.pow(touch1.clientY - touch2.clientY, 2)
+    );
+    
+    const scaleFactor = currentDistance / studentFileZoomState.initialDistance;
+    let newScale = studentFileZoomState.scale * scaleFactor;
+    
+    // Clamp scale
+    newScale = Math.max(studentFileZoomState.minScale, Math.min(studentFileZoomState.maxScale, newScale));
+    
+    studentFileZoomState.scale = newScale;
+    studentFileZoomState.initialDistance = currentDistance;
+    
+    applyStudentFileTransform();
+    e.preventDefault();
+  } else if (studentFileZoomState.isDragging && touches.length === 1) {
+    studentFileZoomState.currentX = touches[0].clientX - studentFileZoomState.startX;
+    studentFileZoomState.currentY = touches[0].clientY - studentFileZoomState.startY;
+    
+    applyStudentFileTransform();
+    e.preventDefault();
+  }
+}
+
+function handleStudentFileZoomEnd(e) {
+  if (e.touches.length === 0) {
+    studentFileZoomState.isZooming = false;
+    studentFileZoomState.isDragging = false;
+  }
+}
+
+function handleStudentFileWheel(e) {
+  e.preventDefault();
+  
+  const delta = e.deltaY > 0 ? 0.9 : 1.1;
+  let newScale = studentFileZoomState.scale * delta;
+  
+  // Clamp scale
+  newScale = Math.max(studentFileZoomState.minScale, Math.min(studentFileZoomState.maxScale, newScale));
+  
+  if (newScale !== studentFileZoomState.scale) {
+    const viewport = document.getElementById('studentFileViewport');
+    const rect = viewport.getBoundingClientRect();
+    
+    studentFileZoomState.originX = e.clientX - rect.left;
+    studentFileZoomState.originY = e.clientY - rect.top;
+    studentFileZoomState.scale = newScale;
+    
+    applyStudentFileTransform();
+  }
+}
+
+function applyStudentFileTransform() {
+  const frame = document.getElementById('studentFileFrame');
+  if (!frame) return;
+  
+  const transformOrigin = `${studentFileZoomState.originX}px ${studentFileZoomState.originY}px`;
+  const transform = `scale(${studentFileZoomState.scale}) translate(${studentFileZoomState.currentX}px, ${studentFileZoomState.currentY}px)`;
+  
+  frame.style.transformOrigin = transformOrigin;
+  frame.style.transform = transform;
+}
+
+function resetStudentFileZoom() {
+  studentFileZoomState.scale = 1;
+  studentFileZoomState.currentX = 0;
+  studentFileZoomState.currentY = 0;
+  studentFileZoomState.originX = 0;
+  studentFileZoomState.originY = 0;
+  
+  applyStudentFileTransform();
 }
 
 function closeStudentFilePreview() {
   const modal = document.getElementById('studentFilePreviewModal');
   if (modal) {
+    // Clean up event listeners
+    const viewport = document.getElementById('studentFileViewport');
+    if (viewport) {
+      viewport.removeEventListener('touchstart', handleStudentFileZoomStart);
+      viewport.removeEventListener('touchmove', handleStudentFileZoomMove);
+      viewport.removeEventListener('touchend', handleStudentFileZoomEnd);
+      viewport.removeEventListener('wheel', handleStudentFileWheel);
+    }
+    
+    // Reset zoom state
+    studentFileZoomState = {
+      scale: 1,
+      originX: 0,
+      originY: 0,
+      initialDistance: 0,
+      isZooming: false,
+      startX: 0,
+      startY: 0,
+      currentX: 0,
+      currentY: 0,
+      isDragging: false,
+      minScale: 0.5,
+      maxScale: 3
+    };
+    
     modal.remove();
   }
   document.body.style.overflow = 'auto';
