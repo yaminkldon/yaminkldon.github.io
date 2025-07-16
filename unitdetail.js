@@ -270,15 +270,15 @@ function closeVideoModal() {
   document.body.style.overflow = '';
 }
 
-// Modal fullscreen functionality
-let isModalFullscreen = false;
+// File preview fullscreen functionality
+let isFilePreviewFullscreen = false;
 
-function toggleModalFullscreen() {
-  const modal = document.getElementById('video-modal');
+function toggleFilePreviewFullscreen() {
+  const modal = document.getElementById('studentFilePreviewModal');
   const appbar = document.querySelector('.appbar');
   const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
   
-  if (!isModalFullscreen) {
+  if (!isFilePreviewFullscreen) {
     // Enter fullscreen
     if (isMobile) {
       // For mobile - force horizontal orientation
@@ -301,20 +301,12 @@ function toggleModalFullscreen() {
       appbar.style.display = 'none';
     }
     
-    // Update fullscreen styles
-    modal.style.position = 'fixed';
-    modal.style.top = '0';
-    modal.style.left = '0';
-    modal.style.width = '100vw';
-    modal.style.height = '100vh';
-    modal.style.zIndex = '9999';
+    isFilePreviewFullscreen = true;
     
-    isModalFullscreen = true;
-    
-    // Update button icon
-    const fullscreenBtn = document.querySelector('.video-fullscreen-btn .material-icons');
+    // Update button text
+    const fullscreenBtn = modal.querySelector('button[onclick="toggleFilePreviewFullscreen()"]');
     if (fullscreenBtn) {
-      fullscreenBtn.textContent = 'fullscreen_exit';
+      fullscreenBtn.textContent = '❐';
     }
   } else {
     // Exit fullscreen
@@ -331,78 +323,58 @@ function toggleModalFullscreen() {
       appbar.style.display = 'flex';
     }
     
-    // Reset modal styles
-    modal.style.position = '';
-    modal.style.top = '';
-    modal.style.left = '';
-    modal.style.width = '';
-    modal.style.height = '';
-    modal.style.zIndex = '';
+    isFilePreviewFullscreen = false;
     
-    isModalFullscreen = false;
-    
-    // Update button icon
-    const fullscreenBtn = document.querySelector('.video-fullscreen-btn .material-icons');
+    // Update button text
+    const fullscreenBtn = modal.querySelector('button[onclick="toggleFilePreviewFullscreen()"]');
     if (fullscreenBtn) {
-      fullscreenBtn.textContent = 'fullscreen';
+      fullscreenBtn.textContent = '⛶';
     }
   }
 }
 
-// Listen for fullscreen changes
+// Listen for fullscreen changes for file preview
 document.addEventListener('fullscreenchange', function() {
   if (!document.fullscreenElement) {
     const appbar = document.querySelector('.appbar');
-    const modal = document.getElementById('video-modal');
+    const modal = document.getElementById('studentFilePreviewModal');
     
     // Show the appbar
     if (appbar) {
       appbar.style.display = 'flex';
     }
     
-    // Reset modal styles
-    modal.style.position = '';
-    modal.style.top = '';
-    modal.style.left = '';
-    modal.style.width = '';
-    modal.style.height = '';
-    modal.style.zIndex = '';
+    isFilePreviewFullscreen = false;
     
-    isModalFullscreen = false;
-    
-    // Update button icon
-    const fullscreenBtn = document.querySelector('.video-fullscreen-btn .material-icons');
-    if (fullscreenBtn) {
-      fullscreenBtn.textContent = 'fullscreen';
+    // Update button text
+    if (modal) {
+      const fullscreenBtn = modal.querySelector('button[onclick="toggleFilePreviewFullscreen()"]');
+      if (fullscreenBtn) {
+        fullscreenBtn.textContent = '⛶';
+      }
     }
   }
 });
 
-// Also handle webkit fullscreen change
+// Also handle webkit fullscreen change for file preview
 document.addEventListener('webkitfullscreenchange', function() {
   if (!document.webkitFullscreenElement) {
     const appbar = document.querySelector('.appbar');
-    const modal = document.getElementById('video-modal');
+    const modal = document.getElementById('studentFilePreviewModal');
     
     // Show the appbar
     if (appbar) {
       appbar.style.display = 'flex';
     }
     
-    // Reset modal styles
-    modal.style.position = '';
-    modal.style.top = '';
-    modal.style.left = '';
-    modal.style.width = '';
-    modal.style.height = '';
-    modal.style.zIndex = '';
+    isFilePreviewFullscreen = false;
     
-    isModalFullscreen = false;
-    
-    // Update button icon
-    const fullscreenBtn = document.querySelector('.video-fullscreen-btn .material-icons');
-    if (fullscreenBtn) {
-      fullscreenBtn.textContent = 'fullscreen';
+    // Update button text
+    if (modal) {
+      const fullscreenBtn = modal.querySelector('button[onclick="toggleFilePreviewFullscreen()"]');
+      if (fullscreenBtn) {
+        fullscreenBtn.textContent = '⛶';
+      }
     }
   }
 });
@@ -1730,7 +1702,10 @@ function showStudentFilePreview(file) {
       <div style="background: #333; border-radius: 12px; max-width: 95vw; max-height: 95vh; width: 100%; height: 100%; position: relative; overflow: hidden;">
         <div style="background: #444; padding: 16px; display: flex; justify-content: space-between; align-items: center; border-radius: 12px 12px 0 0;">
           <h3 style="margin: 0; color: white; font-size: 18px;">📄 ${file.name}</h3>
-          <button onclick="closeStudentFilePreview()" style="background: none; border: none; color: white; font-size: 24px; cursor: pointer; padding: 0; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; border-radius: 50%;">&times;</button>
+          <div style="display: flex; gap: 10px;">
+            <button onclick="toggleFilePreviewFullscreen()" style="background: none; border: none; color: white; font-size: 24px; cursor: pointer; padding: 0; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; border-radius: 50%;" title="Toggle Fullscreen">⛶</button>
+            <button onclick="closeStudentFilePreview()" style="background: none; border: none; color: white; font-size: 24px; cursor: pointer; padding: 0; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; border-radius: 50%;">&times;</button>
+          </div>
         </div>
         <iframe src="${secureViewerUrl}" style="width: 100%; height: 85%; border: none; background: white;" sandbox="allow-same-origin allow-scripts allow-forms"></iframe>
       </div>
