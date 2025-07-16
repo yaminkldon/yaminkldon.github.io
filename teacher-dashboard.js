@@ -832,8 +832,8 @@ function createUnitCard(unit) {
         </div>
       </div>
       <div style="display: flex; gap: 8px;">
-        <button onclick="openFileManager('${unit.id}', null)" style="padding: 6px 12px; background: #ffc107; color: #212529; border: none; border-radius: 4px; font-size: 12px; cursor: pointer;">
-          <span class="material-icons" style="font-size: 14px;">folder</span> Files
+        <button onclick="openUnitFileManager('${unit.id}')" style="padding: 6px 12px; background: #ffc107; color: #212529; border: none; border-radius: 4px; font-size: 12px; cursor: pointer;">
+          <span class="material-icons" style="font-size: 14px;">folder</span> Unit Files
         </button>
         <button onclick="editUnit('${unit.id}', '${unit.name}')" style="padding: 6px 12px; background: #28a745; color: white; border: none; border-radius: 4px; font-size: 12px; cursor: pointer;">
           <span class="material-icons" style="font-size: 14px;">edit</span> Edit
@@ -2368,7 +2368,7 @@ function loadUnitsContent() {
             </div>
             <div style="display: flex; gap: 8px;">
               <button onclick="editUnit('${unitKey}')" style="padding: 4px 8px; background: #6c4fc1; color: white; border: none; border-radius: 4px; font-size: 12px;">Edit</button>
-              <button onclick="openFileManager('${unitKey}')" style="padding: 4px 8px; background: #ffc107; color: #212529; border: none; border-radius: 4px; font-size: 12px;">Files</button>
+              <button onclick="openUnitFileManager('${unitKey}')" style="padding: 4px 8px; background: #ffc107; color: #212529; border: none; border-radius: 4px; font-size: 12px;">Unit Files</button>
               <button onclick="deleteUnit('${unitKey}')" style="padding: 4px 8px; background: #dc3545; color: white; border: none; border-radius: 4px; font-size: 12px;">Delete</button>
             </div>
           </div>
@@ -3902,8 +3902,8 @@ function createVideoCard(container, unitKey, lessonKey, lessonData, type) {
       <div style="display: flex; flex-direction: column; gap: 4px;">
         ${videoFile ? `<button onclick="previewVideo('${unitKey}', '${lessonKey}', '${type}')" style="padding: 4px 8px; background: #6c4fc1; color: white; border: none; border-radius: 4px; font-size: 11px;">Preview</button>` : ''}
         <button onclick="editVideo('${unitKey}', '${lessonKey}', '${type}')" style="padding: 4px 8px; background: #28a745; color: white; border: none; border-radius: 4px; font-size: 11px;">Edit</button>
-        <button onclick="openFileManager('${unitKey}', '${lessonKey}')" style="padding: 4px 8px; background: #ffc107; color: #212529; border: none; border-radius: 4px; font-size: 11px;">Files</button>
-        ${type === 'direct' ? `<button onclick="openFileManager('${unitKey}', null)" style="padding: 4px 8px; background: #17a2b8; color: white; border: none; border-radius: 4px; font-size: 11px;">Unit Files</button>` : ''}
+        <button onclick="openFileManager('${unitKey}', '${lessonKey}')" style="padding: 4px 8px; background: #ffc107; color: #212529; border: none; border-radius: 4px; font-size: 11px;">Lesson Files</button>
+        ${type === 'direct' ? `<button onclick="openUnitFileManager('${unitKey}')" style="padding: 4px 8px; background: #17a2b8; color: white; border: none; border-radius: 4px; font-size: 11px;">Unit Files</button>` : ''}
         <button onclick="deleteVideo('${unitKey}', '${lessonKey}', '${type}')" style="padding: 4px 8px; background: #dc3545; color: white; border: none; border-radius: 4px; font-size: 11px;">Delete</button>
       </div>
     </div>
@@ -4930,6 +4930,471 @@ function deleteLesson(unitKey, lessonKey) {
 
 // ========= FILE MANAGEMENT FUNCTIONS =========
 
+// ========= UNIT FILE MANAGEMENT FUNCTIONS =========
+
+function openUnitFileManager(unitKey) {
+  const modal = document.createElement('div');
+  modal.className = 'modal';
+  modal.id = 'unitFileManagerModal';
+  modal.style.display = 'flex';
+  
+  modal.innerHTML = `
+    <div class="modal-content" style="max-width: 1000px; max-height: 90vh; overflow-y: auto;">
+      <div class="modal-header">
+        <h3 class="modal-title">Unit File Manager - Unit ${unitKey}</h3>
+        <button class="modal-close" onclick="closeUnitFileManager()">&times;</button>
+      </div>
+      
+      <div style="padding: 20px;">
+        <!-- Unit File Upload Section -->
+        <div class="file-upload-section" style="margin-bottom: 30px; padding: 20px; border: 2px dashed #ddd; border-radius: 8px; background: #f9f9f9; color: #333;">
+          <h4 style="margin-top: 0; color: #6c4fc1;">Upload New Unit File</h4>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px;">
+            <div>
+              <label style="display: block; margin-bottom: 8px; font-weight: bold;">File</label>
+              <input type="file" id="unitFileUpload" class="form-input" accept=".pdf,.doc,.docx,.txt,.jpg,.jpeg,.png,.gif,.mp4,.mp3,.ppt,.pptx,.xls,.xlsx" style="padding: 8px;">
+            </div>
+            <div>
+              <label style="display: block; margin-bottom: 8px; font-weight: bold;">File Name (Optional)</label>
+              <input type="text" id="unitFileDisplayName" class="form-input" placeholder="Leave empty to use original name">
+            </div>
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px;">
+            <div>
+              <label style="display: block; margin-bottom: 8px; font-weight: bold;">File Type</label>
+              <select id="unitFileType" class="form-input">
+                <option value="document">Document</option>
+                <option value="image">Image</option>
+                <option value="video">Video</option>
+                <option value="audio">Audio</option>
+                <option value="presentation">Presentation</option>
+                <option value="spreadsheet">Spreadsheet</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
+            <div>
+              <label style="display: block; margin-bottom: 8px; font-weight: bold;">Access Level</label>
+              <select id="unitFileAccess" class="form-input">
+                <option value="view-only">View Only (No Download)</option>
+                <option value="downloadable">Downloadable</option>
+                <option value="restricted">Restricted (Teacher Only)</option>
+              </select>
+            </div>
+          </div>
+          <div style="margin-bottom: 20px;">
+            <label style="display: block; margin-bottom: 8px; font-weight: bold;">Description</label>
+            <textarea id="unitFileDescription" class="form-textarea" placeholder="Brief description of the file..."></textarea>
+          </div>
+          <button class="action-btn" onclick="uploadUnitFile('${unitKey}')">
+            <span class="material-icons" style="margin-right: 8px;">cloud_upload</span>
+            Upload Unit File
+          </button>
+        </div>
+        
+        <!-- Unit Files List Section -->
+        <div class="files-list-section">
+          <h4 style="color: #6c4fc1; margin-bottom: 20px;">Unit Files</h4>
+          <div id="unitFilesList" style="min-height: 200px;">
+            <div style="text-align: center; padding: 40px; color: #666;">
+              Loading unit files...
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+  
+  document.body.appendChild(modal);
+  
+  // Load existing unit files
+  loadUnitFiles(unitKey);
+}
+
+function closeUnitFileManager() {
+  const modal = document.getElementById('unitFileManagerModal');
+  if (modal) {
+    modal.remove();
+  }
+}
+
+function uploadUnitFile(unitKey) {
+  const fileInput = document.getElementById('unitFileUpload');
+  const displayName = document.getElementById('unitFileDisplayName').value.trim();
+  const fileType = document.getElementById('unitFileType').value;
+  const fileAccess = document.getElementById('unitFileAccess').value;
+  const fileDescription = document.getElementById('unitFileDescription').value.trim();
+  
+  if (!fileInput.files[0]) {
+    alert('Please select a file to upload');
+    return;
+  }
+  
+  const file = fileInput.files[0];
+  const fileName = displayName || file.name;
+  const fileExtension = file.name.split('.').pop().toLowerCase();
+  
+  // Validate file size (max 50MB)
+  if (file.size > 50 * 1024 * 1024) {
+    alert('File size must be less than 50MB');
+    return;
+  }
+  
+  // Show upload progress
+  const uploadBtn = event.target;
+  uploadBtn.disabled = true;
+  uploadBtn.innerHTML = '<span class="material-icons">hourglass_empty</span> Uploading...';
+  
+  // Create file reference
+  const timestamp = Date.now();
+  const fileId = `unit_${unitKey}_${timestamp}`;
+  const storagePath = `files/${unitKey}/unit/${fileId}.${fileExtension}`;
+  
+  // Upload to Firebase Storage
+  const storageRef = firebase.storage().ref(storagePath);
+  const uploadTask = storageRef.put(file);
+  
+  uploadTask.on('state_changed', 
+    (snapshot) => {
+      const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+      uploadBtn.innerHTML = `<span class="material-icons">hourglass_empty</span> ${Math.round(progress)}%`;
+    },
+    (error) => {
+      console.error('Unit file upload error:', error);
+      alert('Error uploading file. Please try again.');
+      uploadBtn.disabled = false;
+      uploadBtn.innerHTML = '<span class="material-icons">cloud_upload</span> Upload Unit File';
+    },
+    () => {
+      // Upload completed successfully
+      uploadTask.snapshot.ref.getDownloadURL().then((downloadURL) => {
+        // Save file metadata to database
+        const fileData = {
+          id: fileId,
+          name: fileName,
+          originalName: file.name,
+          type: fileType,
+          extension: fileExtension,
+          size: file.size,
+          access: fileAccess,
+          description: fileDescription,
+          url: downloadURL,
+          uploadedAt: timestamp,
+          uploadedBy: firebase.auth().currentUser.uid,
+          unitKey: unitKey,
+          isUnitFile: true
+        };
+        
+        const dbPath = `units/${unitKey}/files/${fileId}`;
+        
+        db.ref(dbPath).set(fileData).then(() => {
+          alert('Unit file uploaded successfully!');
+          
+          // Reset form
+          fileInput.value = '';
+          document.getElementById('unitFileDisplayName').value = '';
+          document.getElementById('unitFileDescription').value = '';
+          
+          // Reload unit files list
+          loadUnitFiles(unitKey);
+          
+          uploadBtn.disabled = false;
+          uploadBtn.innerHTML = '<span class="material-icons">cloud_upload</span> Upload Unit File';
+        }).catch(error => {
+          console.error('Error saving unit file metadata:', error);
+          alert('Error saving file information. Please try again.');
+          uploadBtn.disabled = false;
+          uploadBtn.innerHTML = '<span class="material-icons">cloud_upload</span> Upload Unit File';
+        });
+      });
+    }
+  );
+}
+
+function loadUnitFiles(unitKey) {
+  const filesList = document.getElementById('unitFilesList');
+  if (!filesList) return;
+  
+  const dbPath = `units/${unitKey}/files`;
+  
+  console.log('Loading unit files from path:', dbPath); // Debug log
+  
+  db.ref(dbPath).once('value').then(snapshot => {
+    if (!snapshot.exists()) {
+      console.log('No unit files found at path:', dbPath); // Debug log
+      filesList.innerHTML = `
+        <div style="text-align: center; padding: 40px; color: #666;">
+          <span class="material-icons" style="font-size: 48px; margin-bottom: 16px;">folder_open</span>
+          <p>No unit files uploaded yet</p>
+          <p style="font-size: 12px; color: #999;">Upload files using the form above</p>
+        </div>
+      `;
+      return;
+    }
+    
+    const files = [];
+    snapshot.forEach(child => {
+      const fileData = child.val();
+      console.log('Found unit file:', child.key, fileData); // Debug log
+      files.push({
+        id: child.key,
+        ...fileData
+      });
+    });
+    
+    // Sort files by upload date (newest first)
+    files.sort((a, b) => b.uploadedAt - a.uploadedAt);
+    
+    displayUnitFiles(files);
+  }).catch(error => {
+    console.error('Error loading unit files:', error);
+    filesList.innerHTML = `
+      <div style="text-align: center; padding: 40px; color: #ff5722;">
+        <span class="material-icons" style="font-size: 48px; margin-bottom: 16px;">error</span>
+        <p>Error loading unit files</p>
+      </div>
+    `;
+  });
+}
+
+function displayUnitFiles(files) {
+  const filesList = document.getElementById('unitFilesList');
+  
+  let html = '<div class="files-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px;">';
+  
+  files.forEach(file => {
+    const fileIcon = getFileIcon(file.extension);
+    const fileSize = formatFileSize(file.size);
+    const uploadDate = new Date(file.uploadedAt).toLocaleDateString();
+    const canPreview = canPreviewFile(file.extension);
+    
+    html += `
+      <div class="file-card" style="border: 1px solid #ddd; border-radius: 8px; padding: 16px; background: white;">
+        <div class="file-header" style="display: flex; align-items: center; margin-bottom: 12px;">
+          <span class="material-icons" style="font-size: 32px; color: #6c4fc1; margin-right: 12px;">${fileIcon}</span>
+          <div style="flex: 1;">
+            <h4 style="margin: 0; font-size: 14px; color: #333;">${file.name}</h4>
+            <p style="margin: 4px 0 0 0; font-size: 12px; color: #666;">${fileSize} • ${uploadDate}</p>
+          </div>
+          <div class="file-actions" style="display: flex; gap: 8px;">
+            ${canPreview ? `<button class="action-btn" onclick="previewUnitFile('${file.id}', '${file.unitKey}')" style="padding: 4px 8px; font-size: 12px;" title="Preview">
+              <span class="material-icons" style="font-size: 16px;">visibility</span>
+            </button>` : ''}
+            <button class="action-btn secondary" onclick="editUnitFile('${file.id}', '${file.unitKey}')" style="padding: 4px 8px; font-size: 12px;" title="Edit">
+              <span class="material-icons" style="font-size: 16px;">edit</span>
+            </button>
+            <button class="action-btn secondary" onclick="deleteUnitFile('${file.id}', '${file.unitKey}')" style="padding: 4px 8px; font-size: 12px; background: #dc3545;" title="Delete">
+              <span class="material-icons" style="font-size: 16px;">delete</span>
+            </button>
+          </div>
+        </div>
+        
+        <div class="file-info" style="margin-bottom: 12px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+            <span style="font-size: 12px; color: #666;">Type: ${file.type}</span>
+            <span class="access-badge ${file.access}" style="padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: bold;">
+              ${file.access === 'view-only' ? 'View Only' : file.access === 'downloadable' ? 'Downloadable' : 'Restricted'}
+            </span>
+          </div>
+          ${file.description ? `<p style="margin: 0; font-size: 12px; color: #666;">${file.description}</p>` : ''}
+        </div>
+        
+        <div class="file-actions-full" style="display: flex; gap: 8px;">
+          ${canPreview ? `<button class="action-btn" onclick="previewUnitFile('${file.id}', '${file.unitKey}')" style="flex: 1; padding: 8px; font-size: 12px;">
+            <span class="material-icons" style="margin-right: 4px; font-size: 16px;">visibility</span>
+            Preview
+          </button>` : ''}
+          ${file.access === 'downloadable' ? `<button class="action-btn secondary" onclick="downloadFile('${file.url}', '${file.name}')" style="flex: 1; padding: 8px; font-size: 12px;">
+            <span class="material-icons" style="margin-right: 4px; font-size: 16px;">download</span>
+            Download
+          </button>` : ''}
+        </div>
+      </div>
+    `;
+  });
+  
+  html += '</div>';
+  filesList.innerHTML = html;
+}
+
+function previewUnitFile(fileId, unitKey) {
+  const dbPath = `units/${unitKey}/files/${fileId}`;
+  
+  console.log('Loading unit file for preview from path:', dbPath); // Debug log
+  
+  db.ref(dbPath).once('value').then(snapshot => {
+    if (!snapshot.exists()) {
+      alert('Unit file not found');
+      return;
+    }
+    
+    const file = snapshot.val();
+    showFilePreview(file);
+  }).catch(error => {
+    console.error('Error loading unit file:', error);
+    alert('Error loading file preview');
+  });
+}
+
+function editUnitFile(fileId, unitKey) {
+  const dbPath = `units/${unitKey}/files/${fileId}`;
+  
+  console.log('Loading unit file for edit from path:', dbPath); // Debug log
+  
+  db.ref(dbPath).once('value').then(snapshot => {
+    if (!snapshot.exists()) {
+      alert('Unit file not found');
+      return;
+    }
+    
+    const file = snapshot.val();
+    showEditUnitFileModal(file, unitKey);
+  }).catch(error => {
+    console.error('Error loading unit file:', error);
+    alert('Error loading file information');
+  });
+}
+
+function showEditUnitFileModal(file, unitKey) {
+  const modal = document.createElement('div');
+  modal.className = 'modal';
+  modal.id = 'editUnitFileModal';
+  modal.style.display = 'flex';
+  
+  modal.innerHTML = `
+    <div class="modal-content" style="max-width: 600px;">
+      <div class="modal-header">
+        <h3 class="modal-title">Edit Unit File: ${file.name}</h3>
+        <button class="modal-close" onclick="closeEditUnitFileModal()">&times;</button>
+      </div>
+      
+      <div style="padding: 20px;">
+        <div style="margin-bottom: 16px;">
+          <label style="display: block; margin-bottom: 8px; font-weight: bold;">File Name</label>
+          <input type="text" id="editUnitFileName" class="form-input" value="${file.name}">
+        </div>
+        
+        <div style="margin-bottom: 16px;">
+          <label style="display: block; margin-bottom: 8px; font-weight: bold;">File Type</label>
+          <select id="editUnitFileType" class="form-input">
+            <option value="document" ${file.type === 'document' ? 'selected' : ''}>Document</option>
+            <option value="image" ${file.type === 'image' ? 'selected' : ''}>Image</option>
+            <option value="video" ${file.type === 'video' ? 'selected' : ''}>Video</option>
+            <option value="audio" ${file.type === 'audio' ? 'selected' : ''}>Audio</option>
+            <option value="presentation" ${file.type === 'presentation' ? 'selected' : ''}>Presentation</option>
+            <option value="spreadsheet" ${file.type === 'spreadsheet' ? 'selected' : ''}>Spreadsheet</option>
+            <option value="other" ${file.type === 'other' ? 'selected' : ''}>Other</option>
+          </select>
+        </div>
+        
+        <div style="margin-bottom: 16px;">
+          <label style="display: block; margin-bottom: 8px; font-weight: bold;">Access Level</label>
+          <select id="editUnitFileAccess" class="form-input">
+            <option value="view-only" ${file.access === 'view-only' ? 'selected' : ''}>View Only (No Download)</option>
+            <option value="downloadable" ${file.access === 'downloadable' ? 'selected' : ''}>Downloadable</option>
+            <option value="restricted" ${file.access === 'restricted' ? 'selected' : ''}>Restricted (Teacher Only)</option>
+          </select>
+        </div>
+        
+        <div style="margin-bottom: 20px;">
+          <label style="display: block; margin-bottom: 8px; font-weight: bold;">Description</label>
+          <textarea id="editUnitFileDescription" class="form-textarea">${file.description || ''}</textarea>
+        </div>
+        
+        <div style="display: flex; gap: 12px; justify-content: flex-end;">
+          <button class="action-btn secondary" onclick="closeEditUnitFileModal()">Cancel</button>
+          <button class="action-btn" onclick="saveUnitFileChanges('${file.id}', '${unitKey}')">Save Changes</button>
+        </div>
+      </div>
+    </div>
+  `;
+  
+  document.body.appendChild(modal);
+}
+
+function closeEditUnitFileModal() {
+  const modal = document.getElementById('editUnitFileModal');
+  if (modal) {
+    modal.remove();
+  }
+}
+
+function saveUnitFileChanges(fileId, unitKey) {
+  const name = document.getElementById('editUnitFileName').value.trim();
+  const type = document.getElementById('editUnitFileType').value;
+  const access = document.getElementById('editUnitFileAccess').value;
+  const description = document.getElementById('editUnitFileDescription').value.trim();
+  
+  if (!name) {
+    alert('File name is required');
+    return;
+  }
+  
+  const dbPath = `units/${unitKey}/files/${fileId}`;
+  
+  const updates = {
+    name: name,
+    type: type,
+    access: access,
+    description: description,
+    updatedAt: Date.now()
+  };
+  
+  console.log('Saving unit file changes to path:', dbPath); // Debug log
+  
+  db.ref(dbPath).update(updates).then(() => {
+    alert('Unit file updated successfully!');
+    closeEditUnitFileModal();
+    loadUnitFiles(unitKey);
+  }).catch(error => {
+    console.error('Error updating unit file:', error);
+    alert('Error updating file. Please try again.');
+  });
+}
+
+function deleteUnitFile(fileId, unitKey) {
+  if (!confirm('Are you sure you want to delete this unit file? This action cannot be undone.')) {
+    return;
+  }
+  
+  const dbPath = `units/${unitKey}/files/${fileId}`;
+  
+  console.log('Loading unit file for deletion from path:', dbPath); // Debug log
+  
+  db.ref(dbPath).once('value').then(snapshot => {
+    if (!snapshot.exists()) {
+      alert('Unit file not found');
+      return;
+    }
+    
+    const file = snapshot.val();
+    
+    // Delete from Firebase Storage
+    const fileRef = firebase.storage().refFromURL(file.url);
+    fileRef.delete().then(() => {
+      // Delete from database
+      db.ref(dbPath).remove().then(() => {
+        alert('Unit file deleted successfully!');
+        loadUnitFiles(unitKey);
+      }).catch(error => {
+        console.error('Error deleting unit file from database:', error);
+        alert('Error deleting file from database');
+      });
+    }).catch(error => {
+      console.error('Error deleting unit file from storage:', error);
+      // Still try to delete from database even if storage deletion fails
+      db.ref(dbPath).remove().then(() => {
+        alert('Unit file deleted from database (storage deletion may have failed)');
+        loadUnitFiles(unitKey);
+      });
+    });
+  }).catch(error => {
+    console.error('Error loading unit file for deletion:', error);
+    alert('Error loading file information');
+  });
+}
+
+// ========= LESSON FILE MANAGEMENT FUNCTIONS =========
+
 function openFileManager(unitKey, lessonKey = null) {
   const modal = document.createElement('div');
   modal.className = 'modal';
@@ -4986,7 +5451,7 @@ function openFileManager(unitKey, lessonKey = null) {
             <label style="display: block; margin-bottom: 8px; font-weight: bold;">Description</label>
             <textarea id="fileDescription" class="form-textarea" placeholder="Brief description of the file..."></textarea>
           </div>
-          <button class="action-btn" onclick="uploadFile('${unitKey}')">
+          <button class="action-btn" onclick="uploadFile('${unitKey}', '${lessonKey}')">
             <span class="material-icons" style="margin-right: 8px;">cloud_upload</span>
             Upload File
           </button>

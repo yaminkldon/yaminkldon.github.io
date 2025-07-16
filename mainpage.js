@@ -1056,6 +1056,276 @@ function loadMainPageFiles(unitKey, lessonKey) {
   });
 }
 
+// ========= STUDENT UNIT FILE FUNCTIONS =========
+
+function loadStudentUnitFiles(unitKey) {
+  const filesList = document.getElementById('mainPageFilesList');
+  const dbPath = `units/${unitKey}/files`;
+  
+  console.log('Loading student unit files from path:', dbPath); // Debug log
+  
+  db.ref(dbPath).once('value').then(snapshot => {
+    if (!snapshot.exists()) {
+      console.log('No unit files found at path:', dbPath); // Debug log
+      filesList.innerHTML = `
+        <div style="text-align: center; padding: 40px; color: #666;">
+          <span class="material-icons" style="font-size: 48px; color: #ddd; margin-bottom: 16px;">folder_open</span>
+          <div>No unit files available</div>
+          <div style="font-size: 12px; color: #999; margin-top: 8px;">Unit files will appear here once uploaded by your teacher</div>
+        </div>
+      `;
+      return;
+    }
+    
+    const files = [];
+    snapshot.forEach(child => {
+      const fileData = child.val();
+      fileData.id = child.key;
+      console.log('Found student unit file:', child.key, fileData); // Debug log
+      
+      // Only show files that students can access (not restricted)
+      if (fileData.access !== 'restricted') {
+        files.push(fileData);
+      }
+    });
+    
+    if (files.length === 0) {
+      filesList.innerHTML = `
+        <div style="text-align: center; padding: 40px; color: #666;">
+          <span class="material-icons" style="font-size: 48px; color: #ddd; margin-bottom: 16px;">folder_open</span>
+          <div>No unit files available for students</div>
+        </div>
+      `;
+      return;
+    }
+    
+    // Sort files by upload date (newest first)
+    files.sort((a, b) => b.uploadedAt - a.uploadedAt);
+    
+    displayStudentUnitFiles(files, unitKey);
+  }).catch(error => {
+    console.error('Error loading student unit files:', error);
+    filesList.innerHTML = `
+      <div style="text-align: center; padding: 40px; color: #dc3545;">
+        <span class="material-icons" style="font-size: 48px; margin-bottom: 16px;">error</span>
+        <div>Error loading unit files</div>
+      </div>
+    `;
+  });
+}
+
+function displayStudentUnitFiles(files, unitKey) {
+  const filesList = document.getElementById('mainPageFilesList');
+  
+  let html = '<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px;">';
+  
+  files.forEach(file => {
+    const fileIcon = getMainPageFileIcon(file.extension);
+    const fileSize = formatMainPageFileSize(file.size);
+    const uploadDate = new Date(file.uploadedAt).toLocaleDateString();
+    const canDownload = file.access === 'downloadable';
+    const canPreview = canMainPagePreviewFile(file.extension);
+    
+    html += `
+      <div class="main-page-file-card" style="background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 8px; padding: 16px; transition: all 0.2s ease;">
+        <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
+          <span class="material-icons" style="font-size: 32px; color: #6c4fc1;">${fileIcon}</span>
+          <div style="flex: 1; min-width: 0;">
+            <div style="font-weight: bold; font-size: 14px; color: #333; margin-bottom: 4px; word-break: break-word;">${file.name}</div>
+            <div style="font-size: 12px; color: #666;">${file.type} • ${fileSize}</div>
+          </div>
+        </div>
+        
+        ${file.description ? `<div style="font-size: 12px; color: #666; margin-bottom: 12px; line-height: 1.4;">${file.description}</div>` : ''}
+        
+        <div style="display: flex; align-items: center; justify-content: space-between; font-size: 11px; color: #888; margin-bottom: 12px;">
+          <span>Uploaded: ${uploadDate}</span>
+          <span class="main-page-access-badge ${file.access}">${file.access === 'view-only' ? 'View Only' : 'Downloadable'}</span>
+        </div>
+        
+        <div style="display: flex; gap: 8px;">
+          ${canPreview ? `<button onclick="previewStudentUnitFile('${file.id}', '${unitKey}')" style="flex: 1; padding: 6px 12px; background: #6c4fc1; color: white; border: none; border-radius: 4px; font-size: 12px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 4px; transition: background 0.2s;">
+            <span class="material-icons" style="font-size: 14px;">visibility</span>
+            Preview
+          </button>` : ''}
+          
+          ${canDownload ? `<button onclick="downloadMainPageFile('${file.url}', '${file.name}')" style="flex: 1; padding: 6px 12px; background: #28a745; color: white; border: none; border-radius: 4px; font-size: 12px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 4px; transition: background 0.2s;">
+            <span class="material-icons" style="font-size: 14px;">download</span>
+            Download
+          </button>` : `<button disabled style="flex: 1; padding: 6px 12px; background: #6c757d; color: white; border: none; border-radius: 4px; font-size: 12px; cursor: not-allowed; display: flex; align-items: center; justify-content: center; gap: 4px;">
+            <span class="material-icons" style="font-size: 14px;">block</span>
+            No Download
+          </button>`}
+        </div>
+      </div>
+    `;
+  });
+  
+  html += '</div>';
+  filesList.innerHTML = html;
+}
+
+function previewStudentUnitFile(fileId, unitKey) {
+  const dbPath = `units/${unitKey}/files/${fileId}`;
+  
+  console.log('Loading student unit file for preview from path:', dbPath); // Debug log
+  
+  db.ref(dbPath).once('value').then(snapshot => {
+    if (!snapshot.exists()) {
+      alert('Unit file not found');
+      return;
+    }
+    
+    const file = snapshot.val();
+    showMainPageFilePreview(file);
+  }).catch(error => {
+    console.error('Error loading student unit file:', error);
+    alert('Error loading file preview');
+  });
+}
+
+// ========= LESSON FILE FUNCTIONS =========
+
+function loadMainPageFiles(unitKey, lessonKey) {
+  const filesList = document.getElementById('mainPageFilesList');
+  const dbPath = lessonKey ? 
+    `units/${unitKey}/lessons/${lessonKey}/files` : 
+    `units/${unitKey}/files`;
+  
+  console.log('Loading main page files from path:', dbPath); // Debug log
+  
+  // Helper function to handle files snapshot
+  function handleMainPageFilesSnapshot(snapshot) {
+    console.log('Main page files snapshot exists:', snapshot.exists()); // Debug log
+    if (!snapshot.exists()) {
+      console.log('No files found at path:', dbPath); // Debug log
+      
+      // If it's a lesson and we didn't find files, try the new structure
+      if (lessonKey && dbPath.includes('/lessons/')) {
+        console.log('Trying new structure for lesson files'); // Debug log
+        const newDbPath = `units/${unitKey}/lesson${lessonKey}/files`;
+        console.log('Loading files from new path:', newDbPath); // Debug log
+        
+        db.ref(newDbPath).once('value').then(newSnapshot => {
+          if (newSnapshot.exists()) {
+            console.log('Found files in new structure'); // Debug log
+            handleMainPageFilesSnapshot(newSnapshot);
+          } else {
+            console.log('No files found in new structure either'); // Debug log
+            showMainPageNoFiles(lessonKey);
+          }
+        }).catch(error => {
+          console.error('Error loading files from new structure:', error);
+          showMainPageNoFiles(lessonKey);
+        });
+        return;
+      }
+      
+      showMainPageNoFiles(lessonKey);
+      return;
+    }
+    
+    const files = [];
+    snapshot.forEach(child => {
+      const fileData = child.val();
+      fileData.id = child.key;
+      console.log('Found main page file:', child.key, fileData); // Debug log
+      
+      // Only show files that students can access (not restricted)
+      if (fileData.access !== 'restricted') {
+        files.push(fileData);
+      }
+    });
+    
+    if (files.length === 0) {
+      filesList.innerHTML = `
+        <div style="text-align: center; padding: 40px; color: #666;">
+          <span class="material-icons" style="font-size: 48px; color: #ddd; margin-bottom: 16px;">folder_open</span>
+          <div>No files available for students</div>
+        </div>
+      `;
+      return;
+    }
+    
+    // Sort files by upload date (newest first)
+    files.sort((a, b) => b.uploadedAt - a.uploadedAt);
+    
+    displayMainPageFiles(files, unitKey, lessonKey);
+  }
+  
+  // Helper function to show no files message
+  function showMainPageNoFiles(lessonKey) {
+    filesList.innerHTML = `
+      <div style="text-align: center; padding: 40px; color: #666;">
+        <span class="material-icons" style="font-size: 48px; color: #ddd; margin-bottom: 16px;">folder_open</span>
+        <div>No files available for this ${lessonKey ? 'lesson' : 'unit'}</div>
+        <div style="font-size: 12px; color: #999; margin-top: 8px;">Files will appear here once uploaded by your teacher</div>
+      </div>
+    `;
+  }
+  
+  // Helper function to display files
+  function displayMainPageFiles(files, unitKey, lessonKey) {
+    let html = '<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px;">';
+    
+    files.forEach(file => {
+      const fileIcon = getMainPageFileIcon(file.extension);
+      const fileSize = formatMainPageFileSize(file.size);
+      const uploadDate = new Date(file.uploadedAt).toLocaleDateString();
+      const canDownload = file.access === 'downloadable';
+      const canPreview = canMainPagePreviewFile(file.extension);
+      
+      html += `
+        <div class="main-page-file-card" style="background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 8px; padding: 16px; transition: all 0.2s ease;">
+          <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
+            <span class="material-icons" style="font-size: 32px; color: #6c4fc1;">${fileIcon}</span>
+            <div style="flex: 1; min-width: 0;">
+              <div style="font-weight: bold; font-size: 14px; color: #333; margin-bottom: 4px; word-break: break-word;">${file.name}</div>
+              <div style="font-size: 12px; color: #666;">${file.type} • ${fileSize}</div>
+            </div>
+          </div>
+          
+          ${file.description ? `<div style="font-size: 12px; color: #666; margin-bottom: 12px; line-height: 1.4;">${file.description}</div>` : ''}
+          
+          <div style="display: flex; align-items: center; justify-content: space-between; font-size: 11px; color: #888; margin-bottom: 12px;">
+            <span>Uploaded: ${uploadDate}</span>
+            <span class="main-page-access-badge ${file.access}">${file.access === 'view-only' ? 'View Only' : 'Downloadable'}</span>
+          </div>
+          
+          <div style="display: flex; gap: 8px;">
+            ${canPreview ? `<button onclick="previewMainPageFile('${file.id}', '${unitKey}', '${lessonKey}')" style="flex: 1; padding: 6px 12px; background: #6c4fc1; color: white; border: none; border-radius: 4px; font-size: 12px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 4px; transition: background 0.2s;">
+              <span class="material-icons" style="font-size: 14px;">visibility</span>
+              Preview
+            </button>` : ''}
+            
+            ${canDownload ? `<button onclick="downloadMainPageFile('${file.url}', '${file.name}')" style="flex: 1; padding: 6px 12px; background: #28a745; color: white; border: none; border-radius: 4px; font-size: 12px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 4px; transition: background 0.2s;">
+              <span class="material-icons" style="font-size: 14px;">download</span>
+              Download
+            </button>` : `<button disabled style="flex: 1; padding: 6px 12px; background: #6c757d; color: white; border: none; border-radius: 4px; font-size: 12px; cursor: not-allowed; display: flex; align-items: center; justify-content: center; gap: 4px;">
+              <span class="material-icons" style="font-size: 14px;">block</span>
+              No Download
+            </button>`}
+          </div>
+        </div>
+      `;
+    });
+    
+    html += '</div>';
+    filesList.innerHTML = html;
+  }
+  
+  // Start the file loading process
+  db.ref(dbPath).once('value').then(handleMainPageFilesSnapshot).catch(error => {
+    console.error('Error loading files:', error);
+    filesList.innerHTML = `
+      <div style="text-align: center; padding: 40px; color: #dc3545;">
+        <span class="material-icons" style="font-size: 48px; margin-bottom: 16px;">error</span>
+        <div>Error loading files</div>
+      </div>
+    `;
+  });
+}
+
 function getMainPageFileIcon(extension) {
   const iconMap = {
     'pdf': 'picture_as_pdf',
