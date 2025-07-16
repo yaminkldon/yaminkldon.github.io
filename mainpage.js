@@ -86,7 +86,7 @@ function loadUnits() {
                   ${progress.percentage > 0 ? `(${progress.percentage}%)` : ''}
                 </div>
               </div>
-              <button class="unit-files-btn" onclick="event.stopPropagation(); openStudentFileViewer('${unitName}', null)">
+              <button class="unit-files-btn" onclick="event.stopPropagation(); openStudentFileViewer('${unitName}', null)" style="margin: 0%; width: 50%;">
                 <span class="material-icons">folder</span>
                 Files
               </button>
@@ -129,7 +129,7 @@ function loadUnitsWithoutProgress() {
           <div class="unit-info">
             <div class="unit-name">${unitName}</div>
           </div>
-          <button class="unit-files-btn" onclick="event.stopPropagation(); openStudentFileViewer('${unitName}', null)">
+          <button class="unit-files-btn" onclick="event.stopPropagation(); openStudentFileViewer('${unitName}', null)" style="margin: 0%; width: 50%;">
             <span class="material-icons">folder</span>
             Files
           </button>
