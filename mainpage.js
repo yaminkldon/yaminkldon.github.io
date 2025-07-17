@@ -15,13 +15,14 @@ const iOSCompatibility = {
   isSafari: /Safari/.test(navigator.userAgent) && !/Chrome/.test(navigator.userAgent),
   
   init: function() {
-    console.log('iOS Compatibility System initializing...');
+    console.log('🍎 iOS Compatibility System initializing...');
     console.log('Device detection:', {
       isIOS: this.isIOS,
       isSafari: this.isSafari,
       userAgent: navigator.userAgent,
       screenSize: `${screen.width}x${screen.height}`,
-      devicePixelRatio: window.devicePixelRatio
+      devicePixelRatio: window.devicePixelRatio,
+      networkStatus: navigator.onLine ? 'online' : 'offline'
     });
     
     if (this.isIOS) {
@@ -29,7 +30,16 @@ const iOSCompatibility = {
     }
     
     this.setupErrorHandling();
-    this.testFirebaseConnection();
+    
+    // Delay Firebase connection test for iOS to ensure proper initialization
+    if (this.isIOS) {
+      console.log('iOS: Delaying Firebase connection test for proper initialization...');
+      setTimeout(() => {
+        this.testFirebaseConnection();
+      }, 3000);
+    } else {
+      this.testFirebaseConnection();
+    }
   },
   
   applyIOSFixes: function() {
@@ -337,40 +347,99 @@ const iOSCompatibility = {
   },
   
   testFirebaseConnection: function() {
+    console.log('🔥 Testing Firebase connection...');
+    
+    // Wait for Firebase to be fully loaded
     if (typeof firebase === 'undefined') {
-      this.showIOSError('Firebase library failed to load. Please check your internet connection.', {
-        error: 'Firebase library not loaded',
-        type: 'library_missing',
-        location: 'testFirebaseConnection'
-      });
+      console.log('Firebase not yet loaded, retrying in 1 second...');
+      setTimeout(() => this.testFirebaseConnection(), 1000);
+      return;
+    }
+    
+    // Check if database is available
+    if (!firebase.database) {
+      console.log('Firebase database not yet available, retrying in 1 second...');
+      setTimeout(() => this.testFirebaseConnection(), 1000);
       return;
     }
     
     try {
+      console.log('Attempting to connect to Firebase...');
       const testRef = firebase.database().ref('.info/connected');
+      
+      // Set up connection monitoring with timeout
+      const connectionTimeout = setTimeout(() => {
+        console.log('🚨 Connection test timed out');
+        if (this.isIOS) {
+          this.showIOSError('Connection test timed out. Please check your internet connection and try refreshing the page.', {
+            error: 'Connection timeout',
+            type: 'connection_timeout',
+            location: 'testFirebaseConnection_timeout',
+            timestamp: new Date().toISOString()
+          });
+        }
+      }, 10000); // 10 second timeout
+      
       testRef.on('value', (snapshot) => {
+        clearTimeout(connectionTimeout);
         const connected = snapshot.val();
-        console.log('Firebase connection status:', connected);
+        console.log('🔥 Firebase connection status:', connected);
         
-        if (!connected && this.isIOS) {
-          this.showIOSError('Unable to connect to server. Please check your internet connection and try again.', {
-            error: 'Firebase connection failed',
-            type: 'connection_failed',
-            connected: connected,
-            location: 'testFirebaseConnection',
+        if (connected) {
+          console.log('✅ Firebase connection successful');
+          // Remove any existing connection error messages
+          const existingError = document.querySelector('[data-error-type="connection_failed"]');
+          if (existingError) {
+            existingError.remove();
+          }
+        } else {
+          console.log('❌ Firebase connection failed');
+          if (this.isIOS) {
+            // More specific error message for iOS
+            this.showIOSError('Unable to establish connection to server. This might be due to:\n\n• Network connectivity issues\n• iOS Safari restrictions\n• Firewall or content blocker\n\nPlease try:\n• Switching to cellular data or different WiFi\n• Refreshing the page\n• Disabling content blockers', {
+              error: 'Firebase connection failed',
+              type: 'connection_failed',
+              connected: connected,
+              location: 'testFirebaseConnection',
+              timestamp: new Date().toISOString(),
+              networkInfo: {
+                onLine: navigator.onLine,
+                connectionType: navigator.connection ? navigator.connection.effectiveType : 'unknown',
+                downlink: navigator.connection ? navigator.connection.downlink : 'unknown'
+              }
+            });
+          }
+        }
+      });
+      
+      // Test basic database read to ensure permissions are working
+      testRef.once('value').then((snapshot) => {
+        console.log('Database read test successful');
+      }).catch((error) => {
+        console.error('Database read test failed:', error);
+        if (this.isIOS) {
+          this.showIOSError('Database access failed. Please check your permissions and try again.', {
+            error: error.message,
+            type: 'database_access_failed',
+            code: error.code,
+            location: 'testFirebaseConnection_read_test',
             timestamp: new Date().toISOString()
           });
         }
       });
+      
     } catch (error) {
-      console.error('Firebase test failed:', error);
-      this.showIOSError('Server connection failed: ' + error.message, {
-        error: error.message,
-        type: 'firebase_test_error',
-        stack: error.stack,
-        name: error.name,
-        location: 'testFirebaseConnection'
-      });
+      console.error('Firebase connection test error:', error);
+      if (this.isIOS) {
+        this.showIOSError('Failed to initialize server connection: ' + error.message, {
+          error: error.message,
+          type: 'firebase_init_error',
+          stack: error.stack,
+          name: error.name,
+          location: 'testFirebaseConnection_catch',
+          timestamp: new Date().toISOString()
+        });
+      }
     }
   },
   
@@ -391,12 +460,19 @@ const iOSCompatibility = {
     };
     
     // Log to console for debugging
-    console.error('iOS Error Details:', errorData);
+    console.error('🚨 iOS Error Details:', errorData);
     
     // Create shareable error text
     const shareableError = this.createShareableError(errorData);
     
+    // Remove existing error with same type
+    const existingError = document.querySelector(`[data-error-type="${errorDetails?.type}"]`);
+    if (existingError) {
+      existingError.remove();
+    }
+    
     const errorDiv = document.createElement('div');
+    errorDiv.setAttribute('data-error-type', errorDetails?.type || 'unknown');
     errorDiv.style.cssText = `
       position: fixed;
       top: 20px;
@@ -404,60 +480,89 @@ const iOSCompatibility = {
       right: 20px;
       background: #ff4444;
       color: white;
-      padding: 15px;
-      border-radius: 8px;
+      padding: 16px;
+      border-radius: 12px;
       z-index: 99999;
       font-size: 14px;
       line-height: 1.4;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+      box-shadow: 0 6px 20px rgba(0,0,0,0.3);
       max-height: 80vh;
       overflow-y: auto;
+      animation: slideInDown 0.3s ease-out;
     `;
     
+    // Add CSS animation
+    const style = document.createElement('style');
+    style.textContent = `
+      @keyframes slideInDown {
+        from { transform: translateY(-100%); opacity: 0; }
+        to { transform: translateY(0); opacity: 1; }
+      }
+    `;
+    document.head.appendChild(style);
+    
     errorDiv.innerHTML = `
-      <div style="margin-bottom: 10px;">
-        <strong>iOS Error:</strong><br>
+      <div style="display: flex; align-items: center; margin-bottom: 12px;">
+        <span style="font-size: 20px; margin-right: 8px;">🚨</span>
+        <strong>iOS Connection Error</strong>
+      </div>
+      
+      <div style="margin-bottom: 12px;">
         ${message}
       </div>
       
       ${errorDetails ? `
-        <div style="margin-bottom: 10px; padding: 8px; background: rgba(255,255,255,0.1); border-radius: 4px; font-size: 12px; font-family: monospace;">
-          <strong>Error Details:</strong><br>
-          ${this.formatErrorDetails(errorDetails)}
-        </div>
+        <details style="margin-bottom: 12px;">
+          <summary style="cursor: pointer; font-weight: bold; margin-bottom: 8px;">Technical Details</summary>
+          <div style="padding: 10px; background: rgba(255,255,255,0.1); border-radius: 6px; font-size: 12px; font-family: monospace; white-space: pre-wrap;">
+${this.formatErrorDetails(errorDetails)}
+          </div>
+        </details>
       ` : ''}
       
-      <div style="margin-bottom: 10px; padding: 8px; background: rgba(255,255,255,0.1); border-radius: 4px; font-size: 12px;">
+      <div style="margin-bottom: 12px; padding: 10px; background: rgba(255,255,255,0.1); border-radius: 6px; font-size: 12px;">
         <strong>Device Info:</strong><br>
         ${deviceInfo.device} • ${deviceInfo.browser}<br>
-        Screen: ${deviceInfo.screenSize} • Ratio: ${deviceInfo.pixelRatio}<br>
-        Connection: ${navigator.onLine ? 'Online' : 'Offline'} • Time: ${new Date().toLocaleTimeString()}
+        Screen: ${deviceInfo.screenSize} • Network: ${navigator.onLine ? 'Online' : 'Offline'}<br>
+        Time: ${new Date().toLocaleString()}
       </div>
       
-      <div style="display: flex; gap: 8px; margin-top: 12px;">
-        <button onclick="iOSCompatibility.shareError('${encodeURIComponent(shareableError)}')" 
-                style="flex: 1; padding: 8px 12px; background: #25d366; color: white; border: none; border-radius: 4px; font-size: 12px; cursor: pointer;">
-          📱 Share via WhatsApp
+      <div style="display: flex; gap: 8px; margin-bottom: 12px;">
+        <button onclick="location.reload()" 
+                style="flex: 1; padding: 10px; background: #28a745; color: white; border: none; border-radius: 6px; font-size: 13px; cursor: pointer; font-weight: bold;">
+          🔄 Retry
         </button>
+        <button onclick="iOSCompatibility.shareError('${encodeURIComponent(shareableError)}')" 
+                style="flex: 1; padding: 10px; background: #25d366; color: white; border: none; border-radius: 6px; font-size: 13px; cursor: pointer; font-weight: bold;">
+          📱 Share Error
+        </button>
+      </div>
+      
+      <div style="display: flex; gap: 8px;">
         <button onclick="iOSCompatibility.copyError('${encodeURIComponent(shareableError)}')" 
-                style="flex: 1; padding: 8px 12px; background: #007bff; color: white; border: none; border-radius: 4px; font-size: 12px; cursor: pointer;">
-          📋 Copy Error
+                style="flex: 1; padding: 8px; background: #007bff; color: white; border: none; border-radius: 6px; font-size: 12px; cursor: pointer;">
+          📋 Copy
         </button>
         <button onclick="this.parentElement.parentElement.remove()" 
-                style="padding: 8px 12px; background: rgba(255,255,255,0.2); color: white; border: none; border-radius: 4px; font-size: 12px; cursor: pointer;">
-          ✕
+                style="padding: 8px 12px; background: rgba(255,255,255,0.2); color: white; border: none; border-radius: 6px; font-size: 12px; cursor: pointer;">
+          ✕ Dismiss
         </button>
       </div>
     `;
     
     document.body.appendChild(errorDiv);
     
-    // Auto-remove after 30 seconds (longer for detailed errors)
+    // Auto-remove after 45 seconds (longer for connection errors)
     setTimeout(() => {
       if (errorDiv.parentNode) {
-        errorDiv.parentNode.removeChild(errorDiv);
+        errorDiv.style.animation = 'slideInDown 0.3s ease-out reverse';
+        setTimeout(() => {
+          if (errorDiv.parentNode) {
+            errorDiv.parentNode.removeChild(errorDiv);
+          }
+        }, 300);
       }
-    }, 30000);
+    }, 45000);
   },
   
   getDeviceInfo: function() {
@@ -1516,38 +1621,57 @@ window.openProgress = function() {
 };
 
 firebase.auth().onAuthStateChanged(function(user) {
-  console.log('Auth state changed:', user ? 'User logged in' : 'User not logged in');
+  console.log('🔐 Auth state changed:', user ? 'User logged in' : 'User not logged in');
   
   if (!user) {
-    console.log('No user, redirecting to login');
+    console.log('No user authenticated, redirecting to login');
     
     // iOS-specific delay for smoother transition
     if (iOSCompatibility.isIOS) {
       setTimeout(() => {
+        console.log('iOS: Redirecting to login page');
         window.location.href = "index.html";
-      }, 200);
+      }, 500);
     } else {
       window.location.href = "index.html";
     }
     return;
   }
   
-  console.log('User authenticated:', user.email);
+  console.log('✅ User authenticated:', user.email);
   
-  // iOS-specific user verification
+  // iOS-specific user verification with enhanced error handling
   if (iOSCompatibility.isIOS) {
-    console.log('iOS device detected, verifying user token...');
+    console.log('iOS device detected, performing enhanced user verification...');
     
+    // First, verify the user token
     user.getIdToken(true).then(function(idToken) {
       console.log('iOS: User token verified successfully');
-      initializeApp();
+      
+      // Test database connectivity before proceeding
+      console.log('iOS: Testing database connectivity...');
+      db.ref('users').limitToFirst(1).once('value').then(() => {
+        console.log('iOS: Database connectivity confirmed');
+        initializeApp();
+      }).catch(function(dbError) {
+        console.error('iOS: Database connectivity test failed:', dbError);
+        iOSCompatibility.showIOSError('Unable to access database. Please check your internet connection and try again.', {
+          error: dbError.message,
+          type: 'database_connectivity_error',
+          code: dbError.code,
+          location: 'iOS_database_test',
+          timestamp: new Date().toISOString()
+        });
+      });
+      
     }).catch(function(error) {
       console.error('iOS: User token verification failed:', error);
       iOSCompatibility.showIOSError('Authentication verification failed. Please try logging out and back in.', {
         error: error.message,
         type: 'auth_token_verification_error',
         code: error.code,
-        location: 'iOS_token_verification'
+        location: 'iOS_token_verification',
+        timestamp: new Date().toISOString()
       });
     });
   } else {
