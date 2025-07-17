@@ -215,7 +215,13 @@ const iOSCompatibility = {
         })
         .catch((error) => {
           console.error('Failed to set Firebase Auth persistence:', error);
-          this.showIOSError('Authentication setup failed. Please try refreshing the page.');
+          this.showIOSError('Authentication setup failed. Please try refreshing the page.', {
+            error: error.message,
+            type: 'auth_persistence_error',
+            code: error.code,
+            stack: error.stack,
+            location: 'fixFirebaseForIOS'
+          });
         });
     }
   },
@@ -272,25 +278,71 @@ const iOSCompatibility = {
   },
   
   setupErrorHandling: function() {
-    // Enhanced error handling for iOS
+    // Enhanced error handling for iOS with detailed error information
     window.addEventListener('error', (e) => {
-      console.error('iOS Error:', e.error);
+      console.error('iOS Global Error:', e);
       if (this.isIOS) {
-        this.showIOSError('App Error: ' + e.message);
+        this.showIOSError('App Error: ' + e.message, {
+          error: e.message,
+          type: 'javascript_error',
+          filename: e.filename,
+          lineno: e.lineno,
+          colno: e.colno,
+          stack: e.error ? e.error.stack : null,
+          location: 'window.error'
+        });
       }
     });
     
     window.addEventListener('unhandledrejection', (e) => {
-      console.error('iOS Promise Rejection:', e.reason);
+      console.error('iOS Promise Rejection:', e);
       if (this.isIOS) {
-        this.showIOSError('Connection Error: ' + e.reason);
+        const reason = e.reason;
+        this.showIOSError('Connection Error: ' + (reason.message || reason), {
+          error: reason.message || String(reason),
+          type: 'promise_rejection',
+          stack: reason.stack,
+          name: reason.name,
+          location: 'unhandledrejection'
+        });
       }
     });
+    
+    // Network error handling
+    window.addEventListener('offline', () => {
+      if (this.isIOS) {
+        this.showIOSError('Network connection lost. Please check your internet connection.', {
+          error: 'Network offline',
+          type: 'network_offline',
+          location: 'offline_event'
+        });
+      }
+    });
+    
+    // Firebase Auth error handling
+    if (typeof firebase !== 'undefined' && firebase.auth) {
+      firebase.auth().onAuthStateChanged((user) => {
+        if (!user && this.isIOS) {
+          // Only show auth error if we're not already on login page
+          if (!window.location.href.includes('index.html')) {
+            this.showIOSError('Authentication session expired. Redirecting to login.', {
+              error: 'Auth session expired',
+              type: 'auth_expired',
+              location: 'onAuthStateChanged'
+            });
+          }
+        }
+      });
+    }
   },
   
   testFirebaseConnection: function() {
     if (typeof firebase === 'undefined') {
-      this.showIOSError('Firebase library failed to load. Please check your internet connection.');
+      this.showIOSError('Firebase library failed to load. Please check your internet connection.', {
+        error: 'Firebase library not loaded',
+        type: 'library_missing',
+        location: 'testFirebaseConnection'
+      });
       return;
     }
     
@@ -301,16 +353,49 @@ const iOSCompatibility = {
         console.log('Firebase connection status:', connected);
         
         if (!connected && this.isIOS) {
-          this.showIOSError('Unable to connect to server. Please check your internet connection and try again.');
+          this.showIOSError('Unable to connect to server. Please check your internet connection and try again.', {
+            error: 'Firebase connection failed',
+            type: 'connection_failed',
+            connected: connected,
+            location: 'testFirebaseConnection',
+            timestamp: new Date().toISOString()
+          });
         }
       });
     } catch (error) {
       console.error('Firebase test failed:', error);
-      this.showIOSError('Server connection failed: ' + error.message);
+      this.showIOSError('Server connection failed: ' + error.message, {
+        error: error.message,
+        type: 'firebase_test_error',
+        stack: error.stack,
+        name: error.name,
+        location: 'testFirebaseConnection'
+      });
     }
   },
   
-  showIOSError: function(message) {
+  showIOSError: function(message, errorDetails = null) {
+    const timestamp = new Date().toISOString();
+    const deviceInfo = this.getDeviceInfo();
+    
+    // Create detailed error object
+    const errorData = {
+      timestamp: timestamp,
+      message: message,
+      errorDetails: errorDetails,
+      deviceInfo: deviceInfo,
+      url: window.location.href,
+      userAgent: navigator.userAgent,
+      connectionType: navigator.connection ? navigator.connection.effectiveType : 'unknown',
+      onlineStatus: navigator.onLine
+    };
+    
+    // Log to console for debugging
+    console.error('iOS Error Details:', errorData);
+    
+    // Create shareable error text
+    const shareableError = this.createShareableError(errorData);
+    
     const errorDiv = document.createElement('div');
     errorDiv.style.cssText = `
       position: fixed;
@@ -325,27 +410,196 @@ const iOSCompatibility = {
       font-size: 14px;
       line-height: 1.4;
       box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-    `;
-    errorDiv.innerHTML = `
-      <strong>iOS Notice:</strong><br>
-      ${message}<br>
-      <small>Tap to dismiss</small>
+      max-height: 80vh;
+      overflow-y: auto;
     `;
     
-    errorDiv.onclick = () => {
-      if (errorDiv.parentNode) {
-        errorDiv.parentNode.removeChild(errorDiv);
-      }
-    };
+    errorDiv.innerHTML = `
+      <div style="margin-bottom: 10px;">
+        <strong>iOS Error:</strong><br>
+        ${message}
+      </div>
+      
+      ${errorDetails ? `
+        <div style="margin-bottom: 10px; padding: 8px; background: rgba(255,255,255,0.1); border-radius: 4px; font-size: 12px; font-family: monospace;">
+          <strong>Error Details:</strong><br>
+          ${this.formatErrorDetails(errorDetails)}
+        </div>
+      ` : ''}
+      
+      <div style="margin-bottom: 10px; padding: 8px; background: rgba(255,255,255,0.1); border-radius: 4px; font-size: 12px;">
+        <strong>Device Info:</strong><br>
+        ${deviceInfo.device} • ${deviceInfo.browser}<br>
+        Screen: ${deviceInfo.screenSize} • Ratio: ${deviceInfo.pixelRatio}<br>
+        Connection: ${navigator.onLine ? 'Online' : 'Offline'} • Time: ${new Date().toLocaleTimeString()}
+      </div>
+      
+      <div style="display: flex; gap: 8px; margin-top: 12px;">
+        <button onclick="iOSCompatibility.shareError('${encodeURIComponent(shareableError)}')" 
+                style="flex: 1; padding: 8px 12px; background: #25d366; color: white; border: none; border-radius: 4px; font-size: 12px; cursor: pointer;">
+          📱 Share via WhatsApp
+        </button>
+        <button onclick="iOSCompatibility.copyError('${encodeURIComponent(shareableError)}')" 
+                style="flex: 1; padding: 8px 12px; background: #007bff; color: white; border: none; border-radius: 4px; font-size: 12px; cursor: pointer;">
+          📋 Copy Error
+        </button>
+        <button onclick="this.parentElement.parentElement.remove()" 
+                style="padding: 8px 12px; background: rgba(255,255,255,0.2); color: white; border: none; border-radius: 4px; font-size: 12px; cursor: pointer;">
+          ✕
+        </button>
+      </div>
+    `;
     
     document.body.appendChild(errorDiv);
     
-    // Auto-remove after 8 seconds
+    // Auto-remove after 30 seconds (longer for detailed errors)
     setTimeout(() => {
       if (errorDiv.parentNode) {
         errorDiv.parentNode.removeChild(errorDiv);
       }
-    }, 8000);
+    }, 30000);
+  },
+  
+  getDeviceInfo: function() {
+    return {
+      device: this.getDeviceType(),
+      browser: this.getBrowserInfo(),
+      screenSize: `${screen.width}x${screen.height}`,
+      pixelRatio: window.devicePixelRatio || 1,
+      viewport: `${window.innerWidth}x${window.innerHeight}`
+    };
+  },
+  
+  getDeviceType: function() {
+    const ua = navigator.userAgent;
+    if (/iPad/.test(ua)) return 'iPad';
+    if (/iPhone/.test(ua)) return 'iPhone';
+    if (/iPod/.test(ua)) return 'iPod';
+    return 'Unknown iOS Device';
+  },
+  
+  getBrowserInfo: function() {
+    const ua = navigator.userAgent;
+    if (/CriOS/.test(ua)) return 'Chrome iOS';
+    if (/FxiOS/.test(ua)) return 'Firefox iOS';
+    if (/EdgiOS/.test(ua)) return 'Edge iOS';
+    if (/Safari/.test(ua) && !/Chrome/.test(ua)) return 'Safari';
+    return 'Unknown Browser';
+  },
+  
+  formatErrorDetails: function(error) {
+    if (typeof error === 'string') return error;
+    if (error instanceof Error) {
+      return `${error.name}: ${error.message}${error.stack ? '\n' + error.stack.substring(0, 200) + '...' : ''}`;
+    }
+    if (typeof error === 'object') {
+      return JSON.stringify(error, null, 2).substring(0, 300) + '...';
+    }
+    return String(error);
+  },
+  
+  createShareableError: function(errorData) {
+    const text = `🚨 iOS App Error Report 🚨
+
+📱 Device: ${errorData.deviceInfo.device}
+🌐 Browser: ${errorData.deviceInfo.browser}
+📏 Screen: ${errorData.deviceInfo.screenSize}
+🔗 Connection: ${errorData.onlineStatus ? 'Online' : 'Offline'} (${errorData.connectionType})
+🕒 Time: ${new Date(errorData.timestamp).toLocaleString()}
+
+❌ Error Message:
+${errorData.message}
+
+${errorData.errorDetails ? `🔍 Technical Details:
+${this.formatErrorDetails(errorData.errorDetails)}
+
+` : ''}📄 Page: ${errorData.url}
+
+🔧 User Agent:
+${errorData.userAgent}
+
+---
+This error was automatically generated by the iOS compatibility system.`;
+    
+    return text;
+  },
+  
+  shareError: function(encodedError) {
+    const errorText = decodeURIComponent(encodedError);
+    const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(errorText)}`;
+    
+    // Try to open WhatsApp
+    window.open(whatsappUrl, '_blank');
+  },
+  
+  copyError: function(encodedError) {
+    const errorText = decodeURIComponent(encodedError);
+    
+    // Try to copy to clipboard
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(errorText).then(() => {
+        this.showCopySuccess();
+      }).catch(() => {
+        this.fallbackCopy(errorText);
+      });
+    } else {
+      this.fallbackCopy(errorText);
+    }
+  },
+  
+  fallbackCopy: function(text) {
+    // Fallback copy method for older browsers
+    const textArea = document.createElement('textarea');
+    textArea.value = text;
+    textArea.style.position = 'fixed';
+    textArea.style.top = '0';
+    textArea.style.left = '0';
+    textArea.style.width = '2em';
+    textArea.style.height = '2em';
+    textArea.style.padding = '0';
+    textArea.style.border = 'none';
+    textArea.style.outline = 'none';
+    textArea.style.boxShadow = 'none';
+    textArea.style.background = 'transparent';
+    document.body.appendChild(textArea);
+    textArea.focus();
+    textArea.select();
+    
+    try {
+      document.execCommand('copy');
+      this.showCopySuccess();
+    } catch (err) {
+      console.error('Copy failed:', err);
+      alert('Copy failed. Please manually copy the error text.');
+    }
+    
+    document.body.removeChild(textArea);
+  },
+  
+  showCopySuccess: function() {
+    const successDiv = document.createElement('div');
+    successDiv.style.cssText = `
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: #28a745;
+      color: white;
+      padding: 12px 20px;
+      border-radius: 8px;
+      z-index: 99999;
+      font-size: 14px;
+      font-weight: bold;
+    `;
+    successDiv.textContent = '✅ Error copied to clipboard!';
+    
+    document.body.appendChild(successDiv);
+    
+    setTimeout(() => {
+      if (successDiv.parentNode) {
+        successDiv.parentNode.removeChild(successDiv);
+      }
+    }, 2000);
   },
   
   // Fix units loading for iOS
@@ -622,7 +876,13 @@ function loadUnits() {
       
       // iOS-specific error handling
       if (iOSCompatibility.isIOS) {
-        iOSCompatibility.showIOSError('Unable to load units. Please check your internet connection and try again.');
+        iOSCompatibility.showIOSError('Unable to load units. Please check your internet connection and try again.', {
+          error: error.message,
+          type: 'units_loading_error',
+          code: error.code,
+          stack: error.stack,
+          location: 'loadUnits_cache_validation'
+        });
       }
       
       // If validation fails, use cached data anyway
@@ -1025,7 +1285,12 @@ window.playLessonVideo = function(videoURL) {
           }, 1000);
         }).catch(e => {
           console.log('iOS play failed:', e);
-          iOSCompatibility.showIOSError('Unable to play video. Please try again.');
+          iOSCompatibility.showIOSError('Unable to play video. Please try again.', {
+            error: e.message,
+            type: 'video_play_error',
+            name: e.name,
+            location: 'iOS_video_play_button'
+          });
         });
       };
       
@@ -1065,7 +1330,13 @@ window.playLessonVideo = function(videoURL) {
     console.error('Video error:', error);
     
     if (iOSCompatibility.isIOS) {
-      iOSCompatibility.showIOSError('Video playback error. Please try refreshing the page.');
+      iOSCompatibility.showIOSError('Video playback error. Please try refreshing the page.', {
+        error: error.message,
+        type: 'videojs_playback_error',
+        code: error.code,
+        metadata: error.metadata,
+        location: 'vjsPlayer_error'
+      });
     }
   });
 
@@ -1272,7 +1543,12 @@ firebase.auth().onAuthStateChanged(function(user) {
       initializeApp();
     }).catch(function(error) {
       console.error('iOS: User token verification failed:', error);
-      iOSCompatibility.showIOSError('Authentication verification failed. Please try logging out and back in.');
+      iOSCompatibility.showIOSError('Authentication verification failed. Please try logging out and back in.', {
+        error: error.message,
+        type: 'auth_token_verification_error',
+        code: error.code,
+        location: 'iOS_token_verification'
+      });
     });
   } else {
     initializeApp();
