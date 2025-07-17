@@ -8,6 +8,385 @@ const firebaseConfig = {
   appId: "1:852022576722:web:8546d7cd4d3f6b0f8fc18b",
   measurementId: "G-HDLMYVXH5T"
 };
+
+// iOS Compatibility and Debugging System
+const iOSCompatibility = {
+  isIOS: /iPad|iPhone|iPod/.test(navigator.userAgent),
+  isSafari: /Safari/.test(navigator.userAgent) && !/Chrome/.test(navigator.userAgent),
+  
+  init: function() {
+    console.log('iOS Compatibility System initializing...');
+    console.log('Device detection:', {
+      isIOS: this.isIOS,
+      isSafari: this.isSafari,
+      userAgent: navigator.userAgent,
+      screenSize: `${screen.width}x${screen.height}`,
+      devicePixelRatio: window.devicePixelRatio
+    });
+    
+    if (this.isIOS) {
+      this.applyIOSFixes();
+    }
+    
+    this.setupErrorHandling();
+    this.testFirebaseConnection();
+  },
+  
+  applyIOSFixes: function() {
+    console.log('Applying iOS-specific fixes...');
+    
+    // Fix viewport for iOS
+    this.fixViewport();
+    
+    // Fix CSS for iOS
+    this.addIOSStyles();
+    
+    // Fix touch events for iOS
+    this.fixTouchEvents();
+    
+    // Fix Firebase for iOS
+    this.fixFirebaseForIOS();
+    
+    // Fix video playback for iOS
+    this.fixVideoPlayback();
+    
+    // Fix modal and fullscreen for iOS
+    this.fixModalsForIOS();
+    
+    console.log('iOS fixes applied successfully');
+  },
+  
+  fixViewport: function() {
+    let viewport = document.querySelector('meta[name="viewport"]');
+    if (!viewport) {
+      viewport = document.createElement('meta');
+      viewport.name = 'viewport';
+      document.head.appendChild(viewport);
+    }
+    viewport.content = 'width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes, viewport-fit=cover';
+    
+    // Add iOS-specific viewport meta tags
+    const statusBarMeta = document.createElement('meta');
+    statusBarMeta.name = 'apple-mobile-web-app-status-bar-style';
+    statusBarMeta.content = 'default';
+    document.head.appendChild(statusBarMeta);
+    
+    const webAppMeta = document.createElement('meta');
+    webAppMeta.name = 'apple-mobile-web-app-capable';
+    webAppMeta.content = 'yes';
+    document.head.appendChild(webAppMeta);
+  },
+  
+  addIOSStyles: function() {
+    const iosStyles = document.createElement('style');
+    iosStyles.id = 'ios-compatibility-styles';
+    iosStyles.textContent = `
+      /* iOS Safari fixes */
+      * {
+        -webkit-tap-highlight-color: transparent;
+        -webkit-touch-callout: none;
+      }
+      
+      body {
+        -webkit-overflow-scrolling: touch;
+        -webkit-transform: translate3d(0, 0, 0);
+        -webkit-backface-visibility: hidden;
+        -webkit-perspective: 1000;
+        overflow-x: hidden;
+      }
+      
+      .main-content {
+        -webkit-overflow-scrolling: touch;
+        -webkit-transform: translate3d(0, 0, 0);
+        transform: translate3d(0, 0, 0);
+      }
+      
+      /* Fix iOS keyboard issues */
+      input, textarea, select {
+        -webkit-user-select: text;
+        user-select: text;
+        -webkit-appearance: none;
+        border-radius: 0;
+        font-size: 16px; /* Prevents zoom on iOS */
+      }
+      
+      /* Fix iOS button styles */
+      button {
+        -webkit-appearance: none;
+        border-radius: 0;
+        cursor: pointer;
+      }
+      
+      /* Fix iOS modal and fullscreen */
+      .modal {
+        -webkit-overflow-scrolling: touch;
+        -webkit-transform: translate3d(0, 0, 0);
+      }
+      
+      /* Fix iOS video playback */
+      video {
+        -webkit-playsinline: true;
+        playsinline: true;
+        -webkit-transform: translate3d(0, 0, 0);
+      }
+      
+      /* Fix iOS iframe issues */
+      iframe {
+        -webkit-transform: translate3d(0, 0, 0);
+        transform: translate3d(0, 0, 0);
+        -webkit-backface-visibility: hidden;
+      }
+      
+      /* Fix iOS touch zoom */
+      .touch-zoom-container {
+        -webkit-user-select: none;
+        user-select: none;
+        -webkit-touch-callout: none;
+        -webkit-tap-highlight-color: transparent;
+      }
+      
+      /* Fix iOS safe area */
+      @supports(padding: max(0px)) {
+        .appbar {
+          padding-top: max(12px, env(safe-area-inset-top));
+        }
+        
+        .main-content {
+          padding-bottom: max(20px, env(safe-area-inset-bottom));
+        }
+      }
+      
+      /* Fix iOS drawer */
+      .drawer {
+        -webkit-overflow-scrolling: touch;
+        -webkit-transform: translate3d(0, 0, 0);
+      }
+      
+      /* Fix iOS lesson grid */
+      .lesson-grid {
+        -webkit-overflow-scrolling: touch;
+        -webkit-transform: translate3d(0, 0, 0);
+      }
+      
+      /* Prevent iOS bounce effect where needed */
+      .no-bounce {
+        -webkit-overflow-scrolling: auto;
+        overscroll-behavior: none;
+      }
+      
+      /* iOS loading animation */
+      @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+      }
+      
+      @-webkit-keyframes spin {
+        0% { -webkit-transform: rotate(0deg); }
+        100% { -webkit-transform: rotate(360deg); }
+      }
+    `;
+    document.head.appendChild(iosStyles);
+  },
+  
+  fixTouchEvents: function() {
+    // Fix touch events for iOS
+    document.addEventListener('touchstart', function(e) {
+      // Prevent default only for multi-touch
+      if (e.touches.length > 1) {
+        e.preventDefault();
+      }
+    }, { passive: false });
+    
+    // Fix iOS touch delay
+    document.addEventListener('touchend', function(e) {
+      const target = e.target;
+      if (target.tagName === 'BUTTON' || target.onclick) {
+        target.click();
+      }
+    }, { passive: true });
+  },
+  
+  fixFirebaseForIOS: function() {
+    // Set Firebase Auth persistence for iOS
+    if (typeof firebase !== 'undefined' && firebase.auth) {
+      firebase.auth().setPersistence(firebase.auth.Auth.Persistence.LOCAL)
+        .then(() => {
+          console.log('Firebase Auth persistence set for iOS');
+        })
+        .catch((error) => {
+          console.error('Failed to set Firebase Auth persistence:', error);
+          this.showIOSError('Authentication setup failed. Please try refreshing the page.');
+        });
+    }
+  },
+  
+  fixVideoPlayback: function() {
+    // Override video playback for iOS
+    const originalPlayVideo = window.playLessonVideo;
+    window.playLessonVideo = function(videoURL) {
+      if (iOSCompatibility.isIOS) {
+        console.log('iOS video playback initiated');
+        
+        // Add iOS-specific video attributes
+        const originalFunction = originalPlayVideo;
+        originalFunction.call(this, videoURL);
+        
+        // Additional iOS video fixes
+        setTimeout(() => {
+          const video = document.getElementById('fullscreen-video');
+          if (video) {
+            video.setAttribute('playsinline', 'true');
+            video.setAttribute('webkit-playsinline', 'true');
+            video.style.webkitTransform = 'translate3d(0, 0, 0)';
+            
+            // Force play on iOS
+            video.play().catch(e => {
+              console.log('iOS video autoplay blocked:', e);
+            });
+          }
+        }, 500);
+      } else {
+        originalPlayVideo.call(this, videoURL);
+      }
+    };
+  },
+  
+  fixModalsForIOS: function() {
+    // Fix modal display for iOS
+    const style = document.createElement('style');
+    style.textContent = `
+      @media screen and (max-width: 768px) {
+        .modal {
+          position: fixed !important;
+          top: 0 !important;
+          left: 0 !important;
+          width: 100% !important;
+          height: 100% !important;
+          padding: 0 !important;
+          -webkit-transform: translate3d(0, 0, 0);
+          transform: translate3d(0, 0, 0);
+        }
+      }
+    `;
+    document.head.appendChild(style);
+  },
+  
+  setupErrorHandling: function() {
+    // Enhanced error handling for iOS
+    window.addEventListener('error', (e) => {
+      console.error('iOS Error:', e.error);
+      if (this.isIOS) {
+        this.showIOSError('App Error: ' + e.message);
+      }
+    });
+    
+    window.addEventListener('unhandledrejection', (e) => {
+      console.error('iOS Promise Rejection:', e.reason);
+      if (this.isIOS) {
+        this.showIOSError('Connection Error: ' + e.reason);
+      }
+    });
+  },
+  
+  testFirebaseConnection: function() {
+    if (typeof firebase === 'undefined') {
+      this.showIOSError('Firebase library failed to load. Please check your internet connection.');
+      return;
+    }
+    
+    try {
+      const testRef = firebase.database().ref('.info/connected');
+      testRef.on('value', (snapshot) => {
+        const connected = snapshot.val();
+        console.log('Firebase connection status:', connected);
+        
+        if (!connected && this.isIOS) {
+          this.showIOSError('Unable to connect to server. Please check your internet connection and try again.');
+        }
+      });
+    } catch (error) {
+      console.error('Firebase test failed:', error);
+      this.showIOSError('Server connection failed: ' + error.message);
+    }
+  },
+  
+  showIOSError: function(message) {
+    const errorDiv = document.createElement('div');
+    errorDiv.style.cssText = `
+      position: fixed;
+      top: 20px;
+      left: 20px;
+      right: 20px;
+      background: #ff4444;
+      color: white;
+      padding: 15px;
+      border-radius: 8px;
+      z-index: 99999;
+      font-size: 14px;
+      line-height: 1.4;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    `;
+    errorDiv.innerHTML = `
+      <strong>iOS Notice:</strong><br>
+      ${message}<br>
+      <small>Tap to dismiss</small>
+    `;
+    
+    errorDiv.onclick = () => {
+      if (errorDiv.parentNode) {
+        errorDiv.parentNode.removeChild(errorDiv);
+      }
+    };
+    
+    document.body.appendChild(errorDiv);
+    
+    // Auto-remove after 8 seconds
+    setTimeout(() => {
+      if (errorDiv.parentNode) {
+        errorDiv.parentNode.removeChild(errorDiv);
+      }
+    }, 8000);
+  },
+  
+  // Fix units loading for iOS
+  fixUnitsLoading: function() {
+    const originalLoadUnits = window.loadUnits;
+    window.loadUnits = function() {
+      if (iOSCompatibility.isIOS) {
+        console.log('iOS: Loading units with iOS-specific handling');
+        
+        // Add timeout for iOS network issues
+        const loadingTimeout = setTimeout(() => {
+          iOSCompatibility.showIOSError('Loading is taking longer than expected. Please check your connection.');
+        }, 10000);
+        
+        // Override the original function
+        const result = originalLoadUnits.call(this);
+        
+        // Clear timeout if loading completes
+        if (result && result.then) {
+          result.then(() => {
+            clearTimeout(loadingTimeout);
+          }).catch(() => {
+            clearTimeout(loadingTimeout);
+          });
+        } else {
+          clearTimeout(loadingTimeout);
+        }
+        
+        return result;
+      } else {
+        return originalLoadUnits.call(this);
+      }
+    };
+  }
+};
+
+// Initialize iOS compatibility system
+document.addEventListener('DOMContentLoaded', function() {
+  iOSCompatibility.init();
+});
+
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 const storage = firebase.storage();
@@ -177,6 +556,35 @@ const CacheManager = {
 function loadUnits() {
   console.log('Loading units with smart cache validation');
   
+  // iOS-specific loading indicator
+  if (iOSCompatibility.isIOS) {
+    const loadingIndicator = document.createElement('div');
+    loadingIndicator.id = 'ios-loading-indicator';
+    loadingIndicator.style.cssText = `
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: rgba(0,0,0,0.8);
+      color: white;
+      padding: 20px;
+      border-radius: 8px;
+      z-index: 9999;
+      text-align: center;
+    `;
+    loadingIndicator.innerHTML = `
+      <div style="font-size: 14px; margin-bottom: 10px;">Loading units...</div>
+      <div style="width: 20px; height: 20px; border: 2px solid #fff; border-top: 2px solid transparent; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto;"></div>
+    `;
+    document.body.appendChild(loadingIndicator);
+    
+    // Remove loading indicator after timeout
+    setTimeout(() => {
+      const indicator = document.getElementById('ios-loading-indicator');
+      if (indicator) indicator.remove();
+    }, 10000);
+  }
+  
   // First, check if we have cached data
   const cachedUnits = CacheManager.getCache(CacheManager.CACHE_KEYS.UNITS);
   const cachedProgress = CacheManager.getCache(CacheManager.CACHE_KEYS.PROGRESS);
@@ -188,6 +596,10 @@ function loadUnits() {
     // Load just the keys from database to check for structural changes
     db.ref('units').once('value').then(snapshot => {
       const currentUnitsData = snapshot.val();
+      
+      // Remove iOS loading indicator
+      const loadingIndicator = document.getElementById('ios-loading-indicator');
+      if (loadingIndicator) loadingIndicator.remove();
       
       // Check if cache is still valid
       if (CacheManager.isCacheValid(CacheManager.CACHE_KEYS.UNITS, currentUnitsData)) {
@@ -203,6 +615,16 @@ function loadUnits() {
       }
     }).catch(error => {
       console.error('Error validating cache:', error);
+      
+      // Remove iOS loading indicator
+      const loadingIndicator = document.getElementById('ios-loading-indicator');
+      if (loadingIndicator) loadingIndicator.remove();
+      
+      // iOS-specific error handling
+      if (iOSCompatibility.isIOS) {
+        iOSCompatibility.showIOSError('Unable to load units. Please check your internet connection and try again.');
+      }
+      
       // If validation fails, use cached data anyway
       displayUnits(cachedUnits, cachedProgress);
     });
@@ -502,6 +924,8 @@ function showLessonDetails(lessonKey) {
 let vjsPlayer = null;
 
 window.playLessonVideo = function(videoURL) {
+  console.log('Playing video on device:', iOSCompatibility.isIOS ? 'iOS' : 'Other');
+  
   const modal = document.getElementById('video-modal');
 
   // Remove old video element if exists
@@ -513,9 +937,22 @@ window.playLessonVideo = function(videoURL) {
   const newVideo = document.createElement('video');
   newVideo.id = 'fullscreen-video';
   newVideo.className = 'video-js vjs-default-skin';
-  newVideo.setAttribute('playsinline', '');
+  
+  // iOS-specific video attributes
+  if (iOSCompatibility.isIOS) {
+    newVideo.setAttribute('playsinline', 'true');
+    newVideo.setAttribute('webkit-playsinline', 'true');
+    newVideo.setAttribute('x5-video-player-type', 'h5');
+    newVideo.setAttribute('x5-video-player-fullscreen', 'true');
+  } else {
+    newVideo.setAttribute('playsinline', '');
+  }
+  
   newVideo.setAttribute('controls', '');
   newVideo.setAttribute('preload', 'auto');
+  newVideo.style.webkitTransform = 'translate3d(0, 0, 0)';
+  newVideo.style.transform = 'translate3d(0, 0, 0)';
+  
   videoContainer.appendChild(newVideo);
 
   modal.style.display = 'flex';
@@ -526,16 +963,24 @@ window.playLessonVideo = function(videoURL) {
     vjsPlayer = null;
   }
 
-  // Set up Video.js player
-  vjsPlayer = videojs(newVideo, {
+  // Set up Video.js player with iOS-specific options
+  const playerOptions = {
     controls: true,
-    autoplay: true,
+    autoplay: !iOSCompatibility.isIOS, // Don't autoplay on iOS initially
     preload: 'auto',
     playbackRates: [0.5, 1, 1.25, 1.5, 2],
     controlBar: {
       volumePanel: {inline: false}
+    },
+    // iOS-specific options
+    html5: {
+      nativeVideoTracks: false,
+      nativeAudioTracks: false,
+      nativeTextTracks: false
     }
-  });
+  };
+
+  vjsPlayer = videojs(newVideo, playerOptions);
 
   vjsPlayer.src({ type: 'video/mp4', src: videoURL });
 
@@ -545,12 +990,62 @@ window.playLessonVideo = function(videoURL) {
   // Add moving watermark with user email
   vjsPlayer.ready(function() {
     addVideoWatermark();
-    vjsPlayer.play();
-    if (vjsPlayer.requestFullscreen) {
-      vjsPlayer.requestFullscreen();
-      // Try to lock orientation to landscape
-      if (screen.orientation && screen.orientation.lock) {
-        screen.orientation.lock('landscape').catch(() => {});
+    
+    // iOS-specific play handling
+    if (iOSCompatibility.isIOS) {
+      // Don't auto-play on iOS, let user tap to play
+      console.log('iOS: Video ready, waiting for user interaction');
+      
+      // Add iOS-specific play button
+      const playButton = document.createElement('button');
+      playButton.style.cssText = `
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background: rgba(0,0,0,0.7);
+        color: white;
+        border: none;
+        padding: 20px;
+        border-radius: 50%;
+        font-size: 24px;
+        cursor: pointer;
+        z-index: 1000;
+      `;
+      playButton.innerHTML = '▶';
+      playButton.onclick = function() {
+        vjsPlayer.play().then(() => {
+          playButton.style.display = 'none';
+          
+          // Try to go fullscreen after play starts
+          setTimeout(() => {
+            if (vjsPlayer.requestFullscreen) {
+              vjsPlayer.requestFullscreen();
+            }
+          }, 1000);
+        }).catch(e => {
+          console.log('iOS play failed:', e);
+          iOSCompatibility.showIOSError('Unable to play video. Please try again.');
+        });
+      };
+      
+      newVideo.parentNode.appendChild(playButton);
+      
+      // Remove play button when video starts
+      vjsPlayer.on('play', function() {
+        if (playButton.parentNode) {
+          playButton.parentNode.removeChild(playButton);
+        }
+      });
+    } else {
+      // Non-iOS devices - auto-play and fullscreen
+      vjsPlayer.play();
+      if (vjsPlayer.requestFullscreen) {
+        vjsPlayer.requestFullscreen();
+        // Try to lock orientation to landscape
+        if (screen.orientation && screen.orientation.lock) {
+          screen.orientation.lock('landscape').catch(() => {});
+        }
       }
     }
   });
@@ -561,6 +1056,16 @@ window.playLessonVideo = function(videoURL) {
     if (window.currentUnitId && window.currentLessonId) {
       ProgressTracker.markLessonCompleted(window.currentUnitId, window.currentLessonId);
       NotificationManager.showToast('Lesson completed! 🎉');
+    }
+  });
+
+  // iOS-specific error handling
+  vjsPlayer.on('error', function() {
+    const error = vjsPlayer.error();
+    console.error('Video error:', error);
+    
+    if (iOSCompatibility.isIOS) {
+      iOSCompatibility.showIOSError('Video playback error. Please try refreshing the page.');
     }
   });
 
@@ -740,20 +1245,58 @@ window.openProgress = function() {
 };
 
 firebase.auth().onAuthStateChanged(function(user) {
+  console.log('Auth state changed:', user ? 'User logged in' : 'User not logged in');
+  
   if (!user) {
-    // If no user is logged in, send them back to login
-    window.location.href = "index.html";
-  } else {
-    // Initialize Advanced Features
-    if (typeof AdvancedFeatures !== 'undefined') {
-      window.advancedFeatures = new AdvancedFeatures();
-      window.advancedFeatures.applyFeatures();
-    }
+    console.log('No user, redirecting to login');
     
-    // User is authenticated, load units with progress
-    loadUnits();
+    // iOS-specific delay for smoother transition
+    if (iOSCompatibility.isIOS) {
+      setTimeout(() => {
+        window.location.href = "index.html";
+      }, 200);
+    } else {
+      window.location.href = "index.html";
+    }
+    return;
+  }
+  
+  console.log('User authenticated:', user.email);
+  
+  // iOS-specific user verification
+  if (iOSCompatibility.isIOS) {
+    console.log('iOS device detected, verifying user token...');
+    
+    user.getIdToken(true).then(function(idToken) {
+      console.log('iOS: User token verified successfully');
+      initializeApp();
+    }).catch(function(error) {
+      console.error('iOS: User token verification failed:', error);
+      iOSCompatibility.showIOSError('Authentication verification failed. Please try logging out and back in.');
+    });
+  } else {
+    initializeApp();
   }
 });
+
+// iOS-enhanced app initialization
+function initializeApp() {
+  console.log('Initializing app...');
+  
+  // Apply iOS fixes for units loading
+  if (iOSCompatibility.isIOS) {
+    iOSCompatibility.fixUnitsLoading();
+  }
+  
+  // Initialize Advanced Features
+  if (typeof AdvancedFeatures !== 'undefined') {
+    window.advancedFeatures = new AdvancedFeatures();
+    window.advancedFeatures.applyFeatures();
+  }
+  
+  // Load units with progress
+  loadUnits();
+}
 
 // Apply advanced features when DOM is loaded
 document.addEventListener('DOMContentLoaded', () => {
@@ -1278,6 +1821,8 @@ function createSecureProxy(originalUrl) {
 }
 
 function showStudentFilePreview(file) {
+  console.log('Showing file preview on device:', iOSCompatibility.isIOS ? 'iOS' : 'Other');
+  
   const modal = document.createElement('div');
   modal.id = 'studentFilePreviewModal';
   modal.style.cssText = `
@@ -1293,39 +1838,49 @@ function showStudentFilePreview(file) {
     align-items: center;
     padding: 20px;
     box-sizing: border-box;
+    -webkit-transform: translate3d(0, 0, 0);
+    transform: translate3d(0, 0, 0);
   `;
+  
+  // iOS-specific modal adjustments
+  if (iOSCompatibility.isIOS) {
+    modal.style.padding = '0';
+    modal.style.paddingTop = 'env(safe-area-inset-top, 0)';
+    modal.style.paddingBottom = 'env(safe-area-inset-bottom, 0)';
+  }
 
   // Only handle PDF files with the readonly viewer
   if (file.extension.toLowerCase() === 'pdf') {
     // Use secure proxy to hide original URL
     const secureViewerUrl = createSecureProxy(file.url);
     
-    modal.innerHTML = `        <div id="studentFileContainer" style="background: #333; border-radius: 12px; max-width: 95vw; max-height: 95vh; width: 100%; height: 100%; position: relative; overflow: hidden;">
-          <div style="background: #444; padding: 16px; display: flex; justify-content: space-between; align-items: center; border-radius: 12px 12px 0 0;">
-            <h3 style="margin: 0; color: white; font-size: 18px;">📄 ${file.name}</h3>
-            <div style="display: flex; gap: 10px;">
-              <button onclick="toggleStudentFilePreviewFullscreen()" style="background: none; border: none; color: white; font-size: 24px; cursor: pointer; padding: 0; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; border-radius: 50%;" title="Toggle Fullscreen">⛶</button>
-              <button onclick="closeStudentFilePreview()" style="background: none; border: none; color: white; font-size: 24px; cursor: pointer; padding: 0; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; border-radius: 50%;">&times;</button>
-            </div>
-          </div>
-          <div id="studentFileViewport" style="width: 100%; height: 85%; position: relative; overflow: hidden;">
-            <iframe id="studentFileFrame" src="${secureViewerUrl}" style="width: 100%; height: 100%; border: none; background: white; transform-origin: 0 0; transition: transform 0.3s ease;" sandbox="allow-same-origin allow-scripts allow-forms"></iframe>
+    modal.innerHTML = `
+      <div id="studentFileContainer" style="background: #333; border-radius: ${iOSCompatibility.isIOS ? '0' : '12px'}; max-width: 95vw; max-height: 95vh; width: 100%; height: 100%; position: relative; overflow: hidden; -webkit-transform: translate3d(0, 0, 0); transform: translate3d(0, 0, 0);">
+        <div style="background: #444; padding: 16px; display: flex; justify-content: space-between; align-items: center; border-radius: ${iOSCompatibility.isIOS ? '0' : '12px 12px 0 0'};">
+          <h3 style="margin: 0; color: white; font-size: 18px;">📄 ${file.name}</h3>
+          <div style="display: flex; gap: 10px;">
+            <button onclick="toggleStudentFilePreviewFullscreen()" style="background: none; border: none; color: white; font-size: 24px; cursor: pointer; padding: 0; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; border-radius: 50%; -webkit-tap-highlight-color: transparent;" title="Toggle Fullscreen">⛶</button>
+            <button onclick="closeStudentFilePreview()" style="background: none; border: none; color: white; font-size: 24px; cursor: pointer; padding: 0; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; border-radius: 50%; -webkit-tap-highlight-color: transparent;">&times;</button>
           </div>
         </div>
+        <div id="studentFileViewport" style="width: 100%; height: 85%; position: relative; overflow: hidden; -webkit-overflow-scrolling: touch;">
+          <iframe id="studentFileFrame" src="${secureViewerUrl}" style="width: 100%; height: 100%; border: none; background: white; transform-origin: 0 0; transition: transform 0.3s ease; -webkit-transform: translate3d(0, 0, 0); transform: translate3d(0, 0, 0);" sandbox="allow-same-origin allow-scripts allow-forms"></iframe>
+        </div>
+      </div>
     `;
   } else {
     // For non-PDF files, show a simple preview or download option
     modal.innerHTML = `
-      <div style="background: #333; border-radius: 12px; max-width: 90vw; max-height: 90vh; width: 100%; position: relative; overflow: hidden;">
-        <div style="background: #444; padding: 16px; display: flex; justify-content: space-between; align-items: center; border-radius: 12px 12px 0 0;">
+      <div style="background: #333; border-radius: ${iOSCompatibility.isIOS ? '0' : '12px'}; max-width: 90vw; max-height: 90vh; width: 100%; position: relative; overflow: hidden; -webkit-transform: translate3d(0, 0, 0); transform: translate3d(0, 0, 0);">
+        <div style="background: #444; padding: 16px; display: flex; justify-content: space-between; align-items: center; border-radius: ${iOSCompatibility.isIOS ? '0' : '12px 12px 0 0'};">
           <h3 style="margin: 0; color: white; font-size: 18px;">📄 ${file.name}</h3>
-          <button onclick="closeStudentFilePreview()" style="background: none; border: none; color: white; font-size: 24px; cursor: pointer; padding: 0; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; border-radius: 50%;">&times;</button>
+          <button onclick="closeStudentFilePreview()" style="background: none; border: none; color: white; font-size: 24px; cursor: pointer; padding: 0; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; border-radius: 50%; -webkit-tap-highlight-color: transparent;">&times;</button>
         </div>
         <div style="padding: 40px; text-align: center; color: white;">
           <span class="material-icons" style="font-size: 48px; margin-bottom: 16px;">insert_drive_file</span>
           <div style="margin-bottom: 20px;">Preview not available for this file type</div>
           ${file.access === 'downloadable' ? `
-            <button onclick="downloadStudentFile('${file.url}', '${file.name}')" style="padding: 12px 24px; background: #28a745; color: white; border: none; border-radius: 6px; font-size: 14px; cursor: pointer; display: inline-flex; align-items: center; gap: 8px;">
+            <button onclick="downloadStudentFile('${file.url}', '${file.name}')" style="padding: 12px 24px; background: #28a745; color: white; border: none; border-radius: 6px; font-size: 14px; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; -webkit-tap-highlight-color: transparent;">
               <span class="material-icons" style="font-size: 18px;">download</span>
               Download File
             </button>
@@ -1337,10 +1892,30 @@ function showStudentFilePreview(file) {
 
   document.body.appendChild(modal);
   document.body.style.overflow = 'hidden';
+  
+  // iOS-specific body fixes
+  if (iOSCompatibility.isIOS) {
+    document.body.style.position = 'fixed';
+    document.body.style.width = '100%';
+    document.body.style.height = '100%';
+  }
 
   // Add touch zoom functionality for mobile devices
   if (file.extension.toLowerCase() === 'pdf') {
     initializeStudentFileZoom();
+    
+    // iOS-specific iframe loading handler
+    if (iOSCompatibility.isIOS) {
+      const iframe = document.getElementById('studentFileFrame');
+      iframe.onload = function() {
+        console.log('iOS: PDF iframe loaded successfully');
+      };
+      
+      iframe.onerror = function() {
+        console.error('iOS: PDF iframe failed to load');
+        iOSCompatibility.showIOSError('Unable to load PDF. Please try again.');
+      };
+    }
   }
 }
 
@@ -1549,6 +2124,14 @@ function closeStudentFilePreview() {
     
     modal.remove();
   }
+  
+  // iOS-specific body restoration
+  if (iOSCompatibility.isIOS) {
+    document.body.style.position = '';
+    document.body.style.width = '';
+    document.body.style.height = '';
+  }
+  
   document.body.style.overflow = 'auto';
 }
 
