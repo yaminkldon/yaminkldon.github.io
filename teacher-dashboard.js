@@ -15,6 +15,404 @@ firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 const storage = firebase.storage();
 
+// iOS Compatibility System for Teacher Dashboard
+const iOSCompatibilityTeacherDashboard = {
+  isIOS: false,
+  isIPad: false,
+  isIPhone: false,
+  
+  init: function() {
+    console.log('🍎 Initializing iOS compatibility for Teacher Dashboard...');
+    
+    // Detect iOS devices
+    const userAgent = navigator.userAgent || navigator.vendor || window.opera;
+    this.isIOS = /iPad|iPhone|iPod/.test(userAgent) && !window.MSStream;
+    this.isIPad = /iPad/.test(userAgent) && !window.MSStream;
+    this.isIPhone = /iPhone/.test(userAgent) && !window.MSStream;
+    
+    console.log('iOS Detection:', {
+      isIOS: this.isIOS,
+      isIPad: this.isIPad,
+      isIPhone: this.isIPhone,
+      userAgent: userAgent
+    });
+    
+    if (this.isIOS) {
+      console.log('🎯 iOS device detected, applying compatibility fixes...');
+      this.applyIOSFixes();
+    }
+    
+    // Apply universal mobile enhancements
+    this.applyMobileEnhancements();
+    
+    console.log('✅ iOS compatibility initialization complete for Teacher Dashboard');
+  },
+  
+  applyIOSFixes: function() {
+    this.fixViewport();
+    this.addIOSStyles();
+    this.fixTouchEvents();
+    this.fixFirebaseForIOS();
+    this.fixModalsForIOS();
+    this.fixDataTablesForIOS();
+    this.setupErrorHandling();
+  },
+  
+  fixViewport: function() {
+    console.log('🔧 Fixing viewport for iOS...');
+    
+    // Enhanced viewport meta tag for iOS
+    let viewport = document.querySelector('meta[name="viewport"]');
+    if (viewport) {
+      viewport.content = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover';
+    }
+    
+    // iOS-specific CSS for safe areas
+    const style = document.createElement('style');
+    style.textContent = `
+      @supports(padding: max(0px)) {
+        body {
+          padding-top: max(56px, env(safe-area-inset-top));
+          padding-bottom: env(safe-area-inset-bottom);
+        }
+        
+        .appbar {
+          padding-top: env(safe-area-inset-top);
+          height: calc(56px + env(safe-area-inset-top));
+        }
+      }
+    `;
+    document.head.appendChild(style);
+  },
+  
+  addIOSStyles: function() {
+    console.log('🎨 Adding iOS-specific styles...');
+    
+    const style = document.createElement('style');
+    style.textContent = `
+      /* iOS-specific enhancements */
+      * {
+        -webkit-touch-callout: none;
+        -webkit-user-select: none;
+        -webkit-tap-highlight-color: rgba(0,0,0,0);
+      }
+      
+      input, textarea, select {
+        -webkit-user-select: text;
+      }
+      
+      .feature-card, .stat-card {
+        -webkit-transform: translateZ(0);
+        transform: translateZ(0);
+        -webkit-backface-visibility: hidden;
+        backface-visibility: hidden;
+      }
+      
+      .modal {
+        -webkit-transform: translateZ(0);
+        transform: translateZ(0);
+        -webkit-backface-visibility: hidden;
+        backface-visibility: hidden;
+      }
+      
+      /* iOS loading animations */
+      @-webkit-keyframes spin {
+        0% { -webkit-transform: rotate(0deg); }
+        100% { -webkit-transform: rotate(360deg); }
+      }
+      
+      @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+      }
+      
+      .ios-loading {
+        -webkit-animation: spin 1s linear infinite;
+        animation: spin 1s linear infinite;
+      }
+      
+      /* iOS scroll momentum */
+      .dashboard-container, .modal-content {
+        -webkit-overflow-scrolling: touch;
+      }
+      
+      /* iOS button fixes */
+      button, .action-btn {
+        -webkit-appearance: none;
+        border-radius: 8px;
+      }
+      
+      /* iOS form fixes */
+      .form-input, .form-textarea, .form-select {
+        -webkit-appearance: none;
+        border-radius: 8px;
+      }
+      
+      /* iOS table fixes */
+      .table-container {
+        -webkit-overflow-scrolling: touch;
+      }
+    `;
+    document.head.appendChild(style);
+  },
+  
+  fixTouchEvents: function() {
+    console.log('👆 Fixing touch events for iOS...');
+    
+    // Enhanced touch handling for dashboard cards
+    document.addEventListener('DOMContentLoaded', () => {
+      const addTouchSupport = () => {
+        const cards = document.querySelectorAll('.feature-card, .stat-card, .action-btn');
+        cards.forEach(card => {
+          card.addEventListener('touchstart', function(e) {
+            this.style.transform = 'scale(0.95)';
+          }, { passive: true });
+          
+          card.addEventListener('touchend', function(e) {
+            this.style.transform = 'scale(1)';
+          }, { passive: true });
+        });
+      };
+      
+      // Apply touch support initially and after dynamic content loads
+      addTouchSupport();
+      
+      // Observer for dynamically added content
+      const observer = new MutationObserver(addTouchSupport);
+      const targetNode = document.querySelector('.dashboard-container');
+      if (targetNode) {
+        observer.observe(targetNode, { childList: true, subtree: true });
+      }
+    });
+  },
+  
+  fixFirebaseForIOS: function() {
+    console.log('🔥 Optimizing Firebase for iOS...');
+    
+    // Enhanced Firebase configuration for iOS
+    if (firebase.auth && firebase.auth()) {
+      firebase.auth().setPersistence(firebase.auth.Auth.Persistence.LOCAL)
+        .then(() => {
+          console.log('✅ Firebase persistence set for iOS');
+        })
+        .catch(error => {
+          console.error('Firebase persistence error:', error);
+        });
+    }
+    
+    // Test Firebase connection
+    this.testFirebaseConnection();
+  },
+  
+  testFirebaseConnection: function() {
+    console.log('🧪 Testing Firebase connection...');
+    
+    const testRef = db.ref('.info/connected');
+    testRef.on('value', (snapshot) => {
+      if (snapshot.val() === true) {
+        console.log('✅ Firebase connected successfully');
+      } else {
+        console.log('❌ Firebase connection lost');
+        this.showIOSError('Connection lost. Please check your internet connection.');
+      }
+    });
+  },
+  
+  fixModalsForIOS: function() {
+    console.log('🪟 Fixing modals for iOS...');
+    
+    // Enhanced modal handling for iOS
+    const originalShowModal = window.showModal;
+    window.showModal = function(modalId) {
+      document.body.style.position = 'fixed';
+      document.body.style.width = '100%';
+      document.body.style.overflow = 'hidden';
+      
+      const modal = document.getElementById(modalId);
+      if (modal) {
+        modal.style.display = 'flex';
+        
+        // Add iOS-specific modal enhancements
+        const modalContent = modal.querySelector('.modal-content');
+        if (modalContent) {
+          modalContent.style.webkitOverflowScrolling = 'touch';
+          modalContent.style.maxHeight = '90vh';
+          modalContent.style.overflow = 'auto';
+        }
+      }
+      
+      return originalShowModal ? originalShowModal.call(this, modalId) : true;
+    };
+    
+    const originalCloseModal = window.closeModal;
+    window.closeModal = function(modalId) {
+      document.body.style.position = '';
+      document.body.style.width = '';
+      document.body.style.overflow = '';
+      
+      return originalCloseModal ? originalCloseModal.call(this, modalId) : true;
+    };
+  },
+  
+  fixDataTablesForIOS: function() {
+    console.log('📊 Fixing data tables for iOS...');
+    
+    // Add horizontal scroll support for tables
+    const style = document.createElement('style');
+    style.textContent = `
+      .table-container {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        margin: 0 -16px;
+        padding: 0 16px;
+      }
+      
+      table {
+        min-width: 100%;
+        white-space: nowrap;
+      }
+      
+      th, td {
+        padding: 12px 8px;
+        text-align: left;
+        border-bottom: 1px solid #ddd;
+        white-space: nowrap;
+      }
+      
+      @media (max-width: 768px) {
+        .table-container {
+          margin: 0 -24px;
+          padding: 0 24px;
+        }
+      }
+    `;
+    document.head.appendChild(style);
+  },
+  
+  setupErrorHandling: function() {
+    console.log('⚠️ Setting up iOS error handling...');
+    
+    // Global error handler
+    window.addEventListener('error', (event) => {
+      console.error('🚫 Global error caught:', event.error);
+      this.showIOSError('An unexpected error occurred. Please refresh the page.');
+    });
+    
+    // Unhandled promise rejection handler
+    window.addEventListener('unhandledrejection', (event) => {
+      console.error('🚫 Unhandled promise rejection:', event.reason);
+      this.showIOSError('A network error occurred. Please check your connection.');
+    });
+  },
+  
+  showIOSError: function(message) {
+    const errorDiv = document.createElement('div');
+    errorDiv.style.cssText = `
+      position: fixed;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #ff4444;
+      color: white;
+      padding: 12px 20px;
+      border-radius: 8px;
+      z-index: 10000;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+      max-width: 90%;
+      text-align: center;
+    `;
+    errorDiv.textContent = message;
+    
+    document.body.appendChild(errorDiv);
+    
+    setTimeout(() => {
+      if (errorDiv.parentNode) {
+        errorDiv.parentNode.removeChild(errorDiv);
+      }
+    }, 5000);
+  },
+  
+  applyMobileEnhancements: function() {
+    console.log('📱 Applying mobile enhancements...');
+    
+    // Add loading indicators
+    const style = document.createElement('style');
+    style.textContent = `
+      .mobile-loading {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        padding: 20px;
+        font-size: 14px;
+        color: #666;
+      }
+      
+      .mobile-loading::before {
+        content: '';
+        width: 20px;
+        height: 20px;
+        border: 2px solid #ddd;
+        border-top: 2px solid #6c4fc1;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+        margin-right: 10px;
+      }
+      
+      /* Enhanced mobile responsiveness */
+      @media (max-width: 768px) {
+        .features-grid {
+          grid-template-columns: 1fr;
+          gap: 16px;
+        }
+        
+        .quick-stats {
+          grid-template-columns: repeat(2, 1fr);
+        }
+        
+        .feature-card {
+          padding: 16px;
+        }
+        
+        .modal-content {
+          margin: 20px;
+          max-width: calc(100% - 40px);
+        }
+      }
+      
+      @media (max-width: 480px) {
+        .quick-stats {
+          grid-template-columns: 1fr;
+        }
+        
+        .stat-card {
+          padding: 12px;
+        }
+      }
+    `;
+    document.head.appendChild(style);
+    
+    // Enhanced touch feedback
+    document.addEventListener('touchstart', function(e) {
+      const target = e.target;
+      if (target.classList.contains('feature-card') || target.classList.contains('action-btn')) {
+        target.style.opacity = '0.7';
+      }
+    }, { passive: true });
+    
+    document.addEventListener('touchend', function(e) {
+      const target = e.target;
+      if (target.classList.contains('feature-card') || target.classList.contains('action-btn')) {
+        target.style.opacity = '1';
+      }
+    }, { passive: true });
+  }
+};
+
+// Initialize iOS compatibility when DOM is ready
+document.addEventListener('DOMContentLoaded', function() {
+  iOSCompatibilityTeacherDashboard.init();
+});
+
 // Cache management for teacher dashboard
 const TeacherCacheManager = {
   // Cache duration in milliseconds (6 hours for teacher dashboard)
