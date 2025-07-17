@@ -3,31 +3,44 @@
 
 // iOS Compatibility System for Advanced Settings Page
 const iOSCompatibilityAdvancedSettings = {
+  isInitialized: false,
   isIOS: false,
   isIPad: false,
   isIPhone: false,
+  deviceInfo: {
+    userAgent: '',
+    isIOS: false,
+    isSafari: false,
+    isStandalone: false,
+    screenDimensions: ''
+  },
   
   init: function() {
     console.log('🍎 Initializing iOS compatibility for Advanced Settings...');
     
     // Detect iOS devices
     const userAgent = navigator.userAgent || navigator.vendor || window.opera;
-    this.isIOS = /iPad|iPhone|iPod/.test(userAgent) && !window.MSStream;
-    this.isIPad = /iPad/.test(userAgent) && !window.MSStream;
-    this.isIPhone = /iPhone/.test(userAgent) && !window.MSStream;
+    this.deviceInfo.userAgent = userAgent;
+    this.deviceInfo.isIOS = /iPad|iPhone|iPod/.test(userAgent) && !window.MSStream;
+    this.deviceInfo.isIPad = /iPad/.test(userAgent) && !window.MSStream;
+    this.deviceInfo.isIPhone = /iPhone/.test(userAgent) && !window.MSStream;
+    this.deviceInfo.isSafari = /^((?!chrome|android).)*safari/i.test(userAgent);
+    this.deviceInfo.isStandalone = window.navigator.standalone === true;
+    this.deviceInfo.screenDimensions = `${window.screen.width}x${window.screen.height}`;
     
-    console.log('iOS Detection:', {
-      isIOS: this.isIOS,
-      isIPad: this.isIPad,
-      isIPhone: this.isIPhone,
-      userAgent: userAgent
-    });
+    // Legacy support
+    this.isIOS = this.deviceInfo.isIOS;
+    this.isIPad = this.deviceInfo.isIPad;
+    this.isIPhone = this.deviceInfo.isIPhone;
     
-    if (this.isIOS) {
+    console.log('iOS Detection:', this.deviceInfo);
+    
+    if (this.deviceInfo.isIOS) {
       console.log('🎯 iOS device detected, applying compatibility fixes...');
       this.applyIOSFixes();
     }
     
+    this.isInitialized = true;
     // Apply universal mobile enhancements
     this.applyMobileEnhancements();
     
@@ -316,11 +329,33 @@ const iOSCompatibilityAdvancedSettings = {
         target.style.opacity = '1';
       }
     }, { passive: true });
+  },
+
+  shareError: function(errorDetails) {
+    if (this.deviceInfo.isIOS && navigator.share) {
+      const errorText = `Advanced Settings Error Report:\n\n${errorDetails}\n\nDevice: ${this.deviceInfo.userAgent}\nScreen: ${this.deviceInfo.screenDimensions}\nStandalone: ${this.deviceInfo.isStandalone}`;
+      
+      navigator.share({
+        title: 'Advanced Settings Error Report',
+        text: errorText
+      }).catch(err => {
+        console.log('📤 Share failed, using WhatsApp fallback:', err);
+        this.shareViaWhatsApp(errorText);
+      });
+    } else {
+      this.shareViaWhatsApp(errorDetails);
+    }
+  },
+
+  shareViaWhatsApp: function(errorText) {
+    const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(errorText)}`;
+    window.open(whatsappUrl, '_blank');
   }
 };
 
-// Initialize iOS compatibility when DOM is ready
+// Initialize iOS compatibility system FIRST
 document.addEventListener('DOMContentLoaded', function() {
+  console.log('🚀 DOM loaded, initializing iOS compatibility for Advanced Settings first...');
   iOSCompatibilityAdvancedSettings.init();
 });
 

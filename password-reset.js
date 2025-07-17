@@ -10,39 +10,65 @@ const firebaseConfig = {
   measurementId: "G-HDLMYVXH5T"
 };
 
-firebase.initializeApp(firebaseConfig);
-
 // iOS Compatibility System for Password Reset Page
 const iOSCompatibilityPasswordReset = {
-  isIOS: false,
-  isIPad: false,
-  isIPhone: false,
+  isIOS: /iPad|iPhone|iPod/.test(navigator.userAgent),
+  isSafari: /Safari/.test(navigator.userAgent) && !/Chrome/.test(navigator.userAgent),
   
   init: function() {
-    console.log('🍎 Initializing iOS compatibility for Password Reset...');
-    
-    // Detect iOS devices
-    const userAgent = navigator.userAgent || navigator.vendor || window.opera;
-    this.isIOS = /iPad|iPhone|iPod/.test(userAgent) && !window.MSStream;
-    this.isIPad = /iPad/.test(userAgent) && !window.MSStream;
-    this.isIPhone = /iPhone/.test(userAgent) && !window.MSStream;
-    
-    console.log('iOS Detection:', {
+    console.log('🍎 iOS Compatibility System initializing for Password Reset...');
+    console.log('Device detection:', {
       isIOS: this.isIOS,
-      isIPad: this.isIPad,
-      isIPhone: this.isIPhone,
-      userAgent: userAgent
+      isSafari: this.isSafari,
+      userAgent: navigator.userAgent,
+      screenSize: `${screen.width}x${screen.height}`,
+      devicePixelRatio: window.devicePixelRatio,
+      networkStatus: navigator.onLine ? 'online' : 'offline'
     });
     
     if (this.isIOS) {
-      console.log('🎯 iOS device detected, applying compatibility fixes...');
+      console.log('✅ iOS device detected, applying iOS fixes...');
       this.applyIOSFixes();
     }
     
-    // Apply universal mobile enhancements
-    this.applyMobileEnhancements();
+    this.setupErrorHandling();
     
-    console.log('✅ iOS compatibility initialization complete for Password Reset');
+    // Wait for Firebase to be initialized before testing connection
+    if (typeof firebase !== 'undefined' && firebase.apps && firebase.apps.length > 0) {
+      console.log('🔥 Firebase already initialized, testing connection...');
+      this.scheduleFirebaseConnectionTest();
+    } else {
+      console.log('🔥 Waiting for Firebase initialization...');
+      this.waitForFirebaseInitialization();
+    }
+  },
+  
+  waitForFirebaseInitialization: function() {
+    const checkFirebase = () => {
+      if (typeof firebase !== 'undefined' && firebase.apps && firebase.apps.length > 0) {
+        console.log('🔥 Firebase now initialized, testing connection...');
+        this.scheduleFirebaseConnectionTest();
+      } else {
+        console.log('🔥 Still waiting for Firebase...');
+        setTimeout(checkFirebase, 200);
+      }
+    };
+    checkFirebase();
+  },
+  
+  scheduleFirebaseConnectionTest: function() {
+    // Delay Firebase connection test for iOS to ensure proper initialization
+    if (this.isIOS) {
+      console.log('iOS: Scheduling Firebase connection test with delay...');
+      setTimeout(() => {
+        this.testFirebaseConnection();
+      }, 2000);
+    } else {
+      console.log('Non-iOS: Testing Firebase connection immediately...');
+      setTimeout(() => {
+        this.testFirebaseConnection();
+      }, 500);
+    }
   },
   
   applyIOSFixes: function() {
@@ -390,4 +416,16 @@ document.getElementById('reset-email').addEventListener('input', function() {
   } else {
     resetBtn.disabled = true;
   }
+});
+
+// Initialize iOS compatibility system BEFORE Firebase initialization
+document.addEventListener('DOMContentLoaded', function() {
+  console.log('🚀 DOM loaded, initializing iOS compatibility for Password Reset first...');
+  iOSCompatibilityPasswordReset.init();
+  
+  // Initialize Firebase after iOS compatibility is set up
+  setTimeout(() => {
+    console.log('🔥 Initializing Firebase after iOS compatibility setup...');
+    firebase.initializeApp(firebaseConfig);
+  }, 100);
 });

@@ -1,33 +1,50 @@
-// Firebase Config (same as in script.js)
+// Firebase Configuration with updated initialization order
 const firebaseConfig = {
-  apiKey: "AIzaSyCVoy2aBaQO1RDpoGGPIBqriFnGdKeNqHk",
-  authDomain: "raednusairat-68b52.firebaseapp.com",
-  databaseURL: "https://raednusairat-68b52-default-rtdb.asia-southeast1.firebasedatabase.app",
-  projectId: "raednusairat-68b52",
-  storageBucket: "raednusairat-68b52.appStorage.com",
-  messagingSenderId: "852022576722",
-  appId: "1:852022576722:web:8546d7cd4d3f6b0f8fc18b",
-  measurementId: "G-HDLMYVXH5T"
+  apiKey: "AIzaSyBXfS_GcFHYa6GV1GkE2h1V1gZY_YGnuLY",
+  authDomain: "al-tawfiq-school.firebaseapp.com",
+  databaseURL: "https://al-tawfiq-school-default-rtdb.firebaseio.com",
+  projectId: "al-tawfiq-school",
+  storageBucket: "al-tawfiq-school.appStorage.com",
+  messagingSenderId: "850120655020",
+  appId: "1:850120655020:web:5e46fcdffabea66dc94f9b"
 };
 
-firebase.initializeApp(firebaseConfig);
-const db = firebase.database();
+// Global variables - will be initialized after iOS compatibility setup
+let db;
 
 // iOS Compatibility System for Settings Page
 const iOSCompatibilitySettings = {
+  isInitialized: false,
   isIOS: false,
   isIPad: false,
   isIPhone: false,
+  deviceInfo: {
+    userAgent: '',
+    isIOS: false,
+    isSafari: false,
+    isStandalone: false,
+    screenDimensions: ''
+  },
   
   init: function() {
     console.log('🍎 Initializing iOS compatibility for Settings...');
     
     // Detect iOS devices
     const userAgent = navigator.userAgent || navigator.vendor || window.opera;
-    this.isIOS = /iPad|iPhone|iPod/.test(userAgent) && !window.MSStream;
-    this.isIPad = /iPad/.test(userAgent) && !window.MSStream;
-    this.isIPhone = /iPhone/.test(userAgent) && !window.MSStream;
+    this.deviceInfo.userAgent = userAgent;
+    this.deviceInfo.isIOS = /iPad|iPhone|iPod/.test(userAgent) && !window.MSStream;
+    this.deviceInfo.isIPad = /iPad/.test(userAgent) && !window.MSStream;
+    this.deviceInfo.isIPhone = /iPhone/.test(userAgent) && !window.MSStream;
+    this.deviceInfo.isSafari = /^((?!chrome|android).)*safari/i.test(userAgent);
+    this.deviceInfo.isStandalone = window.navigator.standalone === true;
+    this.deviceInfo.screenDimensions = `${window.screen.width}x${window.screen.height}`;
     
+    // Legacy support
+    this.isIOS = this.deviceInfo.isIOS;
+    this.isIPad = this.deviceInfo.isIPad;
+    this.isIPhone = this.deviceInfo.isIPhone;
+    
+    console.log('iOS Detection:', this.deviceInfo);
     console.log('iOS Detection:', {
       isIOS: this.isIOS,
       isIPad: this.isIPad,
@@ -374,12 +391,44 @@ const iOSCompatibilitySettings = {
         target.style.opacity = '1';
       }
     }, { passive: true });
+  },
+
+  shareError: function(errorDetails) {
+    if (this.deviceInfo.isIOS && navigator.share) {
+      const errorText = `Settings Error Report:\n\n${errorDetails}\n\nDevice: ${this.deviceInfo.userAgent}\nScreen: ${this.deviceInfo.screenDimensions}\nStandalone: ${this.deviceInfo.isStandalone}`;
+      
+      navigator.share({
+        title: 'Settings Error Report',
+        text: errorText
+      }).catch(err => {
+        console.log('📤 Share failed, using WhatsApp fallback:', err);
+        this.shareViaWhatsApp(errorText);
+      });
+    } else {
+      this.shareViaWhatsApp(errorDetails);
+    }
+  },
+
+  shareViaWhatsApp: function(errorText) {
+    const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(errorText)}`;
+    window.open(whatsappUrl, '_blank');
   }
 };
 
-// Initialize iOS compatibility when DOM is ready
+// Initialize iOS compatibility system BEFORE Firebase initialization
 document.addEventListener('DOMContentLoaded', function() {
+  console.log('🚀 DOM loaded, initializing iOS compatibility for Settings first...');
   iOSCompatibilitySettings.init();
+  
+  // Initialize Firebase after iOS compatibility is set up
+  setTimeout(() => {
+    console.log('🔥 Initializing Firebase after iOS compatibility setup...');
+    firebase.initializeApp(firebaseConfig);
+    window.db = firebase.database();
+    
+    // Set global variables
+    db = window.db;
+  }, 100);
 });
 
 let currentUser = null;
