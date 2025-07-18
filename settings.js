@@ -242,7 +242,14 @@ const iOSCompatibilitySettings = {
   testFirebaseConnection: function() {
     console.log('🧪 Testing Firebase connection...');
     
-    const testRef = db.ref('.info/connected');
+    // Check if we have the global db variable
+    if (typeof window.db === 'undefined' || !window.db) {
+      console.log('Global db not yet available, retrying in 1 second...');
+      setTimeout(() => this.testFirebaseConnection(), 1000);
+      return;
+    }
+    
+    const testRef = window.db.ref('.info/connected');
     testRef.on('value', (snapshot) => {
       if (snapshot.val() === true) {
         console.log('✅ Firebase connected successfully');
@@ -468,7 +475,7 @@ function loadUserInfo() {
   document.getElementById('device-id').textContent = userDeviceId;
 
   // Load user data from database
-  db.ref('users').orderByChild('email').equalTo(currentUser.email).once('value')
+  window.db.ref('users').orderByChild('email').equalTo(currentUser.email).once('value')
     .then(snapshot => {
       if (snapshot.exists()) {
         snapshot.forEach(child => {
@@ -608,7 +615,7 @@ function deleteAccount() {
   showProgress(true);
 
   // Delete user data from database first
-  db.ref('users').orderByChild('email').equalTo(currentUser.email).once('value')
+  window.db.ref('users').orderByChild('email').equalTo(currentUser.email).once('value')
     .then(snapshot => {
       const promises = [];
       snapshot.forEach(child => {

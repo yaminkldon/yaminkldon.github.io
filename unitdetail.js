@@ -227,7 +227,14 @@ const iOSCompatibilityUnitDetail = {
   testFirebaseConnection: function() {
     console.log('🧪 Testing Firebase connection...');
     
-    const testRef = db.ref('.info/connected');
+    // Check if we have the global db variable
+    if (typeof window.db === 'undefined' || !window.db) {
+      console.log('Global db not yet available, retrying in 1 second...');
+      setTimeout(() => this.testFirebaseConnection(), 1000);
+      return;
+    }
+    
+    const testRef = window.db.ref('.info/connected');
     testRef.on('value', (snapshot) => {
       if (snapshot.val() === true) {
         console.log('✅ Firebase connected successfully');
@@ -594,7 +601,7 @@ function validateCacheInBackground() {
   const cachedUnits = CacheManager.getCache(CacheManager.CACHE_KEYS.UNITS);
   if (cachedUnits && cachedUnits[currentUnitName]) {
     // Silently check if cache is still valid
-    db.ref('units/' + currentUnitName).once('value')
+    window.db.ref('units/' + currentUnitName).once('value')
       .then(snapshot => {
         if (snapshot.exists()) {
           const freshUnitData = snapshot.val();
@@ -737,7 +744,7 @@ function loadUnitLessons(unitName, selectedLesson = null) {
     console.log('Found cached unit data, validating against database...');
     
     // Validate cache against current database structure
-    db.ref('units/' + unitName).once('value')
+    window.db.ref('units/' + unitName).once('value')
       .then(snapshot => {
         if (!snapshot.exists()) {
           console.log('Unit not found in database'); // Debug log
@@ -777,7 +784,7 @@ function loadUnitLessons(unitName, selectedLesson = null) {
       });
   } else {
     console.log('No cached data found, loading from database:', unitName);
-    db.ref('units/' + unitName).once('value')
+    window.db.ref('units/' + unitName).once('value')
       .then(snapshot => {
         if (!snapshot.exists()) {
           console.log('Unit not found in database'); // Debug log
@@ -2209,7 +2216,7 @@ function loadStudentFiles(unitKey, lessonKey) {
   
   console.log('Loading student files from path:', dbPath); // Debug log
   
-  db.ref(dbPath).once('value').then(snapshot => {
+  window.db.ref(dbPath).once('value').then(snapshot => {
     console.log('Student files snapshot exists:', snapshot.exists()); // Debug log
     if (!snapshot.exists()) {
       filesList.innerHTML = `
@@ -2265,7 +2272,7 @@ function loadStudentUnitFiles(unitKey) {
   
   console.log('Loading student unit files from path:', dbPath); // Debug log
   
-  db.ref(dbPath).once('value').then(snapshot => {
+  window.db.ref(dbPath).once('value').then(snapshot => {
     console.log('Student unit files snapshot exists:', snapshot.exists()); // Debug log
     if (!snapshot.exists()) {
       filesList.innerHTML = `
@@ -2369,7 +2376,7 @@ function previewStudentUnitFile(fileId, unitKey) {
   
   console.log('Loading student unit file for preview from path:', dbPath); // Debug log
   
-  db.ref(dbPath).once('value').then(snapshot => {
+  window.db.ref(dbPath).once('value').then(snapshot => {
     if (!snapshot.exists()) {
       alert('Unit file not found');
       return;
@@ -2393,7 +2400,7 @@ function loadStudentFiles(unitKey, lessonKey) {
   
   console.log('Loading student files from path:', dbPath); // Debug log
   
-  db.ref(dbPath).once('value').then(snapshot => {
+  window.db.ref(dbPath).once('value').then(snapshot => {
     console.log('Student files snapshot exists:', snapshot.exists()); // Debug log
     if (!snapshot.exists()) {
       filesList.innerHTML = `
@@ -2526,7 +2533,7 @@ function previewStudentFile(fileId, unitKey, lessonKey) {
     `units/${unitKey}/lessons/${lessonKey}/files/${fileId}` : 
     `units/${unitKey}/files/${fileId}`;
   
-  db.ref(dbPath).once('value').then(snapshot => {
+  window.db.ref(dbPath).once('value').then(snapshot => {
     if (!snapshot.exists()) {
       alert('File not found');
       return;
@@ -2801,7 +2808,7 @@ function logSecurityViolation(userEmail, violationType, unitName, fileName) {
   };
   
   // Log to Firebase
-  db.ref('security_violations').push(violation).then(() => {
+  window.db.ref('security_violations').push(violation).then(() => {
     console.log('Security violation logged:', violation);
   }).catch(error => {
     console.error('Error logging security violation:', error);

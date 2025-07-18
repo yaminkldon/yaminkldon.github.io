@@ -1,12 +1,12 @@
+// Firebase Configuration with updated initialization order
 const firebaseConfig = {
-  apiKey: "AIzaSyCVoy2aBaQO1RDpoGGPIBqriFnGdKeNqHk",
-  authDomain: "raednusairat-68b52.firebaseapp.com",
-  databaseURL: "https://raednusairat-68b52-default-rtdb.asia-southeast1.firebasedatabase.app",
-  projectId: "raednusairat-68b52",
-  storageBucket: "raednusairat-68b52.appspot.com",
-  messagingSenderId: "852022576722",
-  appId: "1:852022576722:web:8546d7cd4d3f6b0f8fc18b",
-  measurementId: "G-HDLMYVXH5T"
+  apiKey: "AIzaSyBXfS_GcFHYa6GV1GkE2h1V1gZY_YGnuLY",
+  authDomain: "al-tawfiq-school.firebaseapp.com",
+  databaseURL: "https://al-tawfiq-school-default-rtdb.firebaseio.com",
+  projectId: "al-tawfiq-school",
+  storageBucket: "al-tawfiq-school.appspot.com",
+  messagingSenderId: "850120655020",
+  appId: "1:850120655020:web:5e46fcdffabea66dc94f9b"
 };
 
 // iOS Compatibility and Debugging System
@@ -246,7 +246,7 @@ const iOSCompatibility = {
   
   fixFirebaseForIOS: function() {
     // Set Firebase Auth persistence for iOS
-    if (typeof firebase !== 'undefined' && firebase.auth) {
+    if (typeof firebase !== 'undefined' && firebase.auth && window.db) {
       firebase.auth().setPersistence(firebase.auth.Auth.Persistence.LOCAL)
         .then(() => {
           console.log('Firebase Auth persistence set for iOS');
@@ -390,10 +390,17 @@ const iOSCompatibility = {
       setTimeout(() => this.testFirebaseConnection(), 1000);
       return;
     }
+
+    // Check if we have the global db variable
+    if (typeof window.db === 'undefined' || !window.db) {
+      console.log('Global db not yet available, retrying in 1 second...');
+      setTimeout(() => this.testFirebaseConnection(), 1000);
+      return;
+    }
     
     try {
       console.log('Attempting to connect to Firebase...');
-      const testRef = firebase.database().ref('.info/connected');
+      const testRef = window.db.ref('.info/connected');
       
       // Set up connection monitoring with timeout
       const connectionTimeout = setTimeout(() => {
@@ -786,6 +793,9 @@ document.addEventListener('DOMContentLoaded', function() {
       window.messaging = firebase.messaging();
       setupFirebaseMessaging();
     }
+    
+    // Set up authentication handler after Firebase is ready
+    setupAuthHandler();
   }, 100);
 });
 
@@ -998,7 +1008,7 @@ function loadUnits() {
     console.log('Found cached data, validating against database...');
     
     // Load just the keys from database to check for structural changes
-    db.ref('units').once('value').then(snapshot => {
+    window.db.ref('units').once('value').then(snapshot => {
       const currentUnitsData = snapshot.val();
       
       // Remove iOS loading indicator
@@ -1052,7 +1062,7 @@ function loadFreshUnitsData() {
       // Cache progress
       CacheManager.setCache(CacheManager.CACHE_KEYS.PROGRESS, userProgress);
       
-      return db.ref('units').once('value').then(snapshot => {
+      return window.db.ref('units').once('value').then(snapshot => {
         const unitsData = snapshot.val();
         
         // Cache units data with new hash validation
@@ -1128,7 +1138,7 @@ function loadUnitsWithoutProgress() {
     console.log('Found cached units data, validating against database...');
     
     // Load just the keys from database to check for structural changes
-    db.ref('units').once('value').then(snapshot => {
+    window.db.ref('units').once('value').then(snapshot => {
       const currentUnitsData = snapshot.val();
       
       // Check if cache is still valid
@@ -1162,7 +1172,7 @@ function loadFreshUnitsWithoutProgress(unitsData = null) {
     displayUnitsWithoutProgress(unitsData);
   } else {
     // Load from database
-    db.ref('units').once('value').then(snapshot => {
+    window.db.ref('units').once('value').then(snapshot => {
       const unitsData = snapshot.val();
       
       // Cache units data with new hash validation
@@ -1673,23 +1683,31 @@ window.openProgress = function() {
   Navigation.goToProgress();
 };
 
-firebase.auth().onAuthStateChanged(function(user) {
-  console.log('🔐 Auth state changed:', user ? 'User logged in' : 'User not logged in');
-  
-  if (!user) {
-    console.log('No user authenticated, redirecting to login');
-    
-    // iOS-specific delay for smoother transition
-    if (iOSCompatibility.isIOS) {
-      setTimeout(() => {
-        console.log('iOS: Redirecting to login page');
-        window.location.href = "index.html";
-      }, 500);
-    } else {
-      window.location.href = "index.html";
-    }
+// Enhanced authentication state change handler for mainpage
+function setupAuthHandler() {
+  if (typeof firebase === 'undefined' || !firebase.auth || !window.db) {
+    console.log('Firebase not ready for auth handler, retrying...');
+    setTimeout(setupAuthHandler, 500);
     return;
   }
+  
+  firebase.auth().onAuthStateChanged(function(user) {
+    console.log('🔐 Auth state changed:', user ? 'User logged in' : 'User not logged in');
+    
+    if (!user) {
+      console.log('No user authenticated, redirecting to login');
+      
+      // iOS-specific delay for smoother transition
+      if (iOSCompatibility.isIOS) {
+        setTimeout(() => {
+          console.log('iOS: Redirecting to login page');
+          window.location.href = "index.html";
+        }, 500);
+      } else {
+        window.location.href = "index.html";
+      }
+      return;
+    }
   
   console.log('✅ User authenticated:', user.email);
   
@@ -1703,8 +1721,8 @@ firebase.auth().onAuthStateChanged(function(user) {
       
       // Test database connectivity before proceeding
       console.log('iOS: Testing database connectivity...');
-      if (db) {
-        db.ref('users').limitToFirst(1).once('value').then(() => {
+      if (window.db) {
+        window.db.ref('users').limitToFirst(1).once('value').then(() => {
           console.log('iOS: Database connectivity confirmed');
           initializeApp();
         }).catch(function(dbError) {
@@ -1735,7 +1753,8 @@ firebase.auth().onAuthStateChanged(function(user) {
   } else {
     initializeApp();
   }
-});
+  });
+}
 
 // iOS-enhanced app initialization
 function initializeApp() {
@@ -1804,7 +1823,7 @@ function initSearch() {
 function cacheAllLessons() {
   if (allLessonsCache) return Promise.resolve(allLessonsCache);
   
-  return db.ref('units').once('value')
+  return window.db.ref('units').once('value')
     .then(snapshot => {
       const lessons = [];
       snapshot.forEach(unitSnap => {
@@ -1966,7 +1985,7 @@ function addTeacherDashboardIfApplicable() {
   console.log('Loading teacher dashboard status directly from database (no cache)');
   
   // Search for user by email in database - force fresh query
-  db.ref('users').orderByChild('email').equalTo(user.email).once('value').then(snapshot => {
+  window.db.ref('users').orderByChild('email').equalTo(user.email).once('value').then(snapshot => {
     // Double check if teacher dashboard was added while we were waiting
     const existingTeacherDashboardCheck = unitsList.querySelector('li[data-teacher-dashboard="true"]');
     if (existingTeacherDashboardCheck) {
@@ -2095,7 +2114,7 @@ function loadStudentUnitFiles(unitKey) {
   
   console.log('Loading student unit files from path:', dbPath);
   
-  db.ref(dbPath).once('value').then(snapshot => {
+  window.db.ref(dbPath).once('value').then(snapshot => {
     if (!snapshot.exists()) {
       console.log('No unit files found at path:', dbPath);
       filesList.innerHTML = `
@@ -2203,7 +2222,7 @@ function previewStudentFile(fileId, unitKey, lessonKey) {
   
   console.log('Loading student file for preview from path:', dbPath);
   
-  db.ref(dbPath).once('value').then(snapshot => {
+  window.db.ref(dbPath).once('value').then(snapshot => {
     if (!snapshot.exists()) {
       console.log('File not found at path:', dbPath);
       alert('File not found');

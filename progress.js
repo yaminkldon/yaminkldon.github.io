@@ -227,7 +227,14 @@ const iOSCompatibilityProgress = {
   testFirebaseConnection: function() {
     console.log('🧪 Testing Firebase connection...');
     
-    const testRef = db.ref('.info/connected');
+    // Check if we have the global db variable
+    if (typeof window.db === 'undefined' || !window.db) {
+      console.log('Global db not yet available, retrying in 1 second...');
+      setTimeout(() => this.testFirebaseConnection(), 1000);
+      return;
+    }
+    
+    const testRef = window.db.ref('.info/connected');
     testRef.on('value', (snapshot) => {
       if (snapshot.val() === true) {
         console.log('✅ Firebase connected successfully');
@@ -495,10 +502,10 @@ function loadProgress() {
   const userId = currentUser.uid;
   
   // Load user progress data from Firebase
-  db.ref('progress/' + userId).once('value')
+  window.db.ref('progress/' + userId).once('value')
     .then(snapshot => {
       userProgress = snapshot.val() || {};
-      return db.ref('units').once('value');
+      return window.db.ref('units').once('value');
     })
     .then(snapshot => {
       unitsData = snapshot.val() || {};
@@ -783,19 +790,19 @@ window.markLessonCompleted = function(unitId, lessonId) {
   const today = new Date().toISOString().split('T')[0];
   
   // Mark lesson as completed
-  db.ref(`progress/${userId}/${unitId}/${lessonId}`).set({
+  window.db.ref(`progress/${userId}/${unitId}/${lessonId}`).set({
     completed: true,
     completedDate: today,
     timestamp: Date.now()
   });
   
   // Update last study dates for streak calculation
-  db.ref(`progress/${userId}/lastStudyDates`).once('value')
+  window.db.ref(`progress/${userId}/lastStudyDates`).once('value')
     .then(snapshot => {
       let dates = snapshot.val() || [];
       if (!dates.includes(today)) {
         dates.push(today);
-        db.ref(`progress/${userId}/lastStudyDates`).set(dates);
+        window.db.ref(`progress/${userId}/lastStudyDates`).set(dates);
       }
     });
 };

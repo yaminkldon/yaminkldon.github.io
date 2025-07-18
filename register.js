@@ -225,7 +225,14 @@ const iOSCompatibilityRegister = {
   testFirebaseConnection: function() {
     console.log('🧪 Testing Firebase connection...');
     
-    const testRef = db.ref('.info/connected');
+    // Check if we have the global db variable
+    if (typeof window.db === 'undefined' || !window.db) {
+      console.log('Global db not yet available, retrying in 1 second...');
+      setTimeout(() => this.testFirebaseConnection(), 1000);
+      return;
+    }
+    
+    const testRef = window.db.ref('.info/connected');
     testRef.on('value', (snapshot) => {
       if (snapshot.val() === true) {
         console.log('✅ Firebase connected successfully');
@@ -379,8 +386,8 @@ function register() {
 
   showProgress(true);
 
-  const usersRef = db.ref('users');
-  const tokensRef = db.ref('tokens');
+  const usersRef = window.db.ref('users');
+  const tokensRef = window.db.ref('tokens');
 
   // Check if email exists in users
   usersRef.orderByChild('email').equalTo(email).once('value')

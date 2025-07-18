@@ -2,16 +2,15 @@
 // <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 // <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
 
-// --- Firebase Config (replace with your own) ---
+// --- Firebase Configuration with updated initialization order ---
 const firebaseConfig = {
-  apiKey: "AIzaSyCVoy2aBaQO1RDpoGGPIBqriFnGdKeNqHk",
-  authDomain: "raednusairat-68b52.firebaseapp.com",
-  databaseURL: "https://raednusairat-68b52-default-rtdb.asia-southeast1.firebasedatabase.app",
-  projectId: "raednusairat-68b52",
-  storageBucket: "raednusairat-68b52.appspot.com",
-  messagingSenderId: "852022576722",
-  appId: "1:852022576722:web:8546d7cd4d3f6b0f8fc18b",
-  measurementId: "G-HDLMYVXH5T"
+  apiKey: "AIzaSyBXfS_GcFHYa6GV1GkE2h1V1gZY_YGnuLY",
+  authDomain: "al-tawfiq-school.firebaseapp.com",
+  databaseURL: "https://al-tawfiq-school-default-rtdb.firebaseio.com",
+  projectId: "al-tawfiq-school",
+  storageBucket: "al-tawfiq-school.appspot.com",
+  messagingSenderId: "850120655020",
+  appId: "1:850120655020:web:5e46fcdffabea66dc94f9b"
 };
 
 // Declare global variables that will be set after Firebase initialization
@@ -229,7 +228,14 @@ const iOSCompatibilityLogin = {
   testFirebaseConnection: function() {
     console.log('🧪 Testing Firebase connection...');
     
-    const testRef = db.ref('.info/connected');
+    // Check if we have the global db variable
+    if (typeof window.db === 'undefined' || !window.db) {
+      console.log('Global db not yet available, retrying in 1 second...');
+      setTimeout(() => this.testFirebaseConnection(), 1000);
+      return;
+    }
+    
+    const testRef = window.db.ref('.info/connected');
     testRef.on('value', (snapshot) => {
       if (snapshot.val() === true) {
         console.log('✅ Firebase connected successfully');
@@ -345,9 +351,20 @@ const iOSCompatibilityLogin = {
   }
 };
 
-// Initialize iOS compatibility when DOM is ready
+// Initialize iOS compatibility system BEFORE Firebase initialization
 document.addEventListener('DOMContentLoaded', function() {
+  console.log('🚀 DOM loaded, initializing iOS compatibility for Login first...');
   iOSCompatibilityLogin.init();
+  
+  // Initialize Firebase after iOS compatibility is set up
+  setTimeout(() => {
+    console.log('🔥 Initializing Firebase after iOS compatibility setup...');
+    firebase.initializeApp(firebaseConfig);
+    window.db = firebase.database();
+    
+    // Set global variables
+    db = window.db;
+  }, 100);
 });
 
 function getDeviceId() {
@@ -384,14 +401,14 @@ function login() {
 
   firebase.auth().signInWithEmailAndPassword(email, password)
     .then(userCredential => {
-      db.ref('users').orderByChild('email').equalTo(email).once('value')
+      window.db.ref('users').orderByChild('email').equalTo(email).once('value')
         .then(snapshot => {
           showProgress(false);
           if (snapshot.exists()) {
             let valid = false;
             snapshot.forEach(child => {
               const user = child.val();
-              const userRef = db.ref('users/' + child.key);
+              const userRef = window.db.ref('users/' + child.key);
 
               if (!user.deviceId) {
                 userRef.update({ deviceId: deviceId });
