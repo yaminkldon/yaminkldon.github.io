@@ -4,17 +4,18 @@
 
 // --- Firebase Configuration with updated initialization order ---
 const firebaseConfig = {
-  apiKey: "AIzaSyBXfS_GcFHYa6GV1GkE2h1V1gZY_YGnuLY",
-  authDomain: "al-tawfiq-school.firebaseapp.com",
-  databaseURL: "https://al-tawfiq-school-default-rtdb.firebaseio.com",
-  projectId: "al-tawfiq-school",
-  storageBucket: "al-tawfiq-school.appspot.com",
-  messagingSenderId: "850120655020",
-  appId: "1:850120655020:web:5e46fcdffabea66dc94f9b"
+  apiKey: "AIzaSyCVoy2aBaQO1RDpoGGPIBqriFnGdKeNqHk",
+  authDomain: "raednusairat-68b52.firebaseapp.com",
+  databaseURL: "https://raednusairat-68b52-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "raednusairat-68b52",
+  storageBucket: "raednusairat-68b52.appspot.com",
+  messagingSenderId: "852022576722",
+  appId: "1:852022576722:web:8546d7cd4d3f6b0f8fc18b",
+  measurementId: "G-HDLMYVXH5T"
 };
 
-// Declare global variables that will be set after Firebase initialization
-let db;
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
 
 // iOS Compatibility System for Login Page
 const iOSCompatibilityLogin = {
