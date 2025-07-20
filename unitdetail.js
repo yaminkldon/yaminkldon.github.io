@@ -9,445 +9,9 @@ const firebaseConfig = {
   measurementId: "G-HDLMYVXH5T"
 };
 
-// Declare global variables that will be set after Firebase initialization
-let db, storage;
-
-// iOS Compatibility System for Unit Detail Page
-const iOSCompatibilityUnitDetail = {
-  isIOS: /iPad|iPhone|iPod/.test(navigator.userAgent),
-  isSafari: /Safari/.test(navigator.userAgent) && !/Chrome/.test(navigator.userAgent),
-  
-  init: function() {
-    console.log('🍎 iOS Compatibility System initializing for Unit Detail...');
-    console.log('Device detection:', {
-      isIOS: this.isIOS,
-      isSafari: this.isSafari,
-      userAgent: navigator.userAgent,
-      screenSize: `${screen.width}x${screen.height}`,
-      devicePixelRatio: window.devicePixelRatio,
-      networkStatus: navigator.onLine ? 'online' : 'offline'
-    });
-    
-    if (this.isIOS) {
-      console.log('✅ iOS device detected, applying iOS fixes...');
-      this.applyIOSFixes();
-    }
-    
-    this.setupErrorHandling();
-    
-    // Wait for Firebase to be initialized before testing connection
-    if (typeof firebase !== 'undefined' && firebase.apps && firebase.apps.length > 0) {
-      console.log('🔥 Firebase already initialized, testing connection...');
-      this.scheduleFirebaseConnectionTest();
-    } else {
-      console.log('🔥 Waiting for Firebase initialization...');
-      this.waitForFirebaseInitialization();
-    }
-  },
-  
-  waitForFirebaseInitialization: function() {
-    const checkFirebase = () => {
-      if (typeof firebase !== 'undefined' && firebase.apps && firebase.apps.length > 0) {
-        console.log('🔥 Firebase now initialized, testing connection...');
-        this.scheduleFirebaseConnectionTest();
-      } else {
-        console.log('🔥 Still waiting for Firebase...');
-        setTimeout(checkFirebase, 200);
-      }
-    };
-    checkFirebase();
-  },
-  
-  scheduleFirebaseConnectionTest: function() {
-    // Delay Firebase connection test for iOS to ensure proper initialization
-    if (this.isIOS) {
-      console.log('iOS: Scheduling Firebase connection test with delay...');
-      setTimeout(() => {
-        this.testFirebaseConnection();
-      }, 2000);
-    } else {
-      console.log('Non-iOS: Testing Firebase connection immediately...');
-      setTimeout(() => {
-        this.testFirebaseConnection();
-      }, 500);
-    }
-  },
-  
-  applyIOSFixes: function() {
-    this.fixViewport();
-    this.addIOSStyles();
-    this.fixTouchEvents();
-    this.fixFirebaseForIOS();
-    this.fixVideoPlayback();
-    this.fixModalsForIOS();
-    this.setupErrorHandling();
-  },
-  
-  fixViewport: function() {
-    console.log('🔧 Fixing viewport for iOS...');
-    
-    // Enhanced viewport meta tag for iOS
-    let viewport = document.querySelector('meta[name="viewport"]');
-    if (viewport) {
-      viewport.content = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover';
-    }
-    
-    // iOS-specific CSS for safe areas
-    const style = document.createElement('style');
-    style.textContent = `
-      @supports(padding: max(0px)) {
-        body {
-          padding-top: max(56px, env(safe-area-inset-top));
-          padding-bottom: env(safe-area-inset-bottom);
-        }
-        
-        .appbar {
-          padding-top: env(safe-area-inset-top);
-          height: calc(56px + env(safe-area-inset-top));
-        }
-      }
-    `;
-    document.head.appendChild(style);
-  },
-  
-  addIOSStyles: function() {
-    console.log('🎨 Adding iOS-specific styles...');
-    
-    const style = document.createElement('style');
-    style.textContent = `
-      /* iOS-specific enhancements */
-      * {
-        -webkit-touch-callout: none;
-        -webkit-user-select: none;
-        -webkit-tap-highlight-color: rgba(0,0,0,0);
-      }
-      
-      input, textarea, select {
-        -webkit-user-select: text;
-      }
-      
-      .lesson-card {
-        -webkit-transform: translateZ(0);
-        transform: translateZ(0);
-        -webkit-backface-visibility: hidden;
-        backface-visibility: hidden;
-      }
-      
-      .video-modal {
-        -webkit-transform: translateZ(0);
-        transform: translateZ(0);
-        -webkit-backface-visibility: hidden;
-        backface-visibility: hidden;
-      }
-      
-      /* iOS loading animations */
-      @-webkit-keyframes spin {
-        0% { -webkit-transform: rotate(0deg); }
-        100% { -webkit-transform: rotate(360deg); }
-      }
-      
-      @keyframes spin {
-        0% { transform: rotate(0deg); }
-        100% { transform: rotate(360deg); }
-      }
-      
-      .ios-loading {
-        -webkit-animation: spin 1s linear infinite;
-        animation: spin 1s linear infinite;
-      }
-      
-      /* iOS scroll momentum */
-      .main-content, .lesson-details {
-        -webkit-overflow-scrolling: touch;
-      }
-      
-      /* iOS button fixes */
-      button {
-        -webkit-appearance: none;
-        border-radius: 8px;
-      }
-      
-      /* iOS modal fixes */
-      .modal {
-        -webkit-transform: translateZ(0);
-        transform: translateZ(0);
-      }
-    `;
-    document.head.appendChild(style);
-  },
-  
-  fixTouchEvents: function() {
-    console.log('👆 Fixing touch events for iOS...');
-    
-    // Enhanced touch handling for lesson cards
-    document.addEventListener('DOMContentLoaded', () => {
-      const addTouchSupport = () => {
-        const lessonCards = document.querySelectorAll('.lesson-card');
-        lessonCards.forEach(card => {
-          card.addEventListener('touchstart', function(e) {
-            this.style.transform = 'scale(0.95)';
-          }, { passive: true });
-          
-          card.addEventListener('touchend', function(e) {
-            this.style.transform = 'scale(1)';
-          }, { passive: true });
-        });
-      };
-      
-      // Apply touch support initially and after dynamic content loads
-      addTouchSupport();
-      
-      // Observer for dynamically added content
-      const observer = new MutationObserver(addTouchSupport);
-      const targetNode = document.getElementById('lesson-grid');
-      if (targetNode) {
-        observer.observe(targetNode, { childList: true, subtree: true });
-      }
-    });
-  },
-  
-  fixFirebaseForIOS: function() {
-    console.log('🔥 Optimizing Firebase for iOS...');
-    
-    // Enhanced Firebase configuration for iOS
-    if (firebase.auth && firebase.auth()) {
-      firebase.auth().setPersistence(firebase.auth.Auth.Persistence.LOCAL)
-        .then(() => {
-          console.log('✅ Firebase persistence set for iOS');
-        })
-        .catch(error => {
-          console.error('Firebase persistence error:', error);
-        });
-    }
-    
-    // Test Firebase connection
-    this.testFirebaseConnection();
-  },
-  
-  testFirebaseConnection: function() {
-    console.log('🧪 Testing Firebase connection...');
-    
-    // Check if we have the global db variable
-    if (typeof window.db === 'undefined' || !window.db) {
-      console.log('Global db not yet available, retrying in 1 second...');
-      setTimeout(() => this.testFirebaseConnection(), 1000);
-      return;
-    }
-    
-    const testRef = window.db.ref('.info/connected');
-    testRef.on('value', (snapshot) => {
-      if (snapshot.val() === true) {
-        console.log('✅ Firebase connected successfully');
-      } else {
-        console.log('❌ Firebase connection lost');
-        this.showIOSError('Connection lost. Please check your internet connection.');
-      }
-    });
-  },
-  
-  fixVideoPlayback: function() {
-    console.log('🎬 Enhancing video playback for iOS...');
-    
-    // Override video modal creation for iOS
-    const originalPlayLessonVideo = window.playLessonVideo;
-    if (originalPlayLessonVideo) {
-      window.playLessonVideo = function(videoURL) {
-        console.log('🎬 Playing video with iOS enhancements...');
-        
-        const modal = document.getElementById('video-modal');
-        
-        // Create iOS-optimized video element
-        let oldVideo = document.getElementById('fullscreen-video');
-        if (oldVideo) oldVideo.remove();
-        
-        const videoContainer = modal.querySelector('div');
-        const newVideo = document.createElement('video');
-        newVideo.id = 'fullscreen-video';
-        newVideo.className = 'video-js vjs-default-skin';
-        
-        // iOS-specific attributes
-        newVideo.setAttribute('playsinline', '');
-        newVideo.setAttribute('webkit-playsinline', '');
-        newVideo.setAttribute('controls', '');
-        newVideo.setAttribute('preload', 'auto');
-        newVideo.style.width = '100%';
-        newVideo.style.height = '100%';
-        
-        videoContainer.appendChild(newVideo);
-        modal.style.display = 'flex';
-        
-        // Add manual play button for iOS
-        const playButton = document.createElement('button');
-        playButton.style.cssText = `
-          position: absolute;
-          top: 50%;
-          left: 50%;
-          transform: translate(-50%, -50%);
-          background: rgba(0,0,0,0.7);
-          color: white;
-          border: none;
-          padding: 20px;
-          border-radius: 50%;
-          font-size: 24px;
-          cursor: pointer;
-          z-index: 9999;
-        `;
-        playButton.innerHTML = '▶';
-        playButton.onclick = () => {
-          newVideo.play();
-          playButton.style.display = 'none';
-        };
-        
-        videoContainer.appendChild(playButton);
-        
-        // Initialize Video.js with iOS optimizations
-        const player = videojs(newVideo, {
-          controls: true,
-          autoplay: false, // Disabled for iOS
-          preload: 'auto',
-          playbackRates: [0.5, 1, 1.25, 1.5, 2],
-          controlBar: {
-            volumePanel: {inline: false}
-          }
-        });
-        
-        player.src({ type: 'video/mp4', src: videoURL });
-        
-        // iOS-specific event handling
-        player.ready(() => {
-          console.log('🎬 Video.js ready for iOS');
-          
-          // Auto-hide play button when video starts
-          player.on('play', () => {
-            playButton.style.display = 'none';
-          });
-          
-          // Show play button when video pauses
-          player.on('pause', () => {
-            playButton.style.display = 'block';
-          });
-        });
-        
-        return player;
-      };
-    }
-  },
-  
-  fixModalsForIOS: function() {
-    console.log('🪟 Fixing modals for iOS...');
-    
-    // Prevent body scroll when modal is open
-    const originalShowModal = window.showModal;
-    if (originalShowModal) {
-      window.showModal = function(modalId) {
-        document.body.style.position = 'fixed';
-        document.body.style.width = '100%';
-        return originalShowModal.call(this, modalId);
-      };
-    }
-    
-    const originalCloseModal = window.closeModal;
-    if (originalCloseModal) {
-      window.closeModal = function(modalId) {
-        document.body.style.position = '';
-        document.body.style.width = '';
-        return originalCloseModal.call(this, modalId);
-      };
-    }
-  },
-  
-  setupErrorHandling: function() {
-    console.log('⚠️ Setting up iOS error handling...');
-    
-    // Global error handler
-    window.addEventListener('error', (event) => {
-      console.error('🚫 Global error caught:', event.error);
-      this.showIOSError('An unexpected error occurred. Please refresh the page.');
-    });
-    
-    // Unhandled promise rejection handler
-    window.addEventListener('unhandledrejection', (event) => {
-      console.error('🚫 Unhandled promise rejection:', event.reason);
-      this.showIOSError('A network error occurred. Please check your connection.');
-    });
-  },
-  
-  showIOSError: function(message) {
-    const errorDiv = document.createElement('div');
-    errorDiv.style.cssText = `
-      position: fixed;
-      top: 20px;
-      left: 50%;
-      transform: translateX(-50%);
-      background: #ff4444;
-      color: white;
-      padding: 12px 20px;
-      border-radius: 8px;
-      z-index: 10000;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-      max-width: 90%;
-      text-align: center;
-    `;
-    errorDiv.textContent = message;
-    
-    document.body.appendChild(errorDiv);
-    
-    setTimeout(() => {
-      if (errorDiv.parentNode) {
-        errorDiv.parentNode.removeChild(errorDiv);
-      }
-    }, 5000);
-  },
-  
-  applyMobileEnhancements: function() {
-    console.log('📱 Applying mobile enhancements...');
-    
-    // Add loading indicators
-    const style = document.createElement('style');
-    style.textContent = `
-      .mobile-loading {
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        padding: 20px;
-        font-size: 14px;
-        color: #666;
-      }
-      
-      .mobile-loading::before {
-        content: '';
-        width: 20px;
-        height: 20px;
-        border: 2px solid #ddd;
-        border-top: 2px solid #6c4fc1;
-        border-radius: 50%;
-        animation: spin 1s linear infinite;
-        margin-right: 10px;
-      }
-    `;
-    document.head.appendChild(style);
-    
-    // Enhanced touch feedback
-    document.addEventListener('touchstart', function(e) {
-      const target = e.target;
-      if (target.classList.contains('lesson-card') || target.classList.contains('play-btn')) {
-        target.style.opacity = '0.7';
-      }
-    }, { passive: true });
-    
-    document.addEventListener('touchend', function(e) {
-      const target = e.target;
-      if (target.classList.contains('lesson-card') || target.classList.contains('play-btn')) {
-        target.style.opacity = '1';
-      }
-    }, { passive: true });
-  }
-};
-
-// Initialize iOS compatibility when DOM is ready
-document.addEventListener('DOMContentLoaded', function() {
-  iOSCompatibilityUnitDetail.init();
-});
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+const storage = firebase.storage();
 
 // Initialize Advanced Features
 let advancedFeatures = null;
@@ -601,7 +165,7 @@ function validateCacheInBackground() {
   const cachedUnits = CacheManager.getCache(CacheManager.CACHE_KEYS.UNITS);
   if (cachedUnits && cachedUnits[currentUnitName]) {
     // Silently check if cache is still valid
-    window.db.ref('units/' + currentUnitName).once('value')
+    db.ref('units/' + currentUnitName).once('value')
       .then(snapshot => {
         if (snapshot.exists()) {
           const freshUnitData = snapshot.val();
@@ -744,7 +308,7 @@ function loadUnitLessons(unitName, selectedLesson = null) {
     console.log('Found cached unit data, validating against database...');
     
     // Validate cache against current database structure
-    window.db.ref('units/' + unitName).once('value')
+    db.ref('units/' + unitName).once('value')
       .then(snapshot => {
         if (!snapshot.exists()) {
           console.log('Unit not found in database'); // Debug log
@@ -784,7 +348,7 @@ function loadUnitLessons(unitName, selectedLesson = null) {
       });
   } else {
     console.log('No cached data found, loading from database:', unitName);
-    window.db.ref('units/' + unitName).once('value')
+    db.ref('units/' + unitName).once('value')
       .then(snapshot => {
         if (!snapshot.exists()) {
           console.log('Unit not found in database'); // Debug log
@@ -2216,7 +1780,7 @@ function loadStudentFiles(unitKey, lessonKey) {
   
   console.log('Loading student files from path:', dbPath); // Debug log
   
-  window.db.ref(dbPath).once('value').then(snapshot => {
+  db.ref(dbPath).once('value').then(snapshot => {
     console.log('Student files snapshot exists:', snapshot.exists()); // Debug log
     if (!snapshot.exists()) {
       filesList.innerHTML = `
@@ -2272,7 +1836,7 @@ function loadStudentUnitFiles(unitKey) {
   
   console.log('Loading student unit files from path:', dbPath); // Debug log
   
-  window.db.ref(dbPath).once('value').then(snapshot => {
+  db.ref(dbPath).once('value').then(snapshot => {
     console.log('Student unit files snapshot exists:', snapshot.exists()); // Debug log
     if (!snapshot.exists()) {
       filesList.innerHTML = `
@@ -2376,7 +1940,7 @@ function previewStudentUnitFile(fileId, unitKey) {
   
   console.log('Loading student unit file for preview from path:', dbPath); // Debug log
   
-  window.db.ref(dbPath).once('value').then(snapshot => {
+  db.ref(dbPath).once('value').then(snapshot => {
     if (!snapshot.exists()) {
       alert('Unit file not found');
       return;
@@ -2400,7 +1964,7 @@ function loadStudentFiles(unitKey, lessonKey) {
   
   console.log('Loading student files from path:', dbPath); // Debug log
   
-  window.db.ref(dbPath).once('value').then(snapshot => {
+  db.ref(dbPath).once('value').then(snapshot => {
     console.log('Student files snapshot exists:', snapshot.exists()); // Debug log
     if (!snapshot.exists()) {
       filesList.innerHTML = `
@@ -2533,7 +2097,7 @@ function previewStudentFile(fileId, unitKey, lessonKey) {
     `units/${unitKey}/lessons/${lessonKey}/files/${fileId}` : 
     `units/${unitKey}/files/${fileId}`;
   
-  window.db.ref(dbPath).once('value').then(snapshot => {
+  db.ref(dbPath).once('value').then(snapshot => {
     if (!snapshot.exists()) {
       alert('File not found');
       return;
@@ -2808,7 +2372,7 @@ function logSecurityViolation(userEmail, violationType, unitName, fileName) {
   };
   
   // Log to Firebase
-  window.db.ref('security_violations').push(violation).then(() => {
+  db.ref('security_violations').push(violation).then(() => {
     console.log('Security violation logged:', violation);
   }).catch(error => {
     console.error('Error logging security violation:', error);
@@ -3134,18 +2698,4 @@ function removePDFNavigationControls() {
     navControls.remove();
   }
 }
-
-// Initialize iOS compatibility system BEFORE Firebase initialization
-document.addEventListener('DOMContentLoaded', function() {
-  console.log('🚀 DOM loaded, initializing iOS compatibility for Unit Detail first...');
-  iOSCompatibilityUnitDetail.init();
-  
-  // Initialize Firebase after iOS compatibility is set up
-  setTimeout(() => {
-    console.log('🔥 Initializing Firebase after iOS compatibility setup...');
-    firebase.initializeApp(firebaseConfig);
-    window.db = firebase.database();
-    window.storage = firebase.storage();
-  }, 100);
-});
 

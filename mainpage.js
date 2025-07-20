@@ -1,4 +1,3 @@
-// Firebase Configuration with updated initialization order
 const firebaseConfig = {
   apiKey: "AIzaSyCVoy2aBaQO1RDpoGGPIBqriFnGdKeNqHk",
   authDomain: "raednusairat-68b52.firebaseapp.com",
@@ -9,870 +8,46 @@ const firebaseConfig = {
   appId: "1:852022576722:web:8546d7cd4d3f6b0f8fc18b",
   measurementId: "G-HDLMYVXH5T"
 };
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+const storage = firebase.storage();
 
-// Initialize Firebase immediately - BEFORE other code runs
-console.log('🔥 Initializing Firebase immediately...');
-if (typeof firebase !== 'undefined') {
-  try {
-    firebase.initializeApp(firebaseConfig);
-    window.db = firebase.database();
-    window.storage = firebase.storage();
-    
-    // Set up messaging if available
-    if (typeof firebase.messaging !== 'undefined') {
-      window.messaging = firebase.messaging();
-    }
-    
-    console.log('✅ Firebase initialized successfully');
-  } catch (error) {
-    console.error('❌ Firebase initialization error:', error);
-  }
-} else {
-  console.log('🔥 Firebase not yet loaded, will retry...');
+const messaging = firebase.messaging();
+
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('firebase-messaging-sw.js')
+    .then(function(registration) {
+      console.log('Service Worker registered with scope:', registration.scope);
+    }).catch(function(err) {
+      console.log('Service Worker registration failed:', err);
+    });
 }
 
-// iOS Compatibility and Debugging System
-const iOSCompatibility = {
-  isIOS: /iPad|iPhone|iPod/.test(navigator.userAgent),
-  isSafari: /Safari/.test(navigator.userAgent) && !/Chrome/.test(navigator.userAgent),
-  
-  init: function() {
-    console.log('🍎 iOS Compatibility System initializing...');
-    console.log('Device detection:', {
-      isIOS: this.isIOS,
-      isSafari: this.isSafari,
-      userAgent: navigator.userAgent,
-      screenSize: `${screen.width}x${screen.height}`,
-      devicePixelRatio: window.devicePixelRatio,
-      networkStatus: navigator.onLine ? 'online' : 'offline'
-    });
-    
-    if (this.isIOS) {
-      console.log('✅ iOS device detected, applying iOS fixes...');
-      this.applyIOSFixes();
-    }
-    
-    this.setupErrorHandling();
-    
-    // Wait for Firebase to be initialized before testing connection
-    if (typeof firebase !== 'undefined' && firebase.apps && firebase.apps.length > 0) {
-      console.log('🔥 Firebase already initialized, testing connection...');
-      this.scheduleFirebaseConnectionTest();
-    } else {
-      console.log('🔥 Waiting for Firebase initialization...');
-      this.waitForFirebaseInitialization();
-    }
-  },
-  
-  waitForFirebaseInitialization: function() {
-    const checkFirebase = () => {
-      if (typeof firebase !== 'undefined' && firebase.apps && firebase.apps.length > 0) {
-        console.log('🔥 Firebase now initialized, testing connection...');
-        this.scheduleFirebaseConnectionTest();
-      } else {
-        console.log('🔥 Still waiting for Firebase...');
-        setTimeout(checkFirebase, 200);
-      }
-    };
-    checkFirebase();
-  },
-  
-  scheduleFirebaseConnectionTest: function() {
-    // Delay Firebase connection test for iOS to ensure proper initialization
-    if (this.isIOS) {
-      console.log('iOS: Scheduling Firebase connection test with delay...');
-      setTimeout(() => {
-        this.testFirebaseConnection();
-      }, 2000);
-    } else {
-      console.log('Non-iOS: Testing Firebase connection immediately...');
-      setTimeout(() => {
-        this.testFirebaseConnection();
-      }, 500);
-    }
-  },
-  
-  applyIOSFixes: function() {
-    console.log('Applying iOS-specific fixes...');
-    
-    // Fix viewport for iOS
-    this.fixViewport();
-    
-    // Fix CSS for iOS
-    this.addIOSStyles();
-    
-    // Fix touch events for iOS
-    this.fixTouchEvents();
-    
-    // Fix Firebase for iOS
-    this.fixFirebaseForIOS();
-    
-    // Fix video playback for iOS
-    this.fixVideoPlayback();
-    
-    // Fix modal and fullscreen for iOS
-    this.fixModalsForIOS();
-    
-    console.log('iOS fixes applied successfully');
-  },
-  
-  fixViewport: function() {
-    let viewport = document.querySelector('meta[name="viewport"]');
-    if (!viewport) {
-      viewport = document.createElement('meta');
-      viewport.name = 'viewport';
-      document.head.appendChild(viewport);
-    }
-    viewport.content = 'width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes, viewport-fit=cover';
-    
-    // Add iOS-specific viewport meta tags
-    const statusBarMeta = document.createElement('meta');
-    statusBarMeta.name = 'apple-mobile-web-app-status-bar-style';
-    statusBarMeta.content = 'default';
-    document.head.appendChild(statusBarMeta);
-    
-    const webAppMeta = document.createElement('meta');
-    webAppMeta.name = 'apple-mobile-web-app-capable';
-    webAppMeta.content = 'yes';
-    document.head.appendChild(webAppMeta);
-  },
-  
-  addIOSStyles: function() {
-    const iosStyles = document.createElement('style');
-    iosStyles.id = 'ios-compatibility-styles';
-    iosStyles.textContent = `
-      /* iOS Safari fixes */
-      * {
-        -webkit-tap-highlight-color: transparent;
-        -webkit-touch-callout: none;
-      }
-      
-      body {
-        -webkit-overflow-scrolling: touch;
-        -webkit-transform: translate3d(0, 0, 0);
-        -webkit-backface-visibility: hidden;
-        -webkit-perspective: 1000;
-        overflow-x: hidden;
-      }
-      
-      .main-content {
-        -webkit-overflow-scrolling: touch;
-        -webkit-transform: translate3d(0, 0, 0);
-        transform: translate3d(0, 0, 0);
-      }
-      
-      /* Fix iOS keyboard issues */
-      input, textarea, select {
-        -webkit-user-select: text;
-        user-select: text;
-        -webkit-appearance: none;
-        border-radius: 0;
-        font-size: 16px; /* Prevents zoom on iOS */
-      }
-      
-      /* Fix iOS button styles */
-      button {
-        -webkit-appearance: none;
-        border-radius: 0;
-        cursor: pointer;
-      }
-      
-      /* Fix iOS modal and fullscreen */
-      .modal {
-        -webkit-overflow-scrolling: touch;
-        -webkit-transform: translate3d(0, 0, 0);
-      }
-      
-      /* Fix iOS video playback */
-      video {
-        -webkit-playsinline: true;
-        playsinline: true;
-        -webkit-transform: translate3d(0, 0, 0);
-      }
-      
-      /* Fix iOS iframe issues */
-      iframe {
-        -webkit-transform: translate3d(0, 0, 0);
-        transform: translate3d(0, 0, 0);
-        -webkit-backface-visibility: hidden;
-      }
-      
-      /* Fix iOS touch zoom */
-      .touch-zoom-container {
-        -webkit-user-select: none;
-        user-select: none;
-        -webkit-touch-callout: none;
-        -webkit-tap-highlight-color: transparent;
-      }
-      
-      /* Fix iOS safe area */
-      @supports(padding: max(0px)) {
-        .appbar {
-          padding-top: max(12px, env(safe-area-inset-top));
-        }
-        
-        .main-content {
-          padding-bottom: max(20px, env(safe-area-inset-bottom));
-        }
-      }
-      
-      /* Fix iOS drawer */
-      .drawer {
-        -webkit-overflow-scrolling: touch;
-        -webkit-transform: translate3d(0, 0, 0);
-      }
-      
-      /* Fix iOS lesson grid */
-      .lesson-grid {
-        -webkit-overflow-scrolling: touch;
-        -webkit-transform: translate3d(0, 0, 0);
-      }
-      
-      /* Prevent iOS bounce effect where needed */
-      .no-bounce {
-        -webkit-overflow-scrolling: auto;
-        overscroll-behavior: none;
-      }
-      
-      /* iOS loading animation */
-      @keyframes spin {
-        0% { transform: rotate(0deg); }
-        100% { transform: rotate(360deg); }
-      }
-      
-      @-webkit-keyframes spin {
-        0% { -webkit-transform: rotate(0deg); }
-        100% { -webkit-transform: rotate(360deg); }
-      }
-    `;
-    document.head.appendChild(iosStyles);
-  },
-  
-  fixTouchEvents: function() {
-    // Fix touch events for iOS
-    document.addEventListener('touchstart', function(e) {
-      // Prevent default only for multi-touch
-      if (e.touches.length > 1) {
-        e.preventDefault();
-      }
-    }, { passive: false });
-    
-    // Fix iOS touch delay
-    document.addEventListener('touchend', function(e) {
-      const target = e.target;
-      if (target.tagName === 'BUTTON' || target.onclick) {
-        target.click();
-      }
-    }, { passive: true });
-  },
-  
-  fixFirebaseForIOS: function() {
-    // Set Firebase Auth persistence for iOS
-    if (typeof firebase !== 'undefined' && firebase.auth && window.db) {
-      firebase.auth().setPersistence(firebase.auth.Auth.Persistence.LOCAL)
-        .then(() => {
-          console.log('Firebase Auth persistence set for iOS');
+function requestNotificationPermission() {
+  Notification.requestPermission().then((permission) => {
+    if (permission === 'granted') {
+      messaging.getToken({ vapidKey: 'BOrHxEJA2I5f7r9PkZ63GNG5mkRZIk3USWLz-ELZoSICdTKFfsjiOHdHuao5kAwwsp7FKBuiZPKRVaMFF7lb3gI' })
+        .then((token) => {
+          console.log('FCM Token:', token);
+          // Save this token to your database for the user, so you can send them notifications
         })
-        .catch((error) => {
-          console.error('Failed to set Firebase Auth persistence:', error);
-          this.showIOSError('Authentication setup failed. Please try refreshing the page.', {
-            error: error.message,
-            type: 'auth_persistence_error',
-            code: error.code,
-            stack: error.stack,
-            location: 'fixFirebaseForIOS'
-          });
+        .catch((err) => {
+          console.log('Unable to get FCM token.', err);
         });
-    }
-  },
-  
-  fixVideoPlayback: function() {
-    // Override video playback for iOS
-    const originalPlayVideo = window.playLessonVideo;
-    window.playLessonVideo = function(videoURL) {
-      if (iOSCompatibility.isIOS) {
-        console.log('iOS video playback initiated');
-        
-        // Add iOS-specific video attributes
-        const originalFunction = originalPlayVideo;
-        originalFunction.call(this, videoURL);
-        
-        // Additional iOS video fixes
-        setTimeout(() => {
-          const video = document.getElementById('fullscreen-video');
-          if (video) {
-            video.setAttribute('playsinline', 'true');
-            video.setAttribute('webkit-playsinline', 'true');
-            video.style.webkitTransform = 'translate3d(0, 0, 0)';
-            
-            // Force play on iOS
-            video.play().catch(e => {
-              console.log('iOS video autoplay blocked:', e);
-            });
-          }
-        }, 500);
-      } else {
-        originalPlayVideo.call(this, videoURL);
-      }
-    };
-  },
-  
-  fixModalsForIOS: function() {
-    // Fix modal display for iOS
-    const style = document.createElement('style');
-    style.textContent = `
-      @media screen and (max-width: 768px) {
-        .modal {
-          position: fixed !important;
-          top: 0 !important;
-          left: 0 !important;
-          width: 100% !important;
-          height: 100% !important;
-          padding: 0 !important;
-          -webkit-transform: translate3d(0, 0, 0);
-          transform: translate3d(0, 0, 0);
-        }
-      }
-    `;
-    document.head.appendChild(style);
-  },
-  
-  setupErrorHandling: function() {
-    // Enhanced error handling for iOS with detailed error information
-    window.addEventListener('error', (e) => {
-      console.error('iOS Global Error:', e);
-      if (this.isIOS) {
-        this.showIOSError('App Error: ' + e.message, {
-          error: e.message,
-          type: 'javascript_error',
-          filename: e.filename,
-          lineno: e.lineno,
-          colno: e.colno,
-          stack: e.error ? e.error.stack : null,
-          location: 'window.error'
-        });
-      }
-    });
-    
-    window.addEventListener('unhandledrejection', (e) => {
-      console.error('iOS Promise Rejection:', e);
-      if (this.isIOS) {
-        const reason = e.reason;
-        this.showIOSError('Connection Error: ' + (reason.message || reason), {
-          error: reason.message || String(reason),
-          type: 'promise_rejection',
-          stack: reason.stack,
-          name: reason.name,
-          location: 'unhandledrejection'
-        });
-      }
-    });
-    
-    // Network error handling
-    window.addEventListener('offline', () => {
-      if (this.isIOS) {
-        this.showIOSError('Network connection lost. Please check your internet connection.', {
-          error: 'Network offline',
-          type: 'network_offline',
-          location: 'offline_event'
-        });
-      }
-    });
-    
-    // Firebase Auth error handling
-    if (typeof firebase !== 'undefined' && firebase.auth) {
-      firebase.auth().onAuthStateChanged((user) => {
-        if (!user && this.isIOS) {
-          // Only show auth error if we're not already on login page
-          if (!window.location.href.includes('index.html')) {
-            this.showIOSError('Authentication session expired. Redirecting to login.', {
-              error: 'Auth session expired',
-              type: 'auth_expired',
-              location: 'onAuthStateChanged'
-            });
-          }
-        }
-      });
-    }
-  },
-  
-  testFirebaseConnection: function() {
-    console.log('🔥 Testing Firebase connection...');
-    
-    // Wait for Firebase to be fully loaded
-    if (typeof firebase === 'undefined') {
-      console.log('Firebase not yet loaded, retrying in 1 second...');
-      setTimeout(() => this.testFirebaseConnection(), 1000);
-      return;
-    }
-    
-    // Check if database is available
-    if (!firebase.database) {
-      console.log('Firebase database not yet available, retrying in 1 second...');
-      setTimeout(() => this.testFirebaseConnection(), 1000);
-      return;
-    }
-
-    // Check if we have the global db variable
-    if (typeof window.db === 'undefined' || !window.db) {
-      console.log('Global db not yet available, retrying in 1 second...');
-      setTimeout(() => this.testFirebaseConnection(), 1000);
-      return;
-    }
-    
-    try {
-      console.log('Attempting to connect to Firebase...');
-      const testRef = window.db.ref('.info/connected');
-      
-      // Set up connection monitoring with timeout
-      const connectionTimeout = setTimeout(() => {
-        console.log('🚨 Connection test timed out');
-        if (this.isIOS) {
-          this.showIOSError('Connection test timed out. Please check your internet connection and try refreshing the page.', {
-            error: 'Connection timeout',
-            type: 'connection_timeout',
-            location: 'testFirebaseConnection_timeout',
-            timestamp: new Date().toISOString()
-          });
-        }
-      }, 10000); // 10 second timeout
-      
-      testRef.on('value', (snapshot) => {
-        clearTimeout(connectionTimeout);
-        const connected = snapshot.val();
-        console.log('🔥 Firebase connection status:', connected);
-        
-        if (connected) {
-          console.log('✅ Firebase connection successful');
-          // Remove any existing connection error messages
-          const existingError = document.querySelector('[data-error-type="connection_failed"]');
-          if (existingError) {
-            existingError.remove();
-          }
-        } else {
-          console.log('❌ Firebase connection failed');
-          if (this.isIOS) {
-            // More specific error message for iOS
-            this.showIOSError('Unable to establish connection to server. This might be due to:\n\n• Network connectivity issues\n• iOS Safari restrictions\n• Firewall or content blocker\n\nPlease try:\n• Switching to cellular data or different WiFi\n• Refreshing the page\n• Disabling content blockers', {
-              error: 'Firebase connection failed',
-              type: 'connection_failed',
-              connected: connected,
-              location: 'testFirebaseConnection',
-              timestamp: new Date().toISOString(),
-              networkInfo: {
-                onLine: navigator.onLine,
-                connectionType: navigator.connection ? navigator.connection.effectiveType : 'unknown',
-                downlink: navigator.connection ? navigator.connection.downlink : 'unknown'
-              }
-            });
-          }
-        }
-      });
-      
-      // Test basic database read to ensure permissions are working
-      testRef.once('value').then((snapshot) => {
-        console.log('Database read test successful');
-      }).catch((error) => {
-        console.error('Database read test failed:', error);
-        if (this.isIOS) {
-          this.showIOSError('Database access failed. Please check your permissions and try again.', {
-            error: error.message,
-            type: 'database_access_failed',
-            code: error.code,
-            location: 'testFirebaseConnection_read_test',
-            timestamp: new Date().toISOString()
-          });
-        }
-      });
-      
-    } catch (error) {
-      console.error('Firebase connection test error:', error);
-      if (this.isIOS) {
-        this.showIOSError('Failed to initialize server connection: ' + error.message, {
-          error: error.message,
-          type: 'firebase_init_error',
-          stack: error.stack,
-          name: error.name,
-          location: 'testFirebaseConnection_catch',
-          timestamp: new Date().toISOString()
-        });
-      }
-    }
-  },
-  
-  showIOSError: function(message, errorDetails = null) {
-    const timestamp = new Date().toISOString();
-    const deviceInfo = this.getDeviceInfo();
-    
-    // Create detailed error object
-    const errorData = {
-      timestamp: timestamp,
-      message: message,
-      errorDetails: errorDetails,
-      deviceInfo: deviceInfo,
-      url: window.location.href,
-      userAgent: navigator.userAgent,
-      connectionType: navigator.connection ? navigator.connection.effectiveType : 'unknown',
-      onlineStatus: navigator.onLine
-    };
-    
-    // Log to console for debugging
-    console.error('🚨 iOS Error Details:', errorData);
-    
-    // Create shareable error text
-    const shareableError = this.createShareableError(errorData);
-    
-    // Remove existing error with same type
-    const existingError = document.querySelector(`[data-error-type="${errorDetails?.type}"]`);
-    if (existingError) {
-      existingError.remove();
-    }
-    
-    const errorDiv = document.createElement('div');
-    errorDiv.setAttribute('data-error-type', errorDetails?.type || 'unknown');
-    errorDiv.style.cssText = `
-      position: fixed;
-      top: 20px;
-      left: 20px;
-      right: 20px;
-      background: #ff4444;
-      color: white;
-      padding: 16px;
-      border-radius: 12px;
-      z-index: 99999;
-      font-size: 14px;
-      line-height: 1.4;
-      box-shadow: 0 6px 20px rgba(0,0,0,0.3);
-      max-height: 80vh;
-      overflow-y: auto;
-      animation: slideInDown 0.3s ease-out;
-    `;
-    
-    // Add CSS animation
-    const style = document.createElement('style');
-    style.textContent = `
-      @keyframes slideInDown {
-        from { transform: translateY(-100%); opacity: 0; }
-        to { transform: translateY(0); opacity: 1; }
-      }
-    `;
-    document.head.appendChild(style);
-    
-    errorDiv.innerHTML = `
-      <div style="display: flex; align-items: center; margin-bottom: 12px;">
-        <span style="font-size: 20px; margin-right: 8px;">🚨</span>
-        <strong>iOS Connection Error</strong>
-      </div>
-      
-      <div style="margin-bottom: 12px;">
-        ${message}
-      </div>
-      
-      ${errorDetails ? `
-        <details style="margin-bottom: 12px;">
-          <summary style="cursor: pointer; font-weight: bold; margin-bottom: 8px;">Technical Details</summary>
-          <div style="padding: 10px; background: rgba(255,255,255,0.1); border-radius: 6px; font-size: 12px; font-family: monospace; white-space: pre-wrap;">
-${this.formatErrorDetails(errorDetails)}
-          </div>
-        </details>
-      ` : ''}
-      
-      <div style="margin-bottom: 12px; padding: 10px; background: rgba(255,255,255,0.1); border-radius: 6px; font-size: 12px;">
-        <strong>Device Info:</strong><br>
-        ${deviceInfo.device} • ${deviceInfo.browser}<br>
-        Screen: ${deviceInfo.screenSize} • Network: ${navigator.onLine ? 'Online' : 'Offline'}<br>
-        Time: ${new Date().toLocaleString()}
-      </div>
-      
-      <div style="display: flex; gap: 8px; margin-bottom: 12px;">
-        <button onclick="location.reload()" 
-                style="flex: 1; padding: 10px; background: #28a745; color: white; border: none; border-radius: 6px; font-size: 13px; cursor: pointer; font-weight: bold;">
-          🔄 Retry
-        </button>
-        <button onclick="iOSCompatibility.shareError('${encodeURIComponent(shareableError)}')" 
-                style="flex: 1; padding: 10px; background: #25d366; color: white; border: none; border-radius: 6px; font-size: 13px; cursor: pointer; font-weight: bold;">
-          📱 Share Error
-        </button>
-      </div>
-      
-      <div style="display: flex; gap: 8px;">
-        <button onclick="iOSCompatibility.copyError('${encodeURIComponent(shareableError)}')" 
-                style="flex: 1; padding: 8px; background: #007bff; color: white; border: none; border-radius: 6px; font-size: 12px; cursor: pointer;">
-          📋 Copy
-        </button>
-        <button onclick="this.parentElement.parentElement.remove()" 
-                style="padding: 8px 12px; background: rgba(255,255,255,0.2); color: white; border: none; border-radius: 6px; font-size: 12px; cursor: pointer;">
-          ✕ Dismiss
-        </button>
-      </div>
-    `;
-    
-    document.body.appendChild(errorDiv);
-    
-    // Auto-remove after 45 seconds (longer for connection errors)
-    setTimeout(() => {
-      if (errorDiv.parentNode) {
-        errorDiv.style.animation = 'slideInDown 0.3s ease-out reverse';
-        setTimeout(() => {
-          if (errorDiv.parentNode) {
-            errorDiv.parentNode.removeChild(errorDiv);
-          }
-        }, 300);
-      }
-    }, 45000);
-  },
-  
-  getDeviceInfo: function() {
-    return {
-      device: this.getDeviceType(),
-      browser: this.getBrowserInfo(),
-      screenSize: `${screen.width}x${screen.height}`,
-      pixelRatio: window.devicePixelRatio || 1,
-      viewport: `${window.innerWidth}x${window.innerHeight}`
-    };
-  },
-  
-  getDeviceType: function() {
-    const ua = navigator.userAgent;
-    if (/iPad/.test(ua)) return 'iPad';
-    if (/iPhone/.test(ua)) return 'iPhone';
-    if (/iPod/.test(ua)) return 'iPod';
-    return 'Unknown iOS Device';
-  },
-  
-  getBrowserInfo: function() {
-    const ua = navigator.userAgent;
-    if (/CriOS/.test(ua)) return 'Chrome iOS';
-    if (/FxiOS/.test(ua)) return 'Firefox iOS';
-    if (/EdgiOS/.test(ua)) return 'Edge iOS';
-    if (/Safari/.test(ua) && !/Chrome/.test(ua)) return 'Safari';
-    return 'Unknown Browser';
-  },
-  
-  formatErrorDetails: function(error) {
-    if (typeof error === 'string') return error;
-    if (error instanceof Error) {
-      return `${error.name}: ${error.message}${error.stack ? '\n' + error.stack.substring(0, 200) + '...' : ''}`;
-    }
-    if (typeof error === 'object') {
-      return JSON.stringify(error, null, 2).substring(0, 300) + '...';
-    }
-    return String(error);
-  },
-  
-  createShareableError: function(errorData) {
-    const text = `🚨 iOS App Error Report 🚨
-
-📱 Device: ${errorData.deviceInfo.device}
-🌐 Browser: ${errorData.deviceInfo.browser}
-📏 Screen: ${errorData.deviceInfo.screenSize}
-🔗 Connection: ${errorData.onlineStatus ? 'Online' : 'Offline'} (${errorData.connectionType})
-🕒 Time: ${new Date(errorData.timestamp).toLocaleString()}
-
-❌ Error Message:
-${errorData.message}
-
-${errorData.errorDetails ? `🔍 Technical Details:
-${this.formatErrorDetails(errorData.errorDetails)}
-
-` : ''}📄 Page: ${errorData.url}
-
-🔧 User Agent:
-${errorData.userAgent}
-
----
-This error was automatically generated by the iOS compatibility system.`;
-    
-    return text;
-  },
-  
-  shareError: function(encodedError) {
-    const errorText = decodeURIComponent(encodedError);
-    const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(errorText)}`;
-    
-    // Try to open WhatsApp
-    window.open(whatsappUrl, '_blank');
-  },
-  
-  copyError: function(encodedError) {
-    const errorText = decodeURIComponent(encodedError);
-    
-    // Try to copy to clipboard
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(errorText).then(() => {
-        this.showCopySuccess();
-      }).catch(() => {
-        this.fallbackCopy(errorText);
-      });
     } else {
-      this.fallbackCopy(errorText);
+      console.log('Notification permission not granted.');
     }
-  },
-  
-  fallbackCopy: function(text) {
-    // Fallback copy method for older browsers
-    const textArea = document.createElement('textarea');
-    textArea.value = text;
-    textArea.style.position = 'fixed';
-    textArea.style.top = '0';
-    textArea.style.left = '0';
-    textArea.style.width = '2em';
-    textArea.style.height = '2em';
-    textArea.style.padding = '0';
-    textArea.style.border = 'none';
-    textArea.style.outline = 'none';
-    textArea.style.boxShadow = 'none';
-    textArea.style.background = 'transparent';
-    document.body.appendChild(textArea);
-    textArea.focus();
-    textArea.select();
-    
-    try {
-      document.execCommand('copy');
-      this.showCopySuccess();
-    } catch (err) {
-      console.error('Copy failed:', err);
-      alert('Copy failed. Please manually copy the error text.');
-    }
-    
-    document.body.removeChild(textArea);
-  },
-  
-  showCopySuccess: function() {
-    const successDiv = document.createElement('div');
-    successDiv.style.cssText = `
-      position: fixed;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      background: #28a745;
-      color: white;
-      padding: 12px 20px;
-      border-radius: 8px;
-      z-index: 99999;
-      font-size: 14px;
-      font-weight: bold;
-    `;
-    successDiv.textContent = '✅ Error copied to clipboard!';
-    
-    document.body.appendChild(successDiv);
-    
-    setTimeout(() => {
-      if (successDiv.parentNode) {
-        successDiv.parentNode.removeChild(successDiv);
-      }
-    }, 2000);
-  },
-  
-  // Fix units loading for iOS
-  fixUnitsLoading: function() {
-    const originalLoadUnits = window.loadUnits;
-    window.loadUnits = function() {
-      if (iOSCompatibility.isIOS) {
-        console.log('iOS: Loading units with iOS-specific handling');
-        
-        // Add timeout for iOS network issues
-        const loadingTimeout = setTimeout(() => {
-          iOSCompatibility.showIOSError('Loading is taking longer than expected. Please check your connection.');
-        }, 10000);
-        
-        // Override the original function
-        const result = originalLoadUnits.call(this);
-        
-        // Clear timeout if loading completes
-        if (result && result.then) {
-          result.then(() => {
-            clearTimeout(loadingTimeout);
-          }).catch(() => {
-            clearTimeout(loadingTimeout);
-          });
-        } else {
-          clearTimeout(loadingTimeout);
-        }
-        
-        return result;
-      } else {
-        return originalLoadUnits.call(this);
-      }
-    };
-  }
-};
-
-// Initialize iOS compatibility system BEFORE Firebase initialization
-document.addEventListener('DOMContentLoaded', function() {
-  console.log('🚀 DOM loaded, initializing iOS compatibility...');
-  iOSCompatibility.init();
-  
-  // If Firebase wasn't initialized in the initial attempt, try again
-  if (!firebase.apps || firebase.apps.length === 0) {
-    console.log('🔥 Firebase not initialized yet, initializing now...');
-    try {
-      firebase.initializeApp(firebaseConfig);
-      window.db = firebase.database();
-      window.storage = firebase.storage();
-      
-      // Set up messaging if available
-      if (typeof firebase.messaging !== 'undefined') {
-        window.messaging = firebase.messaging();
-        setupFirebaseMessaging();
-      }
-    } catch (error) {
-      console.error('❌ Firebase initialization error in DOMContentLoaded:', error);
-    }
-  } else {
-    console.log('✅ Firebase already initialized, setting up messaging...');
-    if (typeof firebase.messaging !== 'undefined' && !window.messaging) {
-      window.messaging = firebase.messaging();
-      setupFirebaseMessaging();
-    }
-  }
-  
-  // Set up authentication handler
-  setupAuthHandler();
-});
-
-// Declare global variables that will be set after Firebase initialization
-let db, storage, messaging;
-
-// Firebase messaging setup function
-function setupFirebaseMessaging() {
-  if (!messaging) return;
-  
-  if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('firebase-messaging-sw.js')
-      .then(function(registration) {
-        console.log('Service Worker registered with scope:', registration.scope);
-      }).catch(function(err) {
-        console.log('Service Worker registration failed:', err);
-      });
-  }
-
-  function requestNotificationPermission() {
-    Notification.requestPermission().then((permission) => {
-      if (permission === 'granted') {
-        messaging.getToken({ vapidKey: 'BOrHxEJA2I5f7r9PkZ63GNG5mkRZIk3USWLz-ELZoSICdTKFfsjiOHdHuao5kAwwsp7FKBuiZPKRVaMFF7lb3gI' })
-          .then((token) => {
-            console.log('FCM Token:', token);
-            // Save this token to your database for the user, so you can send them notifications
-          })
-          .catch((err) => {
-            console.log('Unable to get FCM token.', err);
-          });
-      } else {
-        console.log('Notification permission not granted.');
-      }
-    });
-  }
-
-  // Call this after user login or on page load
-  requestNotificationPermission();
-
-  // Listen for foreground messages
-  messaging.onMessage((payload) => {
-    // Show notification in-app
-    alert(payload.notification.title + "\n" + payload.notification.body);
   });
 }
+
+// Call this after user login or on page load
+requestNotificationPermission();
+
+// Listen for foreground messages
+messaging.onMessage((payload) => {
+  // Show notification in-app
+  alert(payload.notification.title + "\n" + payload.notification.body);
+});
 
 let currentUnit = null;
 let lessons = [];
@@ -1002,35 +177,6 @@ const CacheManager = {
 function loadUnits() {
   console.log('Loading units with smart cache validation');
   
-  // iOS-specific loading indicator
-  if (iOSCompatibility.isIOS) {
-    const loadingIndicator = document.createElement('div');
-    loadingIndicator.id = 'ios-loading-indicator';
-    loadingIndicator.style.cssText = `
-      position: fixed;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      background: rgba(0,0,0,0.8);
-      color: white;
-      padding: 20px;
-      border-radius: 8px;
-      z-index: 9999;
-      text-align: center;
-    `;
-    loadingIndicator.innerHTML = `
-      <div style="font-size: 14px; margin-bottom: 10px;">Loading units...</div>
-      <div style="width: 20px; height: 20px; border: 2px solid #fff; border-top: 2px solid transparent; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto;"></div>
-    `;
-    document.body.appendChild(loadingIndicator);
-    
-    // Remove loading indicator after timeout
-    setTimeout(() => {
-      const indicator = document.getElementById('ios-loading-indicator');
-      if (indicator) indicator.remove();
-    }, 10000);
-  }
-  
   // First, check if we have cached data
   const cachedUnits = CacheManager.getCache(CacheManager.CACHE_KEYS.UNITS);
   const cachedProgress = CacheManager.getCache(CacheManager.CACHE_KEYS.PROGRESS);
@@ -1040,12 +186,8 @@ function loadUnits() {
     console.log('Found cached data, validating against database...');
     
     // Load just the keys from database to check for structural changes
-    window.db.ref('units').once('value').then(snapshot => {
+    db.ref('units').once('value').then(snapshot => {
       const currentUnitsData = snapshot.val();
-      
-      // Remove iOS loading indicator
-      const loadingIndicator = document.getElementById('ios-loading-indicator');
-      if (loadingIndicator) loadingIndicator.remove();
       
       // Check if cache is still valid
       if (CacheManager.isCacheValid(CacheManager.CACHE_KEYS.UNITS, currentUnitsData)) {
@@ -1061,22 +203,6 @@ function loadUnits() {
       }
     }).catch(error => {
       console.error('Error validating cache:', error);
-      
-      // Remove iOS loading indicator
-      const loadingIndicator = document.getElementById('ios-loading-indicator');
-      if (loadingIndicator) loadingIndicator.remove();
-      
-      // iOS-specific error handling
-      if (iOSCompatibility.isIOS) {
-        iOSCompatibility.showIOSError('Unable to load units. Please check your internet connection and try again.', {
-          error: error.message,
-          type: 'units_loading_error',
-          code: error.code,
-          stack: error.stack,
-          location: 'loadUnits_cache_validation'
-        });
-      }
-      
       // If validation fails, use cached data anyway
       displayUnits(cachedUnits, cachedProgress);
     });
@@ -1094,7 +220,7 @@ function loadFreshUnitsData() {
       // Cache progress
       CacheManager.setCache(CacheManager.CACHE_KEYS.PROGRESS, userProgress);
       
-      return window.db.ref('units').once('value').then(snapshot => {
+      return db.ref('units').once('value').then(snapshot => {
         const unitsData = snapshot.val();
         
         // Cache units data with new hash validation
@@ -1170,7 +296,7 @@ function loadUnitsWithoutProgress() {
     console.log('Found cached units data, validating against database...');
     
     // Load just the keys from database to check for structural changes
-    window.db.ref('units').once('value').then(snapshot => {
+    db.ref('units').once('value').then(snapshot => {
       const currentUnitsData = snapshot.val();
       
       // Check if cache is still valid
@@ -1204,7 +330,7 @@ function loadFreshUnitsWithoutProgress(unitsData = null) {
     displayUnitsWithoutProgress(unitsData);
   } else {
     // Load from database
-    window.db.ref('units').once('value').then(snapshot => {
+    db.ref('units').once('value').then(snapshot => {
       const unitsData = snapshot.val();
       
       // Cache units data with new hash validation
@@ -1376,8 +502,6 @@ function showLessonDetails(lessonKey) {
 let vjsPlayer = null;
 
 window.playLessonVideo = function(videoURL) {
-  console.log('Playing video on device:', iOSCompatibility.isIOS ? 'iOS' : 'Other');
-  
   const modal = document.getElementById('video-modal');
 
   // Remove old video element if exists
@@ -1389,22 +513,9 @@ window.playLessonVideo = function(videoURL) {
   const newVideo = document.createElement('video');
   newVideo.id = 'fullscreen-video';
   newVideo.className = 'video-js vjs-default-skin';
-  
-  // iOS-specific video attributes
-  if (iOSCompatibility.isIOS) {
-    newVideo.setAttribute('playsinline', 'true');
-    newVideo.setAttribute('webkit-playsinline', 'true');
-    newVideo.setAttribute('x5-video-player-type', 'h5');
-    newVideo.setAttribute('x5-video-player-fullscreen', 'true');
-  } else {
-    newVideo.setAttribute('playsinline', '');
-  }
-  
+  newVideo.setAttribute('playsinline', '');
   newVideo.setAttribute('controls', '');
   newVideo.setAttribute('preload', 'auto');
-  newVideo.style.webkitTransform = 'translate3d(0, 0, 0)';
-  newVideo.style.transform = 'translate3d(0, 0, 0)';
-  
   videoContainer.appendChild(newVideo);
 
   modal.style.display = 'flex';
@@ -1415,24 +526,16 @@ window.playLessonVideo = function(videoURL) {
     vjsPlayer = null;
   }
 
-  // Set up Video.js player with iOS-specific options
-  const playerOptions = {
+  // Set up Video.js player
+  vjsPlayer = videojs(newVideo, {
     controls: true,
-    autoplay: !iOSCompatibility.isIOS, // Don't autoplay on iOS initially
+    autoplay: true,
     preload: 'auto',
     playbackRates: [0.5, 1, 1.25, 1.5, 2],
     controlBar: {
       volumePanel: {inline: false}
-    },
-    // iOS-specific options
-    html5: {
-      nativeVideoTracks: false,
-      nativeAudioTracks: false,
-      nativeTextTracks: false
     }
-  };
-
-  vjsPlayer = videojs(newVideo, playerOptions);
+  });
 
   vjsPlayer.src({ type: 'video/mp4', src: videoURL });
 
@@ -1442,67 +545,12 @@ window.playLessonVideo = function(videoURL) {
   // Add moving watermark with user email
   vjsPlayer.ready(function() {
     addVideoWatermark();
-    
-    // iOS-specific play handling
-    if (iOSCompatibility.isIOS) {
-      // Don't auto-play on iOS, let user tap to play
-      console.log('iOS: Video ready, waiting for user interaction');
-      
-      // Add iOS-specific play button
-      const playButton = document.createElement('button');
-      playButton.style.cssText = `
-        position: absolute;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-        background: rgba(0,0,0,0.7);
-        color: white;
-        border: none;
-        padding: 20px;
-        border-radius: 50%;
-        font-size: 24px;
-        cursor: pointer;
-        z-index: 1000;
-      `;
-      playButton.innerHTML = '▶';
-      playButton.onclick = function() {
-        vjsPlayer.play().then(() => {
-          playButton.style.display = 'none';
-          
-          // Try to go fullscreen after play starts
-          setTimeout(() => {
-            if (vjsPlayer.requestFullscreen) {
-              vjsPlayer.requestFullscreen();
-            }
-          }, 1000);
-        }).catch(e => {
-          console.log('iOS play failed:', e);
-          iOSCompatibility.showIOSError('Unable to play video. Please try again.', {
-            error: e.message,
-            type: 'video_play_error',
-            name: e.name,
-            location: 'iOS_video_play_button'
-          });
-        });
-      };
-      
-      newVideo.parentNode.appendChild(playButton);
-      
-      // Remove play button when video starts
-      vjsPlayer.on('play', function() {
-        if (playButton.parentNode) {
-          playButton.parentNode.removeChild(playButton);
-        }
-      });
-    } else {
-      // Non-iOS devices - auto-play and fullscreen
-      vjsPlayer.play();
-      if (vjsPlayer.requestFullscreen) {
-        vjsPlayer.requestFullscreen();
-        // Try to lock orientation to landscape
-        if (screen.orientation && screen.orientation.lock) {
-          screen.orientation.lock('landscape').catch(() => {});
-        }
+    vjsPlayer.play();
+    if (vjsPlayer.requestFullscreen) {
+      vjsPlayer.requestFullscreen();
+      // Try to lock orientation to landscape
+      if (screen.orientation && screen.orientation.lock) {
+        screen.orientation.lock('landscape').catch(() => {});
       }
     }
   });
@@ -1513,22 +561,6 @@ window.playLessonVideo = function(videoURL) {
     if (window.currentUnitId && window.currentLessonId) {
       ProgressTracker.markLessonCompleted(window.currentUnitId, window.currentLessonId);
       NotificationManager.showToast('Lesson completed! 🎉');
-    }
-  });
-
-  // iOS-specific error handling
-  vjsPlayer.on('error', function() {
-    const error = vjsPlayer.error();
-    console.error('Video error:', error);
-    
-    if (iOSCompatibility.isIOS) {
-      iOSCompatibility.showIOSError('Video playback error. Please try refreshing the page.', {
-        error: error.message,
-        type: 'videojs_playback_error',
-        code: error.code,
-        metadata: error.metadata,
-        location: 'vjsPlayer_error'
-      });
     }
   });
 
@@ -1667,15 +699,7 @@ window.closeDrawer = function() {
   document.getElementById('drawer-backdrop').style.display = 'none';
 };
 
-window.onload = function() {
-  // Only load units if Firebase is ready and user is authenticated
-  if (firebase.apps && firebase.apps.length > 0 && firebase.auth().currentUser) {
-    console.log('🎯 Page loaded, user authenticated, loading units...');
-    loadUnits();
-  } else {
-    console.log('🎯 Page loaded, waiting for authentication before loading units...');
-  }
-};
+window.onload = loadUnits;
 
 // Load user preferences
 function loadUserPreferences() {
@@ -1715,97 +739,21 @@ window.openProgress = function() {
   Navigation.goToProgress();
 };
 
-// Enhanced authentication state change handler for mainpage
-function setupAuthHandler() {
-  if (typeof firebase === 'undefined' || !firebase.auth || !window.db) {
-    console.log('Firebase not ready for auth handler, retrying...');
-    setTimeout(setupAuthHandler, 500);
-    return;
-  }
-  
-  firebase.auth().onAuthStateChanged(function(user) {
-    console.log('🔐 Auth state changed:', user ? 'User logged in' : 'User not logged in');
-    
-    if (!user) {
-      console.log('No user authenticated, redirecting to login');
-      
-      // iOS-specific delay for smoother transition
-      if (iOSCompatibility.isIOS) {
-        setTimeout(() => {
-          console.log('iOS: Redirecting to login page');
-          window.location.href = "index.html";
-        }, 500);
-      } else {
-        window.location.href = "index.html";
-      }
-      return;
-    }
-  
-  console.log('✅ User authenticated:', user.email);
-  
-  // iOS-specific user verification with enhanced error handling
-  if (iOSCompatibility.isIOS) {
-    console.log('iOS device detected, performing enhanced user verification...');
-    
-    // First, verify the user token
-    user.getIdToken(true).then(function(idToken) {
-      console.log('iOS: User token verified successfully');
-      
-      // Test database connectivity before proceeding
-      console.log('iOS: Testing database connectivity...');
-      if (window.db) {
-        window.db.ref('users').limitToFirst(1).once('value').then(() => {
-          console.log('iOS: Database connectivity confirmed');
-          initializeApp();
-        }).catch(function(dbError) {
-          console.error('iOS: Database connectivity test failed:', dbError);
-          iOSCompatibility.showIOSError('Unable to access database. Please check your internet connection and try again.', {
-            error: dbError.message,
-            type: 'database_connectivity_error',
-            code: dbError.code,
-            location: 'iOS_database_test',
-            timestamp: new Date().toISOString()
-          });
-        });
-      } else {
-        console.log('iOS: Database not ready, waiting...');
-        setTimeout(() => initializeApp(), 1000);
-      }
-      
-    }).catch(function(error) {
-      console.error('iOS: User token verification failed:', error);
-      iOSCompatibility.showIOSError('Authentication verification failed. Please try logging out and back in.', {
-        error: error.message,
-        type: 'auth_token_verification_error',
-        code: error.code,
-        location: 'iOS_token_verification',
-        timestamp: new Date().toISOString()
-      });
-    });
+firebase.auth().onAuthStateChanged(function(user) {
+  if (!user) {
+    // If no user is logged in, send them back to login
+    window.location.href = "index.html";
   } else {
-    initializeApp();
+    // Initialize Advanced Features
+    if (typeof AdvancedFeatures !== 'undefined') {
+      window.advancedFeatures = new AdvancedFeatures();
+      window.advancedFeatures.applyFeatures();
+    }
+    
+    // User is authenticated, load units with progress
+    loadUnits();
   }
-  });
-}
-
-// iOS-enhanced app initialization
-function initializeApp() {
-  console.log('Initializing app...');
-  
-  // Apply iOS fixes for units loading
-  if (iOSCompatibility.isIOS) {
-    iOSCompatibility.fixUnitsLoading();
-  }
-  
-  // Initialize Advanced Features
-  if (typeof AdvancedFeatures !== 'undefined') {
-    window.advancedFeatures = new AdvancedFeatures();
-    window.advancedFeatures.applyFeatures();
-  }
-  
-  // Load units with progress
-  loadUnits();
-}
+});
 
 // Apply advanced features when DOM is loaded
 document.addEventListener('DOMContentLoaded', () => {
@@ -1855,7 +803,7 @@ function initSearch() {
 function cacheAllLessons() {
   if (allLessonsCache) return Promise.resolve(allLessonsCache);
   
-  return window.db.ref('units').once('value')
+  return db.ref('units').once('value')
     .then(snapshot => {
       const lessons = [];
       snapshot.forEach(unitSnap => {
@@ -2017,7 +965,7 @@ function addTeacherDashboardIfApplicable() {
   console.log('Loading teacher dashboard status directly from database (no cache)');
   
   // Search for user by email in database - force fresh query
-  window.db.ref('users').orderByChild('email').equalTo(user.email).once('value').then(snapshot => {
+  db.ref('users').orderByChild('email').equalTo(user.email).once('value').then(snapshot => {
     // Double check if teacher dashboard was added while we were waiting
     const existingTeacherDashboardCheck = unitsList.querySelector('li[data-teacher-dashboard="true"]');
     if (existingTeacherDashboardCheck) {
@@ -2146,7 +1094,7 @@ function loadStudentUnitFiles(unitKey) {
   
   console.log('Loading student unit files from path:', dbPath);
   
-  window.db.ref(dbPath).once('value').then(snapshot => {
+  db.ref(dbPath).once('value').then(snapshot => {
     if (!snapshot.exists()) {
       console.log('No unit files found at path:', dbPath);
       filesList.innerHTML = `
@@ -2254,7 +1202,7 @@ function previewStudentFile(fileId, unitKey, lessonKey) {
   
   console.log('Loading student file for preview from path:', dbPath);
   
-  window.db.ref(dbPath).once('value').then(snapshot => {
+  db.ref(dbPath).once('value').then(snapshot => {
     if (!snapshot.exists()) {
       console.log('File not found at path:', dbPath);
       alert('File not found');
@@ -2330,8 +1278,6 @@ function createSecureProxy(originalUrl) {
 }
 
 function showStudentFilePreview(file) {
-  console.log('Showing file preview on device:', iOSCompatibility.isIOS ? 'iOS' : 'Other');
-  
   const modal = document.createElement('div');
   modal.id = 'studentFilePreviewModal';
   modal.style.cssText = `
@@ -2347,49 +1293,39 @@ function showStudentFilePreview(file) {
     align-items: center;
     padding: 20px;
     box-sizing: border-box;
-    -webkit-transform: translate3d(0, 0, 0);
-    transform: translate3d(0, 0, 0);
   `;
-  
-  // iOS-specific modal adjustments
-  if (iOSCompatibility.isIOS) {
-    modal.style.padding = '0';
-    modal.style.paddingTop = 'env(safe-area-inset-top, 0)';
-    modal.style.paddingBottom = 'env(safe-area-inset-bottom, 0)';
-  }
 
   // Only handle PDF files with the readonly viewer
   if (file.extension.toLowerCase() === 'pdf') {
     // Use secure proxy to hide original URL
     const secureViewerUrl = createSecureProxy(file.url);
     
-    modal.innerHTML = `
-      <div id="studentFileContainer" style="background: #333; border-radius: ${iOSCompatibility.isIOS ? '0' : '12px'}; max-width: 95vw; max-height: 95vh; width: 100%; height: 100%; position: relative; overflow: hidden; -webkit-transform: translate3d(0, 0, 0); transform: translate3d(0, 0, 0);">
-        <div style="background: #444; padding: 16px; display: flex; justify-content: space-between; align-items: center; border-radius: ${iOSCompatibility.isIOS ? '0' : '12px 12px 0 0'};">
-          <h3 style="margin: 0; color: white; font-size: 18px;">📄 ${file.name}</h3>
-          <div style="display: flex; gap: 10px;">
-            <button onclick="toggleStudentFilePreviewFullscreen()" style="background: none; border: none; color: white; font-size: 24px; cursor: pointer; padding: 0; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; border-radius: 50%; -webkit-tap-highlight-color: transparent;" title="Toggle Fullscreen">⛶</button>
-            <button onclick="closeStudentFilePreview()" style="background: none; border: none; color: white; font-size: 24px; cursor: pointer; padding: 0; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; border-radius: 50%; -webkit-tap-highlight-color: transparent;">&times;</button>
+    modal.innerHTML = `        <div id="studentFileContainer" style="background: #333; border-radius: 12px; max-width: 95vw; max-height: 95vh; width: 100%; height: 100%; position: relative; overflow: hidden;">
+          <div style="background: #444; padding: 16px; display: flex; justify-content: space-between; align-items: center; border-radius: 12px 12px 0 0;">
+            <h3 style="margin: 0; color: white; font-size: 18px;">📄 ${file.name}</h3>
+            <div style="display: flex; gap: 10px;">
+              <button onclick="toggleStudentFilePreviewFullscreen()" style="background: none; border: none; color: white; font-size: 24px; cursor: pointer; padding: 0; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; border-radius: 50%;" title="Toggle Fullscreen">⛶</button>
+              <button onclick="closeStudentFilePreview()" style="background: none; border: none; color: white; font-size: 24px; cursor: pointer; padding: 0; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; border-radius: 50%;">&times;</button>
+            </div>
+          </div>
+          <div id="studentFileViewport" style="width: 100%; height: 85%; position: relative; overflow: hidden;">
+            <iframe id="studentFileFrame" src="${secureViewerUrl}" style="width: 100%; height: 100%; border: none; background: white; transform-origin: 0 0; transition: transform 0.3s ease;" sandbox="allow-same-origin allow-scripts allow-forms"></iframe>
           </div>
         </div>
-        <div id="studentFileViewport" style="width: 100%; height: 85%; position: relative; overflow: hidden; -webkit-overflow-scrolling: touch;">
-          <iframe id="studentFileFrame" src="${secureViewerUrl}" style="width: 100%; height: 100%; border: none; background: white; transform-origin: 0 0; transition: transform 0.3s ease; -webkit-transform: translate3d(0, 0, 0); transform: translate3d(0, 0, 0);" sandbox="allow-same-origin allow-scripts allow-forms"></iframe>
-        </div>
-      </div>
     `;
   } else {
     // For non-PDF files, show a simple preview or download option
     modal.innerHTML = `
-      <div style="background: #333; border-radius: ${iOSCompatibility.isIOS ? '0' : '12px'}; max-width: 90vw; max-height: 90vh; width: 100%; position: relative; overflow: hidden; -webkit-transform: translate3d(0, 0, 0); transform: translate3d(0, 0, 0);">
-        <div style="background: #444; padding: 16px; display: flex; justify-content: space-between; align-items: center; border-radius: ${iOSCompatibility.isIOS ? '0' : '12px 12px 0 0'};">
+      <div style="background: #333; border-radius: 12px; max-width: 90vw; max-height: 90vh; width: 100%; position: relative; overflow: hidden;">
+        <div style="background: #444; padding: 16px; display: flex; justify-content: space-between; align-items: center; border-radius: 12px 12px 0 0;">
           <h3 style="margin: 0; color: white; font-size: 18px;">📄 ${file.name}</h3>
-          <button onclick="closeStudentFilePreview()" style="background: none; border: none; color: white; font-size: 24px; cursor: pointer; padding: 0; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; border-radius: 50%; -webkit-tap-highlight-color: transparent;">&times;</button>
+          <button onclick="closeStudentFilePreview()" style="background: none; border: none; color: white; font-size: 24px; cursor: pointer; padding: 0; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; border-radius: 50%;">&times;</button>
         </div>
         <div style="padding: 40px; text-align: center; color: white;">
           <span class="material-icons" style="font-size: 48px; margin-bottom: 16px;">insert_drive_file</span>
           <div style="margin-bottom: 20px;">Preview not available for this file type</div>
           ${file.access === 'downloadable' ? `
-            <button onclick="downloadStudentFile('${file.url}', '${file.name}')" style="padding: 12px 24px; background: #28a745; color: white; border: none; border-radius: 6px; font-size: 14px; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; -webkit-tap-highlight-color: transparent;">
+            <button onclick="downloadStudentFile('${file.url}', '${file.name}')" style="padding: 12px 24px; background: #28a745; color: white; border: none; border-radius: 6px; font-size: 14px; cursor: pointer; display: inline-flex; align-items: center; gap: 8px;">
               <span class="material-icons" style="font-size: 18px;">download</span>
               Download File
             </button>
@@ -2401,30 +1337,10 @@ function showStudentFilePreview(file) {
 
   document.body.appendChild(modal);
   document.body.style.overflow = 'hidden';
-  
-  // iOS-specific body fixes
-  if (iOSCompatibility.isIOS) {
-    document.body.style.position = 'fixed';
-    document.body.style.width = '100%';
-    document.body.style.height = '100%';
-  }
 
   // Add touch zoom functionality for mobile devices
   if (file.extension.toLowerCase() === 'pdf') {
     initializeStudentFileZoom();
-    
-    // iOS-specific iframe loading handler
-    if (iOSCompatibility.isIOS) {
-      const iframe = document.getElementById('studentFileFrame');
-      iframe.onload = function() {
-        console.log('iOS: PDF iframe loaded successfully');
-      };
-      
-      iframe.onerror = function() {
-        console.error('iOS: PDF iframe failed to load');
-        iOSCompatibility.showIOSError('Unable to load PDF. Please try again.');
-      };
-    }
   }
 }
 
@@ -2633,14 +1549,6 @@ function closeStudentFilePreview() {
     
     modal.remove();
   }
-  
-  // iOS-specific body restoration
-  if (iOSCompatibility.isIOS) {
-    document.body.style.position = '';
-    document.body.style.width = '';
-    document.body.style.height = '';
-  }
-  
   document.body.style.overflow = 'auto';
 }
 
