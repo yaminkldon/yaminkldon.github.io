@@ -855,8 +855,8 @@
           <video class="video-player" id="video-player" preload="metadata" controlsList="nodownload" disablePictureInPicture>
             Your browser does not support the video tag.
           </video>
-          <!-- Watermark overlay -->
-          <i class="watermark">Moud's Vid</i>
+          <!-- Watermark overlay with user email -->
+          <i class="watermark" id="watermark-email"></i>
           <!-- Video Toast for Fullscreen -->
           <div id="video-toast" class="video-toast"></div>
           <!-- Custom Video Controls -->
@@ -977,6 +977,18 @@
         }
       }
     }
+
+    // Set watermark to user email after Firebase auth loads
+    document.addEventListener('DOMContentLoaded', function() {
+      if (window.firebase && firebase.auth) {
+        firebase.auth().onAuthStateChanged(function(user) {
+          var watermark = document.getElementById('watermark-email');
+          if (watermark) {
+            watermark.textContent = user && user.email ? user.email : '';
+          }
+        });
+      }
+    });
   </script>
       
       <!-- Video Description Section -->
