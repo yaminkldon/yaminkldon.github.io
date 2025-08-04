@@ -851,77 +851,70 @@
       
       <!-- Video Content -->
       <div class="video-content">
-        <div class="video-player-wrapper">
-          <video class="video-player" id="video-player" preload="metadata" controlsList="nodownload" disablePictureInPicture>
+        <div id="vid-cont" class="video-container">
+          <video class="video" id="video-player" preload="metadata" controls>
             Your browser does not support the video tag.
           </video>
-          
-          <!-- Video Toast for Fullscreen -->
-          <div id="video-toast" class="video-toast"></div>
-          
-          <!-- Custom Video Controls -->
-          <div class="custom-controls" id="custom-controls">
-          <!-- Progress Bar -->
-          <div class="progress-container">
-            <div class="progress-bar" id="progress-bar">
-              <div class="progress-filled" id="progress-filled"></div>
-              <div class="progress-handle" id="progress-handle"></div>
-            </div>
-          </div>
-          
-          <!-- Control Buttons -->
-          <div class="controls-row" style="width: 100%;">
-            <div class="controls-left">
-              <button class="control-btn" id="play-pause-btn" style="width: 15%;">
-                <span class="material-icons">play_arrow</span>
-              </button>
-              <button class="control-btn" id="volume-btn" style="width: 15%;">
-                <span class="material-icons">volume_up</span>
-              </button>
-              <div class="volume-slider-container">
-                <input type="range" class="volume-slider" id="volume-slider" min="0" max="100" value="100" style="border: none; background-color: transparent;">
-              </div>
-              <div class="time-display">
-                <span id="current-time">0:00</span> / <span id="duration">0:00</span>
-              </div>
-            </div>
-            
-            <div class="controls-right">
-              <div class="settings-dropdown">
-                <button class="control-btn" id="settings-btn">
-                  <span class="material-icons">settings</span>
-                </button>
-                <div class="settings-menu" id="settings-menu">
-                  <div class="setting-item">
-                    <label>Speed:</label>
-                    <select id="speed-select" class="setting-select">
-                      <option value="0.5">0.5x</option>
-                      <option value="0.75">0.75x</option>
-                      <option value="1" selected>1x</option>
-                      <option value="1.25">1.25x</option>
-                      <option value="1.5">1.5x</option>
-                      <option value="2">2x</option>
-                    </select>
-                  </div>
-                  <div class="setting-item">
-                    <label>Quality:</label>
-                    <select id="quality-select" class="setting-select">
-                      <option value="auto" selected>Auto</option>
-                      <option value="1080">1080p</option>
-                      <option value="720">720p</option>
-                      <option value="480">480p</option>
-                      <option value="360">360p</option>
-                    </select>
-                  </div>
-                </div>
-              </div>
-              <button class="control-btn" id="fullscreen-btn">
-                <span class="material-icons">fullscreen</span>
-              </button>
-            </div>
-          </div>
+          <i class="watermark">Moud's Vid</i>
+          <button class="fullscreen-button" onclick="toggleFullscreen()">Toggle fullscreen</button>
         </div>
       </div>
+  <style>
+    .video-container {
+      position: relative;
+    }
+    .video {
+      width: 100%;
+      height: 100%;
+    }
+    video::-webkit-media-controls-fullscreen-button {
+      display: none !important;
+    }
+    .fullscreen-button {
+      position: absolute;
+      top: 2%; left: 90%;
+      z-index: 10;
+    }
+    .watermark {
+      position: absolute;
+      left: 3%; top: 3%;
+      color: white;
+      animation: 15s moving-watermark infinite;
+      pointer-events: none;
+      font-size: 1.2em;
+      text-shadow: 1px 1px 4px #000;
+      z-index: 9;
+    }
+    @keyframes moving-watermark {
+      0%   {left: 3%; top: 3%;}
+      25% {left: 93%; top: 3%;}
+      50% {left: 93%; top: 93%;}
+      75% {left: 3%; top: 93%;}
+      100% {left: 3%; top: 3%;}
+    }
+  </style>
+  <script>
+    function toggleFullscreen() {
+      var elem = document.getElementById('vid-cont');
+      if (!document.fullscreenElement) {
+        if (elem.requestFullscreen) {
+          elem.requestFullscreen();
+        } else if (elem.webkitRequestFullscreen) {
+          elem.webkitRequestFullscreen();
+        } else if (elem.msRequestFullscreen) {
+          elem.msRequestFullscreen();
+        }
+      } else {
+        if (document.exitFullscreen) {
+          document.exitFullscreen();
+        } else if (document.webkitExitFullscreen) {
+          document.webkitExitFullscreen();
+        } else if (document.msExitFullscreen) {
+          document.msExitFullscreen();
+        }
+      }
+    }
+  </script>
       
       <!-- Video Description Section -->
       <div class="video-description">
