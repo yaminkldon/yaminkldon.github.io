@@ -23,21 +23,26 @@ if ('serviceWorker' in navigator) {
     });
 }
 
+
 function requestNotificationPermission() {
-  Notification.requestPermission().then((permission) => {
-    if (permission === 'granted') {
-      messaging.getToken({ vapidKey: 'BOrHxEJA2I5f7r9PkZ63GNG5mkRZIk3USWLz-ELZoSICdTKFfsjiOHdHuao5kAwwsp7FKBuiZPKRVaMFF7lb3gI' })
-        .then((token) => {
-          console.log('FCM Token:', token);
-          // Save this token to your database for the user, so you can send them notifications
-        })
-        .catch((err) => {
-          console.log('Unable to get FCM token.', err);
-        });
-    } else {
-      console.log('Notification permission not granted.');
-    }
-  });
+  if (typeof Notification !== 'undefined') {
+    Notification.requestPermission().then((permission) => {
+      if (permission === 'granted') {
+        messaging.getToken({ vapidKey: 'BOrHxEJA2I5f7r9PkZ63GNG5mkRZIk3USWLz-ELZoSICdTKFfsjiOHdHuao5kAwwsp7FKBuiZPKRVaMFF7lb3gI' })
+          .then((token) => {
+            console.log('FCM Token:', token);
+            // Save this token to your database for the user, so you can send them notifications
+          })
+          .catch((err) => {
+            console.log('Unable to get FCM token.', err);
+          });
+      } else {
+        console.log('Notification permission not granted.');
+      }
+    });
+  } else {
+    console.log('Notification API not supported on this browser.');
+  }
 }
 
 // Call this after user login or on page load
