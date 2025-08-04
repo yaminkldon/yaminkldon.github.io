@@ -1,3 +1,26 @@
+    // Global error handler for iOS debugging
+    window.onerror = function(message, source, lineno, colno, error) {
+      var errorMsg = 'JS Error: ' + message + ' at ' + source + ':' + lineno + ':' + colno;
+      if (error && error.stack) errorMsg += '\n' + error.stack;
+      var el = document.getElementById('mainpage-error-debug');
+      if (!el) {
+        el = document.createElement('div');
+        el.id = 'mainpage-error-debug';
+        el.style.position = 'fixed';
+        el.style.top = '0';
+        el.style.left = '0';
+        el.style.right = '0';
+        el.style.background = 'rgba(255,0,0,0.8)';
+        el.style.color = '#fff';
+        el.style.zIndex = '99999';
+        el.style.fontSize = '14px';
+        el.style.padding = '8px';
+        el.style.whiteSpace = 'pre-wrap';
+        document.body.appendChild(el);
+      }
+      el.textContent = errorMsg;
+      return false;
+    };
 <!DOCTYPE html>
 <html lang="en">
 <head>
