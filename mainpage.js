@@ -45,9 +45,6 @@ function requestNotificationPermission() {
   }
 }
 
-// Call this after user login or on page load
-requestNotificationPermission();
-
 // Listen for foreground messages
 messaging.onMessage((payload) => {
   // Show notification in-app
