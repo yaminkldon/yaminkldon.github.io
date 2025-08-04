@@ -743,80 +743,66 @@ body.dark-mode .search-result-description {
     async function initializeApp() {
       try {
         updateLoadingStatus('Checking authentication...');
-        
-        // Wait for Firebase to initialize - check for firebase and give it more time
+        // Wait for Firebase to initialize
         await new Promise((resolve, reject) => {
           let attempts = 0;
-          const maxAttempts = 50; // 5 seconds total
-          
+          const maxAttempts = 50;
           const checkFirebase = () => {
             attempts++;
-            console.log(`Firebase check attempt ${attempts}:`, {
-              firebase: !!window.firebase,
-              firebaseDatabase: !!window.firebase?.database,
-              globalDb: !!window.db
-            });
-            
-            // Check if Firebase is available in different ways
             if (window.firebase && window.firebase.database) {
-              console.log('Firebase initialized successfully');
-              // Ensure we have global db reference
               if (!window.db) {
                 try {
                   window.db = window.firebase.database();
-                  console.log('Created global db reference');
                 } catch (error) {
                   console.error('Error creating db reference:', error);
                 }
               }
               resolve();
             } else if (attempts >= maxAttempts) {
-              console.error('Firebase initialization timeout');
               reject(new Error('Firebase failed to initialize'));
             } else {
               setTimeout(checkFirebase, 100);
             }
           };
-          
-          // Start checking immediately
           checkFirebase();
         });
-        
+
         updateLoadingStatus('Verifying user authentication...');
-        
-        // Check if user is logged in - simple check first
-        const currentUser = firebase.auth().currentUser;
-        console.log('Current user:', currentUser);
-        
+
+        // Use onAuthStateChanged for iOS compatibility
+        await new Promise((resolve, reject) => {
+          let authTimeout = setTimeout(() => {
+            reject(new Error('Auth state change timeout'));
+          }, 5000);
+          firebase.auth().onAuthStateChanged(function(user) {
+            clearTimeout(authTimeout);
+            if (user) {
+              console.log('User authenticated:', user);
+              resolve();
+            } else {
+              updateLoadingStatus('Not logged in. Please log in again.');
+              // Optionally redirect to login page
+              setTimeout(() => {
+                window.location.href = 'index.html';
+              }, 1500);
+              reject(new Error('User not authenticated'));
+            }
+          });
+        });
+
         updateLoadingStatus('Loading user settings...');
-        
-        // Load user settings first
         await loadUserSettings();
-        
         updateLoadingStatus('Loading course content...');
-        
-        // Load units and content
         await loadUnitsData();
-        
         updateLoadingStatus('Applying preferences...');
-        
-        // Apply any saved preferences (theme, language, etc.)
         await applyUserPreferences();
-        
         updateLoadingStatus('Finalizing setup...');
-        
-        // Small delay to ensure everything is loaded
         await new Promise(resolve => setTimeout(resolve, 500));
-        
-        // Hide loading overlay and show main app
         showMainApp();
-        
         isAppInitialized = true;
-        
       } catch (error) {
         console.error('App initialization error:', error);
         updateLoadingStatus('Error loading application. Please refresh the page.');
-        // Show main app anyway after error
         setTimeout(() => {
           showMainApp();
           isAppInitialized = true;
