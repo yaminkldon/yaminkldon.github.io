@@ -238,7 +238,7 @@ window.onerror = function(message, source, lineno, colno, error) {
       font-size: 14px;
     }
     .main-content {
-      margin-top: 56px;
+      margin-top: 72px; /* add extra space below appbar */
       padding: 32px 16px 80px 16px;
       min-height: calc(100vh - 56px);
       display: flex;
@@ -645,11 +645,23 @@ body.dark-mode .search-result-description {
     <div class="appbar">
       <span class="material-icons" onclick="toggleDrawer()" style="z-index:1101;position:relative;">menu</span>
       <span style="font-size:1.2em;flex:1;" data-translate="home">Home</span>
-      <div style="display:flex;align-items:center;gap:6px;">
+      <div style="display:flex;align-items:center;gap:6px;position:relative;">
         <span class="material-icons" title="Search" onclick="openSearchFromAppbar()">search</span>
         <span class="material-icons" id="theme-toggle" title="Toggle theme" onclick="toggleTheme()">dark_mode</span>
-        <div id="user-chip" title="Account" style="width:28px;height:28px;border-radius:50%;background:#ffffff33;display:flex;align-items:center;justify-content:center;font-weight:600;font-size:12px;">
+        <div id="user-chip" title="Account" style="width:28px;height:28px;border-radius:50%;background:#ffffff33;display:flex;align-items:center;justify-content:center;font-weight:600;font-size:12px;cursor:pointer;">
           <span id="user-initials">--</span>
+        </div>
+        <!-- Account dropdown -->
+        <div id="account-menu" style="display:none;position:absolute;top:40px;right:0;background:#fff;color:#222;box-shadow:0 8px 24px rgba(0,0,0,0.15);border-radius:10px;min-width:160px;overflow:hidden;z-index:1200;">
+          <button onclick="gotoProfile()" style="width:100%;text-align:left;background:none;border:none;padding:10px 12px;cursor:pointer;display:flex;align-items:center;gap:8px;">
+            <span class="material-icons" style="font-size:18px;color:#6c4fc1;">person</span> Profile
+          </button>
+          <button onclick="openSettings()" style="width:100%;text-align:left;background:none;border:none;padding:10px 12px;cursor:pointer;display:flex;align-items:center;gap:8px;">
+            <span class="material-icons" style="font-size:18px;color:#6c4fc1;">settings</span> Settings
+          </button>
+          <button onclick="logout()" style="width:100%;text-align:left;background:none;border:none;padding:10px 12px;cursor:pointer;display:flex;align-items:center;gap:8px;">
+            <span class="material-icons" style="font-size:18px;color:#6c4fc1;">logout</span> Logout
+          </button>
         </div>
       </div>
     </div>
@@ -767,6 +779,19 @@ body.dark-mode .search-result-description {
       </div>
     </section>
 
+    <!-- Weekly Streak Card -->
+    <section id="streak-section" style="display:none;width:100%;max-width:900px;margin-top:12px;">
+      <div class="streak-card" style="background:#fff;border-radius:12px;padding:14px 16px;box-shadow:0 2px 10px rgba(0,0,0,0.06);display:flex;align-items:center;gap:12px;">
+        <span class="material-icons" style="color:#ff7043;">local_fire_department</span>
+        <div style="flex:1;">
+          <div id="streak-title" style="font-weight:800;color:#222c5c;">Current streak: 0 days</div>
+          <div id="streak-sub" style="font-size:12px;color:#666;margin-top:2px;">This week: 0/7 days active</div>
+          <div id="streak-week" style="display:flex;gap:6px;margin-top:8px;"></div>
+        </div>
+        <button onclick="openProgress()" style="background:#6c4fc1;color:#fff;border:none;border-radius:8px;padding:8px 10px;font-weight:600;cursor:pointer;">View progress</button>
+      </div>
+    </section>
+
     <!-- Recent Lessons -->
     <section id="recent-section" style="width:100%;max-width:900px;margin-top:18px;display:none;">
       <div class="section-title" style="font-weight:700;color:#222c5c;margin-bottom:8px;">Continue learning</div>
@@ -846,10 +871,11 @@ body.dark-mode .search-result-description {
           let authTimeout = setTimeout(() => {
             reject(new Error('Auth state change timeout'));
           }, 5000);
-          firebase.auth().onAuthStateChanged(function(user) {
+      firebase.auth().onAuthStateChanged(function(user) {
             clearTimeout(authTimeout);
             if (user) {
               console.log('User authenticated:', user);
+        try { updateHeaderUser(); } catch(e) {}
               resolve();
             } else {
               updateLoadingStatus('Not logged in. Please log in again.');
@@ -1193,6 +1219,15 @@ body.dark-mode .search-result-description {
       return (first + second).toUpperCase();
     }
 
+    function getTimeOfDayGreeting() {
+      const h = new Date().getHours();
+      if (h < 5) return 'Good night';
+      if (h < 12) return 'Good morning';
+      if (h < 17) return 'Good afternoon';
+      if (h < 22) return 'Good evening';
+      return 'Good night';
+    }
+
     function updateHeaderUser() {
       const user = (window.firebase && firebase.auth && firebase.auth().currentUser) ? firebase.auth().currentUser : null;
       const initials = getInitialsFromUser(user);
@@ -1201,7 +1236,9 @@ body.dark-mode .search-result-description {
       if (chip) chip.textContent = initials;
       if (hero) hero.textContent = initials;
       const greet = document.getElementById('greeting-text');
-      if (greet) greet.textContent = user && (user.displayName || user.email) ? 'Hi, ' + (user.displayName || user.email) : 'Hi there';
+      const who = user && (user.displayName || user.email) ? (user.displayName || user.email) : '';
+      const prefix = getTimeOfDayGreeting();
+      if (greet) greet.textContent = who ? `${prefix}, ${who}` : `${prefix}`;
       const sub = document.getElementById('greeting-sub');
       if (sub) sub.textContent = 'Ready to continue your learning journey?';
     }
@@ -1252,6 +1289,94 @@ body.dark-mode .search-result-description {
       } else {
         if (section) section.style.display = 'none';
       }
+
+      // Streak card
+      try { renderStreakCard(recent); } catch (e) { console.warn('streak render failed', e); }
+    }
+
+    // Account menu interactions
+    (function attachAccountMenu(){
+      const chip = document.getElementById('user-chip');
+      const menu = document.getElementById('account-menu');
+      if (!chip || !menu) return;
+      chip.addEventListener('click', function(ev){
+        ev.stopPropagation();
+        menu.style.display = (menu.style.display === 'none' || !menu.style.display) ? 'block' : 'none';
+      });
+      document.addEventListener('click', function(){
+        if (menu.style.display === 'block') menu.style.display = 'none';
+      });
+      document.addEventListener('keydown', function(e){
+        if (e.key === 'Escape' && menu.style.display === 'block') menu.style.display = 'none';
+      });
+    })();
+
+    function gotoProfile(){
+      // Navigate to settings profile page or a dedicated profile page if available
+      if (typeof openSettings === 'function') {
+        openSettings();
+      } else {
+        window.location.href = 'settings.html';
+      }
+    }
+
+    function renderStreakCard(recent){
+      const streakSection = document.getElementById('streak-section');
+      const title = document.getElementById('streak-title');
+      const sub = document.getElementById('streak-sub');
+      const week = document.getElementById('streak-week');
+      if (!streakSection || !title || !sub || !week) return;
+
+      // Build a set of activity dates (YYYY-MM-DD)
+      const dateKey = (t)=>{
+        const d = new Date(t);
+        const y = d.getFullYear();
+        const m = String(d.getMonth()+1).padStart(2,'0');
+        const day = String(d.getDate()).padStart(2,'0');
+        return `${y}-${m}-${day}`;
+      };
+      const activity = new Set();
+      (recent||[]).forEach(r=>{ if (r.timestamp) activity.add(dateKey(r.timestamp)); });
+
+      // Compute current streak (consecutive days ending today)
+      let streak = 0;
+      const today = new Date();
+      for (let i=0;i<365;i++){
+        const d = new Date();
+        d.setDate(today.getDate()-i);
+        const key = dateKey(d.getTime());
+        if (activity.has(key)) streak++; else break;
+      }
+
+      // Compute this week (Mon..Sun) or Sun..Sat depending on locale; we'll use Sun..Sat
+      const now = new Date();
+      const dow = now.getDay(); // 0=Sun
+      const weekStart = new Date(now);
+      weekStart.setDate(now.getDate()-dow);
+      const days = [];
+      for (let i=0;i<7;i++){
+        const d = new Date(weekStart);
+        d.setDate(weekStart.getDate()+i);
+        const key = dateKey(d.getTime());
+        days.push({ key, active: activity.has(key) });
+      }
+
+      // Render week dots
+      week.innerHTML = '';
+      days.forEach((day, idx)=>{
+        const dot = document.createElement('div');
+        dot.title = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][idx];
+        dot.style.width = '10px';
+        dot.style.height = '10px';
+        dot.style.borderRadius = '50%';
+        dot.style.background = day.active ? '#6c4fc1' : '#e0e0f0';
+        week.appendChild(dot);
+      });
+
+      const activeCount = days.filter(d=>d.active).length;
+      title.textContent = `Current streak: ${streak} day${streak===1?'':'s'}`;
+      sub.textContent = `This week: ${activeCount}/7 days active`;
+      streakSection.style.display = 'block';
     }
   </script>
   </div> <!-- End main-app -->
