@@ -557,27 +557,45 @@ function playLesson(lessonKey, lessonData) {
   
   // Resolve video URL with caching and fallback
   resolveVideoURL(videoFile)
-    .then(({ url, fromCache }) => {
+    .then(async ({ url, fromCache }) => {
       console.log('Video URL loaded' + (fromCache ? ' (cache)' : ''), url);
       const videoPlayer = document.getElementById('video-player');
-      let retried = false;
-      const onError = () => {
-        if (fromCache && !retried) {
-          retried = true;
-          storage.ref('videos/' + videoFile).getDownloadURL().then(fresh => {
-            VideoURLCache.set(videoFile, fresh);
-            videoPlayer.src = fresh;
-            videoPlayer.play().catch(()=>{});
-          }).catch(err => {
-            console.error('Fresh URL fetch failed:', err);
-            NotificationManager.showToast('Error loading video. Please try again later.');
-          });
-        }
-        videoPlayer.removeEventListener('error', onError);
-      };
-      if (fromCache) videoPlayer.addEventListener('error', onError, { once: true });
 
-      videoPlayer.src = url;
+      // Try to serve small files as blob: to hide the true URL in devtools
+      try {
+        const objectUrl = await maybeLoadAsBlob(url, 30 * 1024 * 1024); // 30MB threshold
+        if (objectUrl) {
+          // Revoke previous object URL if any
+          if (videoPlayer.dataset && videoPlayer.dataset.objectUrl) {
+            try { URL.revokeObjectURL(videoPlayer.dataset.objectUrl); } catch(e) {}
+          }
+          videoPlayer.src = objectUrl;
+          if (videoPlayer.dataset) videoPlayer.dataset.objectUrl = objectUrl;
+        } else {
+          // Fallback to direct URL with cache retry guard
+          let retried = false;
+          const onError = () => {
+            if (fromCache && !retried) {
+              retried = true;
+              storage.ref('videos/' + videoFile).getDownloadURL().then(fresh => {
+                VideoURLCache.set(videoFile, fresh);
+                videoPlayer.src = fresh;
+                videoPlayer.play().catch(()=>{});
+              }).catch(err => {
+                console.error('Fresh URL fetch failed:', err);
+                NotificationManager.showToast('Error loading video. Please try again later.');
+              });
+            }
+            videoPlayer.removeEventListener('error', onError);
+          };
+          if (fromCache) videoPlayer.addEventListener('error', onError, { once: true });
+          videoPlayer.src = url;
+        }
+      } catch (e) {
+        console.warn('Blob load attempt failed, using direct URL:', e);
+        videoPlayer.src = url;
+      }
+
       addVideoWatermark(userEmail, lessonKey);
       initCustomVideoPlayer(videoPlayer, lessonKey);
       videoPlayer.play().catch(error => { console.log('Autoplay prevented:', error); });
@@ -587,6 +605,31 @@ function playLesson(lessonKey, lessonData) {
       NotificationManager.showToast('Error loading video: ' + error.message);
       closeVideoModal();
     });
+}
+
+// Attempt to load the video as a blob (to yield a blob: URL in devtools) if it's small enough.
+// Returns object URL string or null if falling back is better.
+async function maybeLoadAsBlob(url, sizeThresholdBytes) {
+  try {
+    // Try a HEAD request to get content length
+    const head = await fetch(url, { method: 'HEAD', mode: 'cors', credentials: 'omit', cache: 'no-store' });
+    const len = parseInt(head.headers.get('Content-Length') || head.headers.get('content-length') || '0', 10);
+    if (!Number.isFinite(len) || len === 0) {
+      // Unknown size; avoid full download to keep UX acceptable
+      return null;
+    }
+    if (len > sizeThresholdBytes) {
+      return null; // too large; don't block playback with a full download
+    }
+    // Small enough: fetch as blob
+    const resp = await fetch(url, { method: 'GET', mode: 'cors', credentials: 'omit', referrerPolicy: 'no-referrer' });
+    if (!resp.ok) return null;
+    const blob = await resp.blob();
+    return URL.createObjectURL(blob);
+  } catch (e) {
+    console.debug('maybeLoadAsBlob error:', e);
+    return null;
+  }
 }
 
 function closeVideo() {
@@ -1684,6 +1727,13 @@ function initCustomVideoPlayer(videoPlayer, lessonKey) {
     // Reset video player state
     videoPlayer.pause();
     videoPlayer.currentTime = 0;
+    // Revoke blob URL if used
+    try {
+      if (videoPlayer.dataset && videoPlayer.dataset.objectUrl) {
+        URL.revokeObjectURL(videoPlayer.dataset.objectUrl);
+        delete videoPlayer.dataset.objectUrl;
+      }
+    } catch(e) {}
     
     console.log('Video player cleanup completed');
   };
