@@ -603,6 +603,41 @@ function playLesson(lessonKey, lessonData) {
         currentMSEController = await streamWithMSE(url, video, updateProgress);
         // Hide immediately to avoid perceived prebuffering – native spinner/"waiting" will handle gaps
         hideOverlay();
+
+        // Startup failover: if we don't reach playing state quickly, switch to native progressive URL
+        const failoverMs = 1800; // ~1.8s window
+        let armed = true;
+        const clearFailover = () => { armed = false; };
+        const onFirstPlaying = () => { clearFailover(); video.removeEventListener('playing', onFirstPlaying); };
+        const onFirstTimeupdate = () => { if (video.currentTime > 0) { clearFailover(); video.removeEventListener('timeupdate', onFirstTimeupdate); } };
+        video.addEventListener('playing', onFirstPlaying, { once: true });
+        video.addEventListener('timeupdate', onFirstTimeupdate);
+        setTimeout(() => {
+          if (!armed) return;
+          try { currentMSEController && currentMSEController.abort && currentMSEController.abort(); } catch(e) {}
+          currentMSEController = null;
+          // Revoke any object URL
+          try { if (video.dataset && video.dataset.objectUrl) { URL.revokeObjectURL(video.dataset.objectUrl); delete video.dataset.objectUrl; } } catch(e) {}
+          // Attach direct URL for native progressive buffering
+          let retried = false;
+          const onError = () => {
+            if (fromCache && !retried) {
+              retried = true;
+              storage.ref('videos/' + videoFile).getDownloadURL().then(fresh => {
+                VideoURLCache.set(videoFile, fresh);
+                video.src = fresh;
+                video.play().catch(()=>{});
+              }).catch(err => {
+                console.error('Fresh URL fetch failed:', err);
+                NotificationManager.showToast('Error loading video. Please try again later.');
+              });
+            }
+            video.removeEventListener('error', onError);
+          };
+          if (fromCache) video.addEventListener('error', onError, { once: true });
+          video.src = url;
+          video.play().catch(()=>{});
+        }, failoverMs);
       } catch (mseErr) {
         console.warn('MSE streaming failed, falling back to full blob:', mseErr);
         try {
