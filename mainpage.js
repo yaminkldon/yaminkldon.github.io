@@ -471,7 +471,7 @@ function showLessonDetails(lessonKey) {
 
   storage.ref('videos/' + videoFile).getDownloadURL().then(function(url) {
     document.getElementById('video-btn-area').innerHTML = `
-      <button class="play-btn" onclick="playLessonVideo('${url.replace(/'/g, "\\'")}')">Play Video</button>
+  <button class="play-btn" onclick="playLessonVideo('${url.replace(/'/g, "\\'")}', '${lesson.unitId.replace(/'/g, "\\'")}', '${lesson.key.replace(/'/g, "\\'")}', '${(lesson.thumbnailURL||'').replace(/'/g, "\\'")}', '${(lesson.description||'').replace(/'/g, "\\'")}')">Play Video</button>
     `;
   }).catch(function(error) {
     document.getElementById('video-btn-area').innerHTML = "<div>Could not load video.</div>";
@@ -481,7 +481,7 @@ function showLessonDetails(lessonKey) {
 // Play video in fullscreen modal
 let vjsPlayer = null;
 
-window.playLessonVideo = function(videoURL) {
+window.playLessonVideo = function(videoURL, unitId, lessonKey, thumbnailURL, description) {
   const modal = document.getElementById('video-modal');
 
   // Remove old video element if exists
@@ -497,6 +497,19 @@ window.playLessonVideo = function(videoURL) {
   newVideo.setAttribute('controls', '');
   newVideo.setAttribute('preload', 'auto');
   videoContainer.appendChild(newVideo);
+
+  try {
+    // Record recent lesson
+    const entry = { unitId: unitId || window.currentUnitId || '', lessonKey: lessonKey || window.currentLessonId || '', title: lessonKey || '', thumbnailURL: thumbnailURL || '', description: description || '', timestamp: Date.now() };
+    let arr = [];
+    try { arr = JSON.parse(localStorage.getItem('recentLessons') || '[]'); } catch (e) { arr = []; }
+    // De-duplicate by unitId+lessonKey
+    const key = entry.unitId + '::' + entry.lessonKey;
+    arr = arr.filter(x => (x.unitId + '::' + x.lessonKey) !== key);
+    arr.unshift(entry);
+    if (arr.length > 25) arr = arr.slice(0,25);
+    localStorage.setItem('recentLessons', JSON.stringify(arr));
+  } catch (e) { console.warn('recentLessons save failed', e); }
 
   modal.style.display = 'flex';
 
