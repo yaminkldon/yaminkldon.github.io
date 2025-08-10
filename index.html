@@ -4,11 +4,16 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Login</title>
+  <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
+  <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
   <div class="login-container">
     <img src="account_icon.svg" alt="Account Icon" class="login-icon" />
+    <div style="margin-bottom:10px;">
+      <button style="min-width:auto; width:auto; padding:6px 12px; font-size:12px;" onclick="(function(){ if(window.themeManager){ const d=window.themeManager.toggleDarkMode(); try{localStorage.setItem('themeMode', d? 'dark':'light');}catch(e){} } else { document.body.classList.toggle('dark-mode'); } })()">Toggle Theme</button>
+    </div>
 
     <input type="email" id="email" placeholder="Email" autocomplete="email" />
     <span id="email-error" style="color:#ff5252; font-size:14px; display:none;"></span>
@@ -41,10 +46,22 @@
     opacity:0;
   "></div>
 
-  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
-  <script src="global.js"></script>
-  <script src="script.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js" defer></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js" defer></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js" defer></script>
+  <script src="global.js" defer></script>
+  <script src="script.js" defer></script>
+  <script>
+    // Autofocus and simple validation hints
+    document.addEventListener('DOMContentLoaded', function(){
+      var email = document.getElementById('email');
+      if (email) email.focus();
+      var btn = document.getElementById('login-btn');
+      var pwd = document.getElementById('password');
+      function validate(){ btn.disabled = !(email.value && pwd.value && /@/.test(email.value)); }
+      email.addEventListener('input', validate);
+      pwd.addEventListener('input', validate);
+    });
+  </script>
 </body>
 </html>

@@ -433,7 +433,7 @@ function createLessonCard(lessonKey, lessonData) {
   const description = lessonData.description || 'No description available.';
   
   card.innerHTML = `
-    <img src="${thumbnail}" alt="${lessonKey}" class="lesson-thumbnail" onerror="this.style.display='none'">
+    <img src="${thumbnail}" alt="${lessonKey}" class="lesson-thumbnail" loading="lazy" decoding="async" onerror="this.style.display='none'">
     <div class="lesson-title">${lessonKey}</div>
     <div class="lesson-description">${description}</div>
     <div class="lesson-actions" style="margin-top: 12px; display: flex; gap: 8px;">
