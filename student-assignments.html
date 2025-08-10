@@ -885,6 +885,23 @@
     const db = firebase.database();
     const storage = firebase.storage();
 
+    // If arriving with ?unit= filter, show a small banner with clear option
+    (function showUnitFilterBanner(){
+      try {
+        const params = new URLSearchParams(window.location.search);
+        const unit = params.get('unit');
+        if (!unit) return;
+        const container = document.querySelector('.container');
+        if (!container) return;
+        const banner = document.createElement('div');
+        banner.style.cssText = 'margin:12px 0; padding:10px 12px; border-radius:8px; background:#eef2ff; color:#222c5c; display:flex; align-items:center; gap:8px;';
+        banner.innerHTML = '<span class="material-icons" style="font-size:18px;">filter_list</span>'+
+          '<span>Filtered by unit: <strong>'+unit.replace(/</g,'&lt;')+'</strong></span>'+
+          '<a href="student-assignments.html" style="margin-left:auto; color:#6c4fc1; font-weight:600; text-decoration:none;">Clear</a>';
+        container.insertBefore(banner, container.firstChild.nextSibling);
+      } catch(e) {}
+    })();
+
     // Authentication check
     firebase.auth().onAuthStateChanged(function(user) {
       if (user) {
@@ -982,7 +999,29 @@
     function displayAssignments(assignments) {
       const grid = document.getElementById('assignmentsGrid');
       grid.innerHTML = '';
-      
+
+      // Optional filter by unit via query param
+      try {
+        const params = new URLSearchParams(window.location.search);
+        const unitFilter = params.get('unit');
+        if (unitFilter) {
+          assignments = assignments.filter(a => (a.unit || '').toLowerCase() === unitFilter.toLowerCase());
+          const header = document.getElementById('assignmentsHeader');
+          if (header) header.textContent = `Assignments for ${unitFilter}`;
+        }
+      } catch(e) {}
+
+      if (!assignments || assignments.length === 0) {
+        grid.innerHTML = `
+          <div class="empty-state">
+            <span class="material-icons">assignment</span>
+            <h3>No assignments found</h3>
+            <p>${new URLSearchParams(window.location.search).get('unit') ? 'No assignments in this unit yet.' : 'Check back later for new assignments.'}</p>
+          </div>
+        `;
+        return;
+      }
+
       assignments.forEach(assignment => {
         checkSubmissionStatus(assignment.id).then(status => {
           const card = createAssignmentCard(assignment, status);
@@ -1066,7 +1105,29 @@
     function displayQuizzes(quizzes) {
       const container = document.getElementById('quizzesContainer');
       container.innerHTML = '';
-      
+
+      // Optional filter by unit via query param
+      try {
+        const params = new URLSearchParams(window.location.search);
+        const unitFilter = params.get('unit');
+        if (unitFilter) {
+          quizzes = quizzes.filter(q => (q.unit || '').toLowerCase() === unitFilter.toLowerCase());
+          const header = document.getElementById('quizzesHeader');
+          if (header) header.textContent = `Quizzes for ${unitFilter}`;
+        }
+      } catch(e) {}
+
+      if (!quizzes || quizzes.length === 0) {
+        container.innerHTML = `
+          <div class="empty-state">
+            <span class="material-icons">quiz</span>
+            <h3>No quizzes found</h3>
+            <p>${new URLSearchParams(window.location.search).get('unit') ? 'No quizzes in this unit yet.' : 'Check back later for new quizzes.'}</p>
+          </div>
+        `;
+        return;
+      }
+
       quizzes.forEach(quiz => {
         checkQuizAttempts(quiz.id).then(attempts => {
           const card = createQuizCard(quiz, attempts);

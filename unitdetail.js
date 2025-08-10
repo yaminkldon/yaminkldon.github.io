@@ -139,6 +139,41 @@ const CacheManager = {
   }
 };
 
+// Cache Firebase Storage video download URLs to speed up playback
+const VideoURLCache = {
+  KEY: 'video_url_cache_v1',
+  TTL: 24 * 60 * 60 * 1000,
+  maxEntries: 200,
+  _read() { try { return JSON.parse(localStorage.getItem(this.KEY) || '{}'); } catch(e) { return {}; } },
+  _write(map) { try { localStorage.setItem(this.KEY, JSON.stringify(map)); } catch(e) {} },
+  get(fileName) {
+    const map = this._read();
+    const entry = map[fileName];
+    if (!entry) return null;
+    if (Date.now() - entry.ts > this.TTL) {
+      delete map[fileName];
+      this._write(map);
+      return null;
+    }
+    return entry.url;
+  },
+  set(fileName, url) {
+    const map = this._read();
+    map[fileName] = { url, ts: Date.now() };
+    const keys = Object.keys(map);
+    if (keys.length > this.maxEntries) {
+      keys.sort((a,b)=> (map[a].ts||0)-(map[b].ts||0)).slice(0, keys.length - this.maxEntries).forEach(k=> delete map[k]);
+    }
+    this._write(map);
+  }
+};
+
+function resolveVideoURL(videoFile) {
+  const cached = VideoURLCache.get(videoFile);
+  if (cached) return Promise.resolve({ url: cached, fromCache: true });
+  return storage.ref('videos/' + videoFile).getDownloadURL().then(url => { VideoURLCache.set(videoFile, url); return { url, fromCache: false }; });
+}
+
 // Initialize page
 firebase.auth().onAuthStateChanged(function(user) {
   if (user) {
@@ -232,9 +267,37 @@ function loadUnitFromParams() {
       display: inline-flex;
       align-items: center;
       transition: background 0.2s ease;
+      margin-left: 8px;
     `;
     unitFilesBtn.onclick = () => openStudentUnitFileViewer(unitName);
     unitTitle.appendChild(unitFilesBtn);
+
+    // Add Assessments quick access button
+    if (!document.getElementById('unit-assessments-btn')) {
+      const assessmentsBtn = document.createElement('button');
+      assessmentsBtn.id = 'unit-assessments-btn';
+      assessmentsBtn.innerHTML = `
+        <span class="material-icons" style="font-size: 16px; margin-right: 4px;">assignment</span>
+        Assessments
+      `;
+      assessmentsBtn.style.cssText = `
+        padding: 8px 16px;
+        background: #6c4fc1;
+        color: #fff;
+        border: none;
+        border-radius: 6px;
+        font-size: 14px;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        transition: background 0.2s ease;
+        margin-left: 8px;
+      `;
+      assessmentsBtn.onclick = () => {
+        window.location.href = `student-assignments.html?unit=${encodeURIComponent(unitName)}`;
+      };
+      unitTitle.appendChild(assessmentsBtn);
+    }
   }
   
   loadUnitLessons(unitName, selectedLesson);
@@ -408,6 +471,16 @@ function renderLessons(selectedLesson = null) {
     const lessonCard = createLessonCard(lessonKey, lesson);
     container.appendChild(lessonCard);
   });
+
+  // Prefetch first video URL in background
+  try {
+    const first = lessonKeys[0];
+    const firstLesson = currentUnitData[first];
+    const vf = firstLesson && (firstLesson.videoURL || firstLesson.videoFile);
+    if (vf) {
+      (window.requestIdleCallback || window.requestAnimationFrame || function(cb){setTimeout(cb, 200)})(function(){ resolveVideoURL(vf).catch(()=>{}); });
+    }
+  } catch(e) {}
   
   // Auto-select lesson if specified (from search results)
   if (selectedLesson && lessonKeys.includes(selectedLesson)) {
@@ -482,29 +555,37 @@ function playLesson(lessonKey, lessonData) {
   // Prevent body scrolling when modal is open
   document.body.style.overflow = 'hidden';
   
-  // Get video URL from Firebase Storage
-  storage.ref('videos/' + videoFile).getDownloadURL()
-    .then(url => {
-      console.log('Video URL loaded:', url);
-      
+  // Resolve video URL with caching and fallback
+  resolveVideoURL(videoFile)
+    .then(({ url, fromCache }) => {
+      console.log('Video URL loaded' + (fromCache ? ' (cache)' : ''), url);
       const videoPlayer = document.getElementById('video-player');
+      let retried = false;
+      const onError = () => {
+        if (fromCache && !retried) {
+          retried = true;
+          storage.ref('videos/' + videoFile).getDownloadURL().then(fresh => {
+            VideoURLCache.set(videoFile, fresh);
+            videoPlayer.src = fresh;
+            videoPlayer.play().catch(()=>{});
+          }).catch(err => {
+            console.error('Fresh URL fetch failed:', err);
+            NotificationManager.showToast('Error loading video. Please try again later.');
+          });
+        }
+        videoPlayer.removeEventListener('error', onError);
+      };
+      if (fromCache) videoPlayer.addEventListener('error', onError, { once: true });
+
       videoPlayer.src = url;
-      
-      // Add watermark overlay to video
       addVideoWatermark(userEmail, lessonKey);
-      
-      // Initialize custom video player
       initCustomVideoPlayer(videoPlayer, lessonKey);
-      
-      // Auto-play the video
-      videoPlayer.play().catch(error => {
-        console.log('Autoplay prevented:', error);
-      });
+      videoPlayer.play().catch(error => { console.log('Autoplay prevented:', error); });
     })
     .catch(error => {
       console.error('Error loading video:', error);
       NotificationManager.showToast('Error loading video: ' + error.message);
-      closeVideoModal(); // Close modal on error
+      closeVideoModal();
     });
 }
 
