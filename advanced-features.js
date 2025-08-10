@@ -445,7 +445,8 @@ class AdvancedFeatures {
       '4x4': { columns: 4, name: '4x4 Grid' }
     };
     
-    this.currentLayout = localStorage.getItem('layoutPreference') || '3x3';
+  // Default to 2x2 if no preference saved
+  this.currentLayout = localStorage.getItem('layoutPreference') || '2x2';
   }
 
   applyLayout(layout) {

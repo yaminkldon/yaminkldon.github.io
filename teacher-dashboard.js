@@ -141,9 +141,17 @@ firebase.auth().onAuthStateChanged(function(user) {
       advancedFeatures.applyFeatures();
     }
     
-    // Apply saved theme
-    const savedTheme = localStorage.getItem('teacherTheme') || 'light';
-    applyTheme(savedTheme);
+    // Apply global theme preference from settings (unified ThemeManager)
+    if (window.themeManager && typeof window.themeManager.apply === 'function') {
+      // Migrate any legacy teacherTheme to unified themeMode
+      const legacyTeacherTheme = localStorage.getItem('teacherTheme');
+      if (legacyTeacherTheme === 'dark' || legacyTeacherTheme === 'light') {
+        window.themeManager.setMode(legacyTeacherTheme);
+        localStorage.removeItem('teacherTheme');
+      } else {
+        window.themeManager.apply();
+      }
+    }
     
     // Check if user is teacher
     verifyTeacherAccess(user);
@@ -152,6 +160,58 @@ firebase.auth().onAuthStateChanged(function(user) {
     Navigation.goToLogin();
   }
 });
+
+// Teacher settings helpers (theme + session)
+function loadTeacherSettings() {
+  try {
+    const themeSelect = document.getElementById('teacherTheme');
+    if (themeSelect) {
+      const mode = localStorage.getItem('themeMode') || (localStorage.getItem('darkMode') === 'true' ? 'dark' : 'light');
+      themeSelect.value = ['light','dark','auto'].includes(mode) ? mode : 'light';
+    }
+    // Other preferences (optional)
+    const defaultView = localStorage.getItem('teacherDefaultView') || 'dashboard';
+    const defaultViewEl = document.getElementById('defaultView');
+    if (defaultViewEl) defaultViewEl.value = defaultView;
+    const backupFrequency = localStorage.getItem('teacherBackupFrequency') || 'weekly';
+    const backupEl = document.getElementById('backupFrequency');
+    if (backupEl) backupEl.value = backupFrequency;
+  } catch(e) { console.warn('loadTeacherSettings error', e); }
+}
+
+function saveTeacherSettings() {
+  try {
+    const themeSelect = document.getElementById('teacherTheme');
+    if (themeSelect && window.themeManager) {
+      const mode = themeSelect.value;
+      window.themeManager.setMode(mode);
+      NotificationManager.showToast('Theme updated');
+    }
+    // Persist other preferences
+    const defaultViewEl = document.getElementById('defaultView');
+    if (defaultViewEl) localStorage.setItem('teacherDefaultView', defaultViewEl.value);
+    const backupEl = document.getElementById('backupFrequency');
+    if (backupEl) localStorage.setItem('teacherBackupFrequency', backupEl.value);
+    NotificationManager.showToast('Settings saved');
+  } catch(e) {
+    console.error('saveTeacherSettings error', e);
+    NotificationManager.showToast('Error saving settings');
+  }
+}
+
+function refreshSessionTimer() {
+  if (window.sessionManager && typeof window.sessionManager.extendSession === 'function') {
+    window.sessionManager.extendSession();
+  } else {
+    NotificationManager.showToast('Session manager not active');
+  }
+}
+
+function showSessionInfo() {
+  const ms = AuthManager.getSessionTimeRemaining();
+  const msg = ms != null ? `${Math.ceil(ms/60000)} minutes remaining` : 'Session info not available';
+  alert(msg);
+}
 
 function verifyTeacherAccess(user) {
   // Search for user by email in database

@@ -1,32 +1,81 @@
 // Global theme management system
 class ThemeManager {
   constructor() {
+    this.mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
     this.initTheme();
+    // Sync across tabs/windows
+    window.addEventListener('storage', (e) => {
+      if (e.key === 'darkMode' || e.key === 'themeMode') {
+        this.apply();
+      }
+    });
+    // React to system change when in auto mode
+    if (this.mediaQuery && this.mediaQuery.addEventListener) {
+      this.mediaQuery.addEventListener('change', () => this.apply());
+    } else if (this.mediaQuery && this.mediaQuery.addListener) {
+      // Safari/iOS fallback
+      this.mediaQuery.addListener(() => this.apply());
+    }
   }
 
   initTheme() {
-    const darkMode = localStorage.getItem('darkMode') === 'true';
-    if (darkMode) {
-      document.body.classList.add('dark-mode');
+    // themeMode: 'dark' | 'light' | 'auto' (optional). Back-compat with legacy darkMode boolean.
+    const legacy = localStorage.getItem('darkMode');
+    const savedMode = localStorage.getItem('themeMode');
+    if (!savedMode && legacy !== null) {
+      // migrate once
+      localStorage.setItem('themeMode', legacy === 'true' ? 'dark' : 'light');
     }
+    this.apply();
   }
 
   toggleDarkMode() {
     const isDark = document.body.classList.contains('dark-mode');
-    if (isDark) {
-      document.body.classList.remove('dark-mode');
-      localStorage.setItem('darkMode', 'false');
-      document.body.classList.remove('dark-mode');
-
-    } else {
-      document.body.classList.add('dark-mode');
-      localStorage.setItem('darkMode', 'true');
-    }
-    return !isDark;
+  this.setDarkMode(!isDark);
+  return !isDark;
   }
 
   isDarkMode() {
     return document.body.classList.contains('dark-mode');
+  }
+
+  // Programmatic setter that also writes canonical themeMode
+  setDarkMode(enabled) {
+    if (enabled) {
+      document.body.classList.add('dark-mode');
+      localStorage.setItem('darkMode', 'true');
+      localStorage.setItem('themeMode', 'dark');
+    } else {
+      document.body.classList.remove('dark-mode');
+      localStorage.setItem('darkMode', 'false');
+      localStorage.setItem('themeMode', 'light');
+    }
+  }
+
+  // Set mode: 'light' | 'dark' | 'auto'
+  setMode(mode) {
+    const valid = ['light', 'dark', 'auto'];
+    const m = valid.includes(mode) ? mode : 'light';
+    localStorage.setItem('themeMode', m);
+    // Keep legacy key roughly in sync for older pages
+    if (m === 'auto') {
+      localStorage.removeItem('darkMode');
+    } else {
+      localStorage.setItem('darkMode', m === 'dark' ? 'true' : 'false');
+    }
+    this.apply();
+  }
+
+  // Apply according to themeMode and system preference
+  apply() {
+    const mode = localStorage.getItem('themeMode');
+    const prefersDark = this.mediaQuery ? this.mediaQuery.matches : false;
+    const effectiveDark = mode === 'dark' || (mode === 'auto' && prefersDark) || (mode === null && localStorage.getItem('darkMode') === 'true');
+    if (effectiveDark) {
+      document.body.classList.add('dark-mode');
+    } else {
+      document.body.classList.remove('dark-mode');
+    }
   }
 }
 
