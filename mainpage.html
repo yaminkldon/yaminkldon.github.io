@@ -27,12 +27,12 @@ window.onerror = function(message, source, lineno, colno, error) {
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
   <title>Main Page</title>
   <link rel="stylesheet" href="styles.css" />
   <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
   <style>
-    body { margin:0; background: #f7f4fb; font-family: 'Segoe UI', Arial, sans-serif; transition: background-color 0.3s, color 0.3s; }
+  body { margin:0; background: #f7f4fb; font-family: 'Segoe UI', Arial, sans-serif; transition: background-color 0.3s, color 0.3s; overflow-x: hidden; }
     body.dark-mode { background: #1a1a1a; color: #fff; }
     body.dark-mode .settings-section,
     body.dark-mode .lesson-card,
@@ -53,12 +53,12 @@ window.onerror = function(message, source, lineno, colno, error) {
       background: #1a1a1a !important;
     }
     .appbar {
-      height: 56px;
+      height: calc(56px + env(safe-area-inset-top));
       background: #6c4fc1;
       color: #fff;
       display: flex;
       align-items: center;
-      padding: 0 16px;
+      padding: env(safe-area-inset-top) 16px 0 16px;
       box-shadow: 0 2px 8px rgba(0,0,0,0.04);
       position: fixed;
       top: 0; left: 0; right: 0;
@@ -68,7 +68,7 @@ window.onerror = function(message, source, lineno, colno, error) {
     .drawer-backdrop {
       display: none;
       position: fixed;
-      top: 0; left: 0; width: 100vw; height: 100vh;
+      top: 0; left: 0; width: 100%; height: 100%;
       background: rgba(0,0,0,0.2);
       z-index: 1000;
     }
@@ -82,9 +82,12 @@ window.onerror = function(message, source, lineno, colno, error) {
       transform: translateX(-100%);
       transition: transform 0.25s;
       z-index: 1000;
-      padding-top: 56px;
+      padding-top: calc(56px + env(safe-area-inset-top));
       display: flex;
       flex-direction: column;
+    }
+    @supports (height: 100dvh) {
+      .drawer { height: 100dvh; }
     }
     .drawer.open { transform: translateX(0); }
     
@@ -249,7 +252,7 @@ window.onerror = function(message, source, lineno, colno, error) {
     .fab {
       position: fixed;
       right: 24px;
-      bottom: 24px;
+      bottom: calc(24px + env(safe-area-inset-bottom));
       width: 56px; height: 56px;
       background: #6c4fc1;
       color: #fff;
@@ -406,10 +409,15 @@ window.onerror = function(message, source, lineno, colno, error) {
   padding: 0;
   border-radius: 0;
 }
+@supports (height: 100dvh) {
+  #video-modal { width: 100dvw; height: 100dvh; }
+  #video-modal .video-js,
+  #video-modal video { width: 100dvw !important; height: 100dvh !important; max-width: 100dvw !important; max-height: 100dvh !important; }
+}
 
 /* Search Styles */
 .search-section {
-  margin-top: 56px;
+  margin-top: 72px; /* more space below appbar on mobile */
   padding: 32px 16px 80px 16px;
   min-height: calc(100vh - 56px);
   display: flex;
@@ -596,6 +604,20 @@ body.dark-mode .search-result-description {
   .search-results {
     grid-template-columns: 1fr;
   }
+}
+
+/* Mobile responsiveness for new home UI */
+@media (max-width: 900px) {
+  #home-hero { padding: 18px 16px !important; }
+  .home-stats { grid-template-columns: 1fr !important; }
+}
+
+@media (max-width: 600px) {
+  .drawer { width: 85vw; }
+  #recent-list { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)) !important; gap: 10px !important; }
+  #recent-section { margin-top: 12px; }
+  #home-hero { padding: 16px 14px !important; }
+  #account-menu { max-width: 90vw; }
 }
   </style>
 </head>
