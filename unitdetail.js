@@ -19,6 +19,7 @@ let advancedFeatures = null;
 let currentUnitName = null;
 let currentUnitData = null;
 let currentVideoPlayerCleanup = null;
+let currentMSEController = null; // manages MediaSource + stream
 
 // Cache management
 const CacheManager = {
@@ -535,6 +536,11 @@ function playLesson(lessonKey, lessonData) {
     currentVideoPlayerCleanup();
     currentVideoPlayerCleanup = null;
   }
+  // Abort any previous MSE controller
+  if (currentMSEController && typeof currentMSEController.abort === 'function') {
+    try { currentMSEController.abort(); } catch(e) {}
+    currentMSEController = null;
+  }
   
   const videoFile = lessonData.videoURL || lessonData.videoFile;
   
@@ -555,50 +561,72 @@ function playLesson(lessonKey, lessonData) {
   // Prevent body scrolling when modal is open
   document.body.style.overflow = 'hidden';
   
-  // Resolve video URL with caching and fallback
+  // Resolve video URL, then stream via MediaSource (always blob) with progressive UI
   resolveVideoURL(videoFile)
     .then(async ({ url, fromCache }) => {
       console.log('Video URL loaded' + (fromCache ? ' (cache)' : ''), url);
-      const videoPlayer = document.getElementById('video-player');
+      const video = document.getElementById('video-player');
+      const overlay = document.getElementById('video-loading-overlay');
+      const progressEl = document.getElementById('video-loading-progress');
+      const textEl = document.getElementById('video-loading-text');
 
-      // Try to serve small files as blob: to hide the true URL in devtools
+      // Show overlay
+      if (overlay) {
+        overlay.style.display = 'flex';
+        if (textEl) textEl.textContent = 'Initializing…';
+        if (progressEl) progressEl.style.width = '2%';
+      }
+
+      // Helper: hide overlay
+      const hideOverlay = () => { if (overlay) overlay.style.display = 'none'; };
+      const updateProgress = (pct, label) => {
+        if (progressEl) progressEl.style.width = Math.max(0, Math.min(100, pct)) + '%';
+        if (textEl && label) textEl.textContent = label;
+      };
+
+      // Try MSE streaming first
       try {
-        const objectUrl = await maybeLoadAsBlob(url, 30 * 1024 * 1024); // 30MB threshold
-        if (objectUrl) {
-          // Revoke previous object URL if any
-          if (videoPlayer.dataset && videoPlayer.dataset.objectUrl) {
-            try { URL.revokeObjectURL(videoPlayer.dataset.objectUrl); } catch(e) {}
+        currentMSEController = await streamWithMSE(url, video, updateProgress);
+        hideOverlay();
+      } catch (mseErr) {
+        console.warn('MSE streaming failed, falling back to full blob:', mseErr);
+        try {
+          if (textEl) textEl.textContent = 'Buffering video…';
+          const fallbackUrl = await fetchAsObjectURL(url, updateProgress);
+          // Revoke previous object URL
+          if (video.dataset && video.dataset.objectUrl) {
+            try { URL.revokeObjectURL(video.dataset.objectUrl); } catch(e) {}
           }
-          videoPlayer.src = objectUrl;
-          if (videoPlayer.dataset) videoPlayer.dataset.objectUrl = objectUrl;
-        } else {
-          // Fallback to direct URL with cache retry guard
+          video.src = fallbackUrl;
+          if (video.dataset) video.dataset.objectUrl = fallbackUrl;
+          hideOverlay();
+        } catch (blobErr) {
+          console.error('Full blob fallback failed:', blobErr);
+          // As a last resort use direct URL (will show true URL)
           let retried = false;
           const onError = () => {
             if (fromCache && !retried) {
               retried = true;
               storage.ref('videos/' + videoFile).getDownloadURL().then(fresh => {
                 VideoURLCache.set(videoFile, fresh);
-                videoPlayer.src = fresh;
-                videoPlayer.play().catch(()=>{});
+                video.src = fresh;
+                video.play().catch(()=>{});
               }).catch(err => {
                 console.error('Fresh URL fetch failed:', err);
                 NotificationManager.showToast('Error loading video. Please try again later.');
               });
             }
-            videoPlayer.removeEventListener('error', onError);
+            video.removeEventListener('error', onError);
           };
-          if (fromCache) videoPlayer.addEventListener('error', onError, { once: true });
-          videoPlayer.src = url;
+          if (fromCache) video.addEventListener('error', onError, { once: true });
+          video.src = url;
+          hideOverlay();
         }
-      } catch (e) {
-        console.warn('Blob load attempt failed, using direct URL:', e);
-        videoPlayer.src = url;
       }
 
       addVideoWatermark(userEmail, lessonKey);
-      initCustomVideoPlayer(videoPlayer, lessonKey);
-      videoPlayer.play().catch(error => { console.log('Autoplay prevented:', error); });
+      initCustomVideoPlayer(video, lessonKey);
+      video.play().catch(error => { console.log('Autoplay prevented:', error); });
     })
     .catch(error => {
       console.error('Error loading video:', error);
@@ -607,29 +635,159 @@ function playLesson(lessonKey, lessonData) {
     });
 }
 
-// Attempt to load the video as a blob (to yield a blob: URL in devtools) if it's small enough.
-// Returns object URL string or null if falling back is better.
-async function maybeLoadAsBlob(url, sizeThresholdBytes) {
-  try {
-    // Try a HEAD request to get content length
-    const head = await fetch(url, { method: 'HEAD', mode: 'cors', credentials: 'omit', cache: 'no-store' });
-    const len = parseInt(head.headers.get('Content-Length') || head.headers.get('content-length') || '0', 10);
-    if (!Number.isFinite(len) || len === 0) {
-      // Unknown size; avoid full download to keep UX acceptable
-      return null;
-    }
-    if (len > sizeThresholdBytes) {
-      return null; // too large; don't block playback with a full download
-    }
-    // Small enough: fetch as blob
-    const resp = await fetch(url, { method: 'GET', mode: 'cors', credentials: 'omit', referrerPolicy: 'no-referrer' });
-    if (!resp.ok) return null;
-    const blob = await resp.blob();
-    return URL.createObjectURL(blob);
-  } catch (e) {
-    console.debug('maybeLoadAsBlob error:', e);
-    return null;
+// Fetch entire file as blob with progress, return object URL
+async function fetchAsObjectURL(url, onProgress) {
+  const resp = await fetch(url, { method: 'GET', mode: 'cors', credentials: 'omit', referrerPolicy: 'no-referrer' });
+  if (!resp.ok || !resp.body) {
+    throw new Error('Blob fetch failed: ' + resp.status);
   }
+  const total = Number(resp.headers.get('Content-Length')) || 0;
+  const reader = resp.body.getReader();
+  const chunks = [];
+  let received = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    chunks.push(value);
+    received += value.byteLength;
+    if (total && onProgress) onProgress((received / total) * 100, 'Buffering… ' + Math.round((received / total) * 100) + '%');
+  }
+  const blob = new Blob(chunks);
+  return URL.createObjectURL(blob);
+}
+
+// Stream using MediaSource with Range requests (chunked fetch) to keep src as blob:
+async function streamWithMSE(url, videoEl, onProgress) {
+  if (!('MediaSource' in window)) {
+    throw new Error('MediaSource not supported');
+  }
+
+  // Detect container and codec from URL/file extension heuristics
+  const lower = url.toLowerCase();
+  // Default to MP4 with H.264 AAC which most Firebase videos are
+  const codec = 'video/mp4; codecs="avc1.42E01E, mp4a.40.2"';
+  if (!MediaSource.isTypeSupported(codec)) {
+    // Try a baseline alternative
+    const alt = 'video/mp4; codecs="avc1.4d401e, mp4a.40.2"';
+    if (!MediaSource.isTypeSupported(alt)) {
+      throw new Error('MP4/H.264 codec not supported by MediaSource');
+    }
+  }
+
+  const ms = new MediaSource();
+  const objectURL = URL.createObjectURL(ms);
+  videoEl.src = objectURL;
+  if (videoEl.dataset) videoEl.dataset.objectUrl = objectURL;
+
+  // Controller to abort fetches and cleanup
+  const controller = new AbortController();
+  let sourceBuffer;
+  let appendedBytes = 0;
+  let contentLength = 0;
+  let ended = false;
+
+  const cleanup = () => {
+    try {
+      controller.abort();
+    } catch(e) {}
+    try {
+      if (sourceBuffer) {
+        if (!sourceBuffer.updating) {
+          try { ms.removeSourceBuffer(sourceBuffer); } catch(e) {}
+        }
+      }
+    } catch(e) {}
+    try { ms.endOfStream(); } catch(e) {}
+    try { URL.revokeObjectURL(objectURL); } catch(e) {}
+  };
+
+  const chunkSize = 512 * 1024; // 512KB per request
+
+  const headResp = await fetch(url, { method: 'HEAD', signal: controller.signal });
+  if (!headResp.ok) throw new Error('HEAD failed');
+  contentLength = Number(headResp.headers.get('Content-Length')) || 0;
+
+  await new Promise((resolveOpen) => {
+    ms.addEventListener('sourceopen', () => {
+      try {
+        sourceBuffer = ms.addSourceBuffer('video/mp4; codecs="avc1.42E01E, mp4a.40.2"');
+      } catch (e) {
+        // Fallback codec string
+        sourceBuffer = ms.addSourceBuffer('video/mp4; codecs="avc1.4d401e, mp4a.40.2"');
+      }
+      resolveOpen();
+    }, { once: true });
+  });
+
+  // Fetch chunks sequentially using Range requests
+  const appendChunk = (buf) => new Promise((res, rej) => {
+    const appendWhenReady = () => {
+      if (sourceBuffer.updating) {
+        sourceBuffer.addEventListener('updateend', appendWhenReady, { once: true });
+        return;
+      }
+      try {
+        // Resolve after THIS append completes
+        sourceBuffer.addEventListener('updateend', () => res(), { once: true });
+        sourceBuffer.addEventListener('error', (e)=>rej(e), { once: true });
+        sourceBuffer.appendBuffer(buf);
+      } catch (e) {
+        rej(e);
+      }
+    };
+    appendWhenReady();
+  });
+
+  // Pump chunks in background; resolve after first append so UI can hide overlay
+  let start = 0;
+  let readyResolved = false;
+  const ready = new Promise((resolve) => { /* resolved after first append */ resolve._isReadyPromise = true; ready._resolve = resolve; });
+
+  (async () => {
+    try {
+      while (!ended) {
+        const end = Math.min(start + chunkSize - 1, contentLength ? contentLength - 1 : start + chunkSize - 1);
+        const range = `bytes=${start}-${end}`;
+        const resp = await fetch(url, { headers: { Range: range }, signal: controller.signal });
+        if (!(resp.status === 206 || resp.status === 200)) {
+          throw new Error('Chunk fetch failed: ' + resp.status);
+        }
+        const buf = await resp.arrayBuffer();
+        await appendChunk(buf);
+        appendedBytes += buf.byteLength;
+        start = end + 1;
+        if (contentLength && onProgress) onProgress((appendedBytes / contentLength) * 100, 'Buffering… ' + Math.round((appendedBytes / contentLength) * 100) + '%');
+
+        if (!readyResolved) {
+          readyResolved = true;
+          try { ready._resolve(); } catch(e) {}
+          // Attempt to start playback once we have initial data
+          videoEl.play().catch(()=>{});
+        }
+
+        if (contentLength && appendedBytes >= contentLength) {
+          ended = true;
+          break;
+        }
+        if (!contentLength && buf.byteLength < chunkSize) {
+          ended = true;
+          break;
+        }
+      }
+    } catch (pumpErr) {
+      console.warn('MSE pump stopped:', pumpErr);
+    } finally {
+      try { ms.endOfStream(); } catch(e) {}
+    }
+  })();
+
+  // Provide external controller for cleanup/abort
+  const external = { abort: cleanup };
+  currentMSEController = external;
+
+  // Return after first append is ready
+  await ready;
+  return external;
 }
 
 function closeVideo() {
@@ -638,6 +796,16 @@ function closeVideo() {
 
 function closeVideoModal() {
   const videoPlayer = document.getElementById('video-player');
+  // Hide loading overlay if visible
+  try {
+    const ov = document.getElementById('video-loading-overlay');
+    if (ov) ov.style.display = 'none';
+  } catch (e) {}
+  // Abort any active MSE controller
+  if (currentMSEController && typeof currentMSEController.abort === 'function') {
+    try { currentMSEController.abort(); } catch(e) {}
+    currentMSEController = null;
+  }
   
   // Clean up current video player
   if (currentVideoPlayerCleanup) {
