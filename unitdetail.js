@@ -488,10 +488,9 @@ function renderLessons(selectedLesson = null) {
     console.log('Auto-selecting lesson:', selectedLesson);
     // Small delay to ensure card is rendered
     setTimeout(() => {
-      const lessonButton = document.querySelector(`[data-lesson="${selectedLesson}"]`);
-      if (lessonButton) {
-        lessonButton.click();
-      }
+  const card = document.querySelector(`[data-lesson="${selectedLesson}"]`);
+  const playBtn = card && card.querySelector('.lesson-action-btn');
+  if (playBtn) playBtn.click();
       // Clear the selected lesson from localStorage
       localStorage.removeItem('selectedLesson');
     }, 100);
@@ -511,7 +510,7 @@ function createLessonCard(lessonKey, lessonData) {
     <div class="lesson-title">${lessonKey}</div>
     <div class="lesson-description">${description}</div>
     <div class="lesson-actions" style="margin-top: 12px; display: flex; gap: 8px;">
-      <button class="lesson-action-btn" onclick="event.stopPropagation(); playLesson('${lessonKey}', ${JSON.stringify(lessonData).replace(/"/g, '&quot;')})">
+  <button class="lesson-action-btn" onclick="event.stopPropagation(); playLessonByKey('${lessonKey}')">
         <span class="material-icons">play_arrow</span>
         Play
       </button>
@@ -528,8 +527,23 @@ function createLessonCard(lessonKey, lessonData) {
   return card;
 }
 
+// Safer entry point to start playback without exposing lesson data in HTML
+function playLessonByKey(lessonKey) {
+  try {
+    if (!currentUnitData || !currentUnitData[lessonKey]) {
+      NotificationManager.showToast('Lesson not found');
+      return;
+    }
+    const lessonData = currentUnitData[lessonKey];
+    playLesson(lessonKey, lessonData);
+  } catch (e) {
+    console.error('playLessonByKey error:', e);
+    NotificationManager.showToast('Unable to play this lesson');
+  }
+}
+
 function playLesson(lessonKey, lessonData) {
-  console.log('playLesson called with:', lessonKey, lessonData);
+  console.log('playLesson:', lessonKey);
   
   // Clean up previous video player if exists
   if (currentVideoPlayerCleanup) {
@@ -570,7 +584,7 @@ function playLesson(lessonKey, lessonData) {
       const progressEl = document.getElementById('video-loading-progress');
       const textEl = document.getElementById('video-loading-text');
 
-      // Show overlay
+  // Show overlay (we'll hide it as soon as the first bytes are usable)
       if (overlay) {
         overlay.style.display = 'flex';
         if (textEl) textEl.textContent = 'Initializing…';
@@ -587,6 +601,7 @@ function playLesson(lessonKey, lessonData) {
       // Try MSE streaming first
       try {
         currentMSEController = await streamWithMSE(url, video, updateProgress);
+        // Hide immediately to avoid perceived prebuffering – native spinner/"waiting" will handle gaps
         hideOverlay();
       } catch (mseErr) {
         console.warn('MSE streaming failed, falling back to full blob:', mseErr);
@@ -701,11 +716,18 @@ async function streamWithMSE(url, videoEl, onProgress) {
     try { URL.revokeObjectURL(objectURL); } catch(e) {}
   };
 
-  const chunkSize = 512 * 1024; // 512KB per request
-
-  const headResp = await fetch(url, { method: 'HEAD', signal: controller.signal });
-  if (!headResp.ok) throw new Error('HEAD failed');
-  contentLength = Number(headResp.headers.get('Content-Length')) || 0;
+  const chunkSize = 128 * 1024; // smaller first chunks for quicker start
+  // Try to get content length, but don't block startup
+  (async () => {
+    try {
+      const headResp = await fetch(url, { method: 'HEAD', signal: controller.signal });
+      if (headResp.ok) {
+        contentLength = Number(headResp.headers.get('Content-Length')) || 0;
+      }
+    } catch(e) {
+      // ignore
+    }
+  })();
 
   await new Promise((resolveOpen) => {
     ms.addEventListener('sourceopen', () => {
@@ -756,7 +778,14 @@ async function streamWithMSE(url, videoEl, onProgress) {
         await appendChunk(buf);
         appendedBytes += buf.byteLength;
         start = end + 1;
-        if (contentLength && onProgress) onProgress((appendedBytes / contentLength) * 100, 'Buffering… ' + Math.round((appendedBytes / contentLength) * 100) + '%');
+        if (onProgress) {
+          if (contentLength) {
+            onProgress((appendedBytes / contentLength) * 100, 'Loading… ' + Math.round((appendedBytes / contentLength) * 100) + '%');
+          } else if (!readyResolved) {
+            // hint only before ready
+            onProgress(5, 'Loading…');
+          }
+        }
 
         if (!readyResolved) {
           readyResolved = true;
@@ -1383,6 +1412,18 @@ function initCustomVideoPlayer(videoPlayer, lessonKey) {
     playPauseBtn.querySelector('.material-icons').textContent = 'replay';
   };
   addEventListenerWithCleanup(videoPlayer, 'ended', endedHandler);
+
+  // Buffering indicators: keep overlay off, use lightweight toast
+  const waitingHandler = function() {
+    showVideoToast('Buffering…');
+  };
+  const playingHandler = function() {
+    // Clear toast quickly on resume
+    videoToast.style.opacity = '0';
+    setTimeout(() => { videoToast.style.display = 'none'; }, 200);
+  };
+  addEventListenerWithCleanup(videoPlayer, 'waiting', waitingHandler);
+  addEventListenerWithCleanup(videoPlayer, 'playing', playingHandler);
   
   // Play/Pause button
   const playPauseHandler = function() {
