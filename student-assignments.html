@@ -659,6 +659,35 @@
       font-size: 14px;
       opacity: 0.9;
     }
+
+    /* Filter bar styles */
+    .filter-bar {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 16px;
+      border-radius: 10px;
+      background: #ffffff;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+      margin-bottom: 16px;
+    }
+    body.dark-mode .filter-bar {
+      background: #2d2d2d;
+      color: #fff;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.25);
+    }
+    .filter-select {
+      min-width: 220px;
+      padding: 8px 10px;
+      border-radius: 8px;
+      border: 1px solid #ddd;
+      background: #fff;
+    }
+    body.dark-mode .filter-select {
+      background: #3a3a3a;
+      border-color: #555;
+      color: #fff;
+    }
   </style>
 </head>
 <body>
@@ -678,6 +707,17 @@
         <span class="material-icons" style="vertical-align: middle; margin-right: 8px;">quiz</span>
         Quizzes
       </div>
+    </div>
+
+    <!-- Unit Filter Bar -->
+    <div class="filter-bar" id="unitFilterBar">
+      <span class="material-icons" title="Filter by Unit">filter_list</span>
+      <span style="font-weight:600;">Filter by unit:</span>
+      <select id="unitFilterSelect" class="filter-select" aria-label="Filter by unit">
+        <option value="">All units</option>
+      </select>
+      <button class="action-btn secondary" id="resetUnitFilterBtn" title="Reset filter">Reset</button>
+      <span id="activeFilterHint" style="margin-left:auto; color:#6c4fc1; font-weight:600; display:none;">Filtering…</span>
     </div>
 
     <!-- Assignments Tab -->
@@ -921,6 +961,71 @@
       } catch(e) {}
     })();
 
+    // Unit filter support (manual UI + URL sync)
+    let unitFilterOptions = new Set();
+    let _allAssignments = [];
+    let _allQuizzes = [];
+
+    function getUnitFilter() {
+      try {
+        const params = new URLSearchParams(window.location.search);
+        return params.get('unit') || '';
+      } catch (e) { return ''; }
+    }
+
+    function updateUnitFilterUI() {
+      const current = getUnitFilter();
+      const select = document.getElementById('unitFilterSelect');
+      if (select && select.value !== current) select.value = current;
+      const hint = document.getElementById('activeFilterHint');
+      if (hint) {
+        if (current) {
+          hint.textContent = `Filtering by unit: ${current}`;
+          hint.style.display = 'inline';
+        } else {
+          hint.style.display = 'none';
+        }
+      }
+    }
+
+    function setUnitFilter(value) {
+      try {
+        const url = new URL(window.location.href);
+        if (value) url.searchParams.set('unit', value);
+        else url.searchParams.delete('unit');
+        window.history.replaceState({}, '', url.toString());
+      } catch (e) {}
+      updateUnitFilterUI();
+      // Re-render both lists using cached in-memory datasets
+      displayAssignments(_allAssignments || []);
+      displayQuizzes(_allQuizzes || []);
+    }
+
+    function collectUnitsFromList(list) {
+      if (!Array.isArray(list)) return;
+      list.forEach(item => {
+        const u = item && item.unit ? String(item.unit).trim() : '';
+        if (u) unitFilterOptions.add(u);
+      });
+    }
+
+    function renderUnitFilterOptions() {
+      const select = document.getElementById('unitFilterSelect');
+      if (!select) return;
+      const current = getUnitFilter();
+      const options = Array.from(unitFilterOptions).sort((a,b)=>a.localeCompare(b, undefined, { sensitivity: 'base' }));
+      select.innerHTML = '<option value="">All units</option>' + options.map(u => `<option value="${u.replace(/"/g,'&quot;')}">${u}</option>`).join('');
+      if (current) select.value = current;
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      const select = document.getElementById('unitFilterSelect');
+      if (select) select.addEventListener('change', e => setUnitFilter(e.target.value));
+      const resetBtn = document.getElementById('resetUnitFilterBtn');
+      if (resetBtn) resetBtn.addEventListener('click', () => setUnitFilter(''));
+      updateUnitFilterUI();
+    });
+
     // Authentication check
     firebase.auth().onAuthStateChanged(function(user) {
       if (user) {
@@ -1016,10 +1121,15 @@
     
     // Display assignments
     function displayAssignments(assignments) {
+      _allAssignments = Array.isArray(assignments) ? assignments : [];
+      // Update unit options from assignments
+      collectUnitsFromList(_allAssignments);
+      renderUnitFilterOptions();
+
       const grid = document.getElementById('assignmentsGrid');
       grid.innerHTML = '';
 
-      // Optional filter by unit via query param
+      // Optional filter by unit via query param (works with manual UI too)
       try {
         const params = new URLSearchParams(window.location.search);
         const unitFilter = params.get('unit');
@@ -1035,7 +1145,7 @@
           <div class="empty-state">
             <span class="material-icons">assignment</span>
             <h3>No assignments found</h3>
-            <p>${new URLSearchParams(window.location.search).get('unit') ? 'No assignments in this unit yet.' : 'Check back later for new assignments.'}</p>
+            <p>${getUnitFilter() ? 'No assignments in this unit yet.' : 'Check back later for new assignments.'}</p>
           </div>
         `;
         return;
@@ -1118,14 +1228,18 @@
         }
       });
     }
-  }
     
     // Display quizzes
     function displayQuizzes(quizzes) {
+      _allQuizzes = Array.isArray(quizzes) ? quizzes : [];
+      // Update unit options from quizzes
+      collectUnitsFromList(_allQuizzes);
+      renderUnitFilterOptions();
+
       const container = document.getElementById('quizzesContainer');
       container.innerHTML = '';
 
-      // Optional filter by unit via query param
+      // Optional filter by unit via query param (works with manual UI too)
       try {
         const params = new URLSearchParams(window.location.search);
         const unitFilter = params.get('unit');
@@ -1141,7 +1255,7 @@
           <div class="empty-state">
             <span class="material-icons">quiz</span>
             <h3>No quizzes found</h3>
-            <p>${new URLSearchParams(window.location.search).get('unit') ? 'No quizzes in this unit yet.' : 'Check back later for new quizzes.'}</p>
+            <p>${getUnitFilter() ? 'No quizzes in this unit yet.' : 'Check back later for new quizzes.'}</p>
           </div>
         `;
         return;
