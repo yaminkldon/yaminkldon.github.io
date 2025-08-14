@@ -829,55 +829,6 @@
     .close-video {
       display: none; /* Hide old close button */
     }
-    /* Progressive Video Loading Overlay */
-    .video-loading-overlay {
-      position: absolute;
-      inset: 0;
-      background: linear-gradient(rgba(0,0,0,0.65), rgba(0,0,0,0.5));
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      z-index: 20;
-    }
-    .video-loading-inner {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 12px;
-      width: min(420px, 80%);
-    }
-    .video-loading-inner .spinner {
-      width: 36px;
-      height: 36px;
-      border: 3px solid rgba(255,255,255,0.25);
-      border-top-color: #6c4fc1;
-      border-radius: 50%;
-      animation: spin 0.9s linear infinite;
-    }
-    .video-loading-inner .loading-text {
-      color: #fff;
-      font-size: 14px;
-      text-align: center;
-      opacity: 0.95;
-    }
-    .video-loading-inner .loading-bar {
-      width: 100%;
-      height: 8px;
-      background: rgba(255,255,255,0.2);
-      border-radius: 999px;
-      overflow: hidden;
-      box-shadow: inset 0 1px 2px rgba(0,0,0,0.3);
-    }
-    .video-loading-inner .loading-progress {
-      height: 100%;
-      width: 0%;
-      background: linear-gradient(90deg, #6c4fc1, #8a6df0);
-      border-radius: inherit;
-      transition: width 0.2s ease;
-    }
-    @keyframes spin {
-      to { transform: rotate(360deg); }
-    }
   </style>
 </head>
 <body>
@@ -927,16 +878,6 @@
           <video class="video-player" id="video-player" preload="metadata" controlsList="nodownload noplaybackrate" disablePictureInPicture playsinline referrerpolicy="no-referrer" oncontextmenu="return false" draggable="false">
             Your browser does not support the video tag.
           </video>
-          <!-- Progressive Loading Overlay -->
-          <div id="video-loading-overlay" class="video-loading-overlay" style="display:none;">
-            <div class="video-loading-inner">
-              <div class="spinner"></div>
-              <div class="loading-text" id="video-loading-text">Preparing video…</div>
-              <div class="loading-bar">
-                <div class="loading-progress" id="video-loading-progress" style="width:0%"></div>
-              </div>
-            </div>
-          </div>
           <!-- Watermark overlay with user email -->
           <i class="watermark" id="watermark-email"></i>
           <!-- Video Toast for Fullscreen -->

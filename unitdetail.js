@@ -19,7 +19,6 @@ let advancedFeatures = null;
 let currentUnitName = null;
 let currentUnitData = null;
 let currentVideoPlayerCleanup = null;
-let currentMSEController = null; // manages MediaSource + stream
 
 // Cache management
 const CacheManager = {
@@ -488,9 +487,10 @@ function renderLessons(selectedLesson = null) {
     console.log('Auto-selecting lesson:', selectedLesson);
     // Small delay to ensure card is rendered
     setTimeout(() => {
-  const card = document.querySelector(`[data-lesson="${selectedLesson}"]`);
-  const playBtn = card && card.querySelector('.lesson-action-btn');
-  if (playBtn) playBtn.click();
+      const lessonButton = document.querySelector(`[data-lesson="${selectedLesson}"]`);
+      if (lessonButton) {
+        lessonButton.click();
+      }
       // Clear the selected lesson from localStorage
       localStorage.removeItem('selectedLesson');
     }, 100);
@@ -510,7 +510,7 @@ function createLessonCard(lessonKey, lessonData) {
     <div class="lesson-title">${lessonKey}</div>
     <div class="lesson-description">${description}</div>
     <div class="lesson-actions" style="margin-top: 12px; display: flex; gap: 8px;">
-  <button class="lesson-action-btn" onclick="event.stopPropagation(); playLessonByKey('${lessonKey}')">
+      <button class="lesson-action-btn" onclick="event.stopPropagation(); playLesson('${lessonKey}', ${JSON.stringify(lessonData).replace(/"/g, '&quot;')})">
         <span class="material-icons">play_arrow</span>
         Play
       </button>
@@ -527,33 +527,13 @@ function createLessonCard(lessonKey, lessonData) {
   return card;
 }
 
-// Safer entry point to start playback without exposing lesson data in HTML
-function playLessonByKey(lessonKey) {
-  try {
-    if (!currentUnitData || !currentUnitData[lessonKey]) {
-      NotificationManager.showToast('Lesson not found');
-      return;
-    }
-    const lessonData = currentUnitData[lessonKey];
-    playLesson(lessonKey, lessonData);
-  } catch (e) {
-    console.error('playLessonByKey error:', e);
-    NotificationManager.showToast('Unable to play this lesson');
-  }
-}
-
 function playLesson(lessonKey, lessonData) {
-  console.log('playLesson:', lessonKey);
+  console.log('playLesson called with:', lessonKey, lessonData);
   
   // Clean up previous video player if exists
   if (currentVideoPlayerCleanup) {
     currentVideoPlayerCleanup();
     currentVideoPlayerCleanup = null;
-  }
-  // Abort any previous MSE controller
-  if (currentMSEController && typeof currentMSEController.abort === 'function') {
-    try { currentMSEController.abort(); } catch(e) {}
-    currentMSEController = null;
   }
   
   const videoFile = lessonData.videoURL || lessonData.videoFile;
@@ -575,108 +555,32 @@ function playLesson(lessonKey, lessonData) {
   // Prevent body scrolling when modal is open
   document.body.style.overflow = 'hidden';
   
-  // Resolve video URL, then stream via MediaSource (always blob) with progressive UI
+  // Resolve video URL with caching and fallback
   resolveVideoURL(videoFile)
-    .then(async ({ url, fromCache }) => {
+    .then(({ url, fromCache }) => {
       console.log('Video URL loaded' + (fromCache ? ' (cache)' : ''), url);
-      const video = document.getElementById('video-player');
-      const overlay = document.getElementById('video-loading-overlay');
-      const progressEl = document.getElementById('video-loading-progress');
-      const textEl = document.getElementById('video-loading-text');
-
-  // Show overlay (we'll hide it as soon as the first bytes are usable)
-      if (overlay) {
-        overlay.style.display = 'flex';
-        if (textEl) textEl.textContent = 'Initializing…';
-        if (progressEl) progressEl.style.width = '2%';
-      }
-
-      // Helper: hide overlay
-      const hideOverlay = () => { if (overlay) overlay.style.display = 'none'; };
-      const updateProgress = (pct, label) => {
-        if (progressEl) progressEl.style.width = Math.max(0, Math.min(100, pct)) + '%';
-        if (textEl && label) textEl.textContent = label;
-      };
-
-      // Try MSE streaming first
-      try {
-        currentMSEController = await streamWithMSE(url, video, updateProgress);
-        // Hide immediately to avoid perceived prebuffering – native spinner/"waiting" will handle gaps
-        hideOverlay();
-
-        // Startup failover: if we don't reach playing state quickly, switch to native progressive URL
-        const failoverMs = 1800; // ~1.8s window
-        let armed = true;
-        const clearFailover = () => { armed = false; };
-        const onFirstPlaying = () => { clearFailover(); video.removeEventListener('playing', onFirstPlaying); };
-        const onFirstTimeupdate = () => { if (video.currentTime > 0) { clearFailover(); video.removeEventListener('timeupdate', onFirstTimeupdate); } };
-        video.addEventListener('playing', onFirstPlaying, { once: true });
-        video.addEventListener('timeupdate', onFirstTimeupdate);
-        setTimeout(() => {
-          if (!armed) return;
-          try { currentMSEController && currentMSEController.abort && currentMSEController.abort(); } catch(e) {}
-          currentMSEController = null;
-          // Revoke any object URL
-          try { if (video.dataset && video.dataset.objectUrl) { URL.revokeObjectURL(video.dataset.objectUrl); delete video.dataset.objectUrl; } } catch(e) {}
-          // Attach direct URL for native progressive buffering
-          let retried = false;
-          const onError = () => {
-            if (fromCache && !retried) {
-              retried = true;
-              storage.ref('videos/' + videoFile).getDownloadURL().then(fresh => {
-                VideoURLCache.set(videoFile, fresh);
-                video.src = fresh;
-                video.play().catch(()=>{});
-              }).catch(err => {
-                console.error('Fresh URL fetch failed:', err);
-                NotificationManager.showToast('Error loading video. Please try again later.');
-              });
-            }
-            video.removeEventListener('error', onError);
-          };
-          if (fromCache) video.addEventListener('error', onError, { once: true });
-          video.src = url;
-          video.play().catch(()=>{});
-        }, failoverMs);
-      } catch (mseErr) {
-        console.warn('MSE streaming failed, falling back to full blob:', mseErr);
-        try {
-          if (textEl) textEl.textContent = 'Buffering video…';
-          const fallbackUrl = await fetchAsObjectURL(url, updateProgress);
-          // Revoke previous object URL
-          if (video.dataset && video.dataset.objectUrl) {
-            try { URL.revokeObjectURL(video.dataset.objectUrl); } catch(e) {}
-          }
-          video.src = fallbackUrl;
-          if (video.dataset) video.dataset.objectUrl = fallbackUrl;
-          hideOverlay();
-        } catch (blobErr) {
-          console.error('Full blob fallback failed:', blobErr);
-          // As a last resort use direct URL (will show true URL)
-          let retried = false;
-          const onError = () => {
-            if (fromCache && !retried) {
-              retried = true;
-              storage.ref('videos/' + videoFile).getDownloadURL().then(fresh => {
-                VideoURLCache.set(videoFile, fresh);
-                video.src = fresh;
-                video.play().catch(()=>{});
-              }).catch(err => {
-                console.error('Fresh URL fetch failed:', err);
-                NotificationManager.showToast('Error loading video. Please try again later.');
-              });
-            }
-            video.removeEventListener('error', onError);
-          };
-          if (fromCache) video.addEventListener('error', onError, { once: true });
-          video.src = url;
-          hideOverlay();
+      const videoPlayer = document.getElementById('video-player');
+      let retried = false;
+      const onError = () => {
+        if (fromCache && !retried) {
+          retried = true;
+          storage.ref('videos/' + videoFile).getDownloadURL().then(fresh => {
+            VideoURLCache.set(videoFile, fresh);
+            videoPlayer.src = fresh;
+            videoPlayer.play().catch(()=>{});
+          }).catch(err => {
+            console.error('Fresh URL fetch failed:', err);
+            NotificationManager.showToast('Error loading video. Please try again later.');
+          });
         }
-      }
+        videoPlayer.removeEventListener('error', onError);
+      };
+      if (fromCache) videoPlayer.addEventListener('error', onError, { once: true });
 
+      videoPlayer.src = url;
       addVideoWatermark(userEmail, lessonKey);
-      initCustomVideoPlayer(video, lessonKey);
-      video.play().catch(error => { console.log('Autoplay prevented:', error); });
+      initCustomVideoPlayer(videoPlayer, lessonKey);
+      videoPlayer.play().catch(error => { console.log('Autoplay prevented:', error); });
     })
     .catch(error => {
       console.error('Error loading video:', error);
@@ -685,191 +589,12 @@ function playLesson(lessonKey, lessonData) {
     });
 }
 
-// Fetch entire file as blob with progress, return object URL
-async function fetchAsObjectURL(url, onProgress) {
-  const resp = await fetch(url, { method: 'GET', mode: 'cors', credentials: 'omit', referrerPolicy: 'no-referrer' });
-  if (!resp.ok || !resp.body) {
-    throw new Error('Blob fetch failed: ' + resp.status);
-  }
-  const total = Number(resp.headers.get('Content-Length')) || 0;
-  const reader = resp.body.getReader();
-  const chunks = [];
-  let received = 0;
-  for (;;) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    chunks.push(value);
-    received += value.byteLength;
-    if (total && onProgress) onProgress((received / total) * 100, 'Buffering… ' + Math.round((received / total) * 100) + '%');
-  }
-  const blob = new Blob(chunks);
-  return URL.createObjectURL(blob);
-}
-
-// Stream using MediaSource with Range requests (chunked fetch) to keep src as blob:
-async function streamWithMSE(url, videoEl, onProgress) {
-  if (!('MediaSource' in window)) {
-    throw new Error('MediaSource not supported');
-  }
-
-  // Detect container and codec from URL/file extension heuristics
-  const lower = url.toLowerCase();
-  // Default to MP4 with H.264 AAC which most Firebase videos are
-  const codec = 'video/mp4; codecs="avc1.42E01E, mp4a.40.2"';
-  if (!MediaSource.isTypeSupported(codec)) {
-    // Try a baseline alternative
-    const alt = 'video/mp4; codecs="avc1.4d401e, mp4a.40.2"';
-    if (!MediaSource.isTypeSupported(alt)) {
-      throw new Error('MP4/H.264 codec not supported by MediaSource');
-    }
-  }
-
-  const ms = new MediaSource();
-  const objectURL = URL.createObjectURL(ms);
-  videoEl.src = objectURL;
-  if (videoEl.dataset) videoEl.dataset.objectUrl = objectURL;
-
-  // Controller to abort fetches and cleanup
-  const controller = new AbortController();
-  let sourceBuffer;
-  let appendedBytes = 0;
-  let contentLength = 0;
-  let ended = false;
-
-  const cleanup = () => {
-    try {
-      controller.abort();
-    } catch(e) {}
-    try {
-      if (sourceBuffer) {
-        if (!sourceBuffer.updating) {
-          try { ms.removeSourceBuffer(sourceBuffer); } catch(e) {}
-        }
-      }
-    } catch(e) {}
-    try { ms.endOfStream(); } catch(e) {}
-    try { URL.revokeObjectURL(objectURL); } catch(e) {}
-  };
-
-  const chunkSize = 128 * 1024; // smaller first chunks for quicker start
-  // Try to get content length, but don't block startup
-  (async () => {
-    try {
-      const headResp = await fetch(url, { method: 'HEAD', signal: controller.signal });
-      if (headResp.ok) {
-        contentLength = Number(headResp.headers.get('Content-Length')) || 0;
-      }
-    } catch(e) {
-      // ignore
-    }
-  })();
-
-  await new Promise((resolveOpen) => {
-    ms.addEventListener('sourceopen', () => {
-      try {
-        sourceBuffer = ms.addSourceBuffer('video/mp4; codecs="avc1.42E01E, mp4a.40.2"');
-      } catch (e) {
-        // Fallback codec string
-        sourceBuffer = ms.addSourceBuffer('video/mp4; codecs="avc1.4d401e, mp4a.40.2"');
-      }
-      resolveOpen();
-    }, { once: true });
-  });
-
-  // Fetch chunks sequentially using Range requests
-  const appendChunk = (buf) => new Promise((res, rej) => {
-    const appendWhenReady = () => {
-      if (sourceBuffer.updating) {
-        sourceBuffer.addEventListener('updateend', appendWhenReady, { once: true });
-        return;
-      }
-      try {
-        // Resolve after THIS append completes
-        sourceBuffer.addEventListener('updateend', () => res(), { once: true });
-        sourceBuffer.addEventListener('error', (e)=>rej(e), { once: true });
-        sourceBuffer.appendBuffer(buf);
-      } catch (e) {
-        rej(e);
-      }
-    };
-    appendWhenReady();
-  });
-
-  // Pump chunks in background; resolve after first append so UI can hide overlay
-  let start = 0;
-  let readyResolved = false;
-  const ready = new Promise((resolve) => { /* resolved after first append */ resolve._isReadyPromise = true; ready._resolve = resolve; });
-
-  (async () => {
-    try {
-      while (!ended) {
-        const end = Math.min(start + chunkSize - 1, contentLength ? contentLength - 1 : start + chunkSize - 1);
-        const range = `bytes=${start}-${end}`;
-        const resp = await fetch(url, { headers: { Range: range }, signal: controller.signal });
-        if (!(resp.status === 206 || resp.status === 200)) {
-          throw new Error('Chunk fetch failed: ' + resp.status);
-        }
-        const buf = await resp.arrayBuffer();
-        await appendChunk(buf);
-        appendedBytes += buf.byteLength;
-        start = end + 1;
-        if (onProgress) {
-          if (contentLength) {
-            onProgress((appendedBytes / contentLength) * 100, 'Loading… ' + Math.round((appendedBytes / contentLength) * 100) + '%');
-          } else if (!readyResolved) {
-            // hint only before ready
-            onProgress(5, 'Loading…');
-          }
-        }
-
-        if (!readyResolved) {
-          readyResolved = true;
-          try { ready._resolve(); } catch(e) {}
-          // Attempt to start playback once we have initial data
-          videoEl.play().catch(()=>{});
-        }
-
-        if (contentLength && appendedBytes >= contentLength) {
-          ended = true;
-          break;
-        }
-        if (!contentLength && buf.byteLength < chunkSize) {
-          ended = true;
-          break;
-        }
-      }
-    } catch (pumpErr) {
-      console.warn('MSE pump stopped:', pumpErr);
-    } finally {
-      try { ms.endOfStream(); } catch(e) {}
-    }
-  })();
-
-  // Provide external controller for cleanup/abort
-  const external = { abort: cleanup };
-  currentMSEController = external;
-
-  // Return after first append is ready
-  await ready;
-  return external;
-}
-
 function closeVideo() {
   closeVideoModal();
 }
 
 function closeVideoModal() {
   const videoPlayer = document.getElementById('video-player');
-  // Hide loading overlay if visible
-  try {
-    const ov = document.getElementById('video-loading-overlay');
-    if (ov) ov.style.display = 'none';
-  } catch (e) {}
-  // Abort any active MSE controller
-  if (currentMSEController && typeof currentMSEController.abort === 'function') {
-    try { currentMSEController.abort(); } catch(e) {}
-    currentMSEController = null;
-  }
   
   // Clean up current video player
   if (currentVideoPlayerCleanup) {
@@ -1447,18 +1172,6 @@ function initCustomVideoPlayer(videoPlayer, lessonKey) {
     playPauseBtn.querySelector('.material-icons').textContent = 'replay';
   };
   addEventListenerWithCleanup(videoPlayer, 'ended', endedHandler);
-
-  // Buffering indicators: keep overlay off, use lightweight toast
-  const waitingHandler = function() {
-    showVideoToast('Buffering…');
-  };
-  const playingHandler = function() {
-    // Clear toast quickly on resume
-    videoToast.style.opacity = '0';
-    setTimeout(() => { videoToast.style.display = 'none'; }, 200);
-  };
-  addEventListenerWithCleanup(videoPlayer, 'waiting', waitingHandler);
-  addEventListenerWithCleanup(videoPlayer, 'playing', playingHandler);
   
   // Play/Pause button
   const playPauseHandler = function() {
@@ -1971,13 +1684,6 @@ function initCustomVideoPlayer(videoPlayer, lessonKey) {
     // Reset video player state
     videoPlayer.pause();
     videoPlayer.currentTime = 0;
-    // Revoke blob URL if used
-    try {
-      if (videoPlayer.dataset && videoPlayer.dataset.objectUrl) {
-        URL.revokeObjectURL(videoPlayer.dataset.objectUrl);
-        delete videoPlayer.dataset.objectUrl;
-      }
-    } catch(e) {}
     
     console.log('Video player cleanup completed');
   };
