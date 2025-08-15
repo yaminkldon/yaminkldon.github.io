@@ -1182,6 +1182,7 @@ function initCustomVideoPlayer(videoPlayer, lessonKey) {
   
   // Play/Pause button
   const playPauseHandler = function() {
+  if (!customControls.classList.contains('visible')) return;
     if (videoPlayer.paused) {
       videoPlayer.play();
     } else {
@@ -1209,6 +1210,7 @@ function initCustomVideoPlayer(videoPlayer, lessonKey) {
   const progressContainer = document.querySelector('.progress-container');
   
   const progressBarHandler = function(e) {
+  if (!customControls.classList.contains('visible')) return;
     if (!videoPlayer.duration) return; // Don't handle if video not loaded
     
     // Use the progress container for more accurate positioning
@@ -1245,6 +1247,7 @@ function initCustomVideoPlayer(videoPlayer, lessonKey) {
   };
   
   const progressBarMouseDown = function(e) {
+  if (!customControls.classList.contains('visible')) return;
     isDragging = true;
     progressContainer.classList.add('dragging');
     progressBarHandler(e);
@@ -1265,6 +1268,7 @@ function initCustomVideoPlayer(videoPlayer, lessonKey) {
   };
   
   const progressBarTouchStart = function(e) {
+  if (!customControls.classList.contains('visible')) return;
     isDragging = true;
     progressContainer.classList.add('dragging');
     progressBarHandler(e);
@@ -1300,6 +1304,7 @@ function initCustomVideoPlayer(videoPlayer, lessonKey) {
   
   // Volume controls
   const volumeBtnHandler = function() {
+  if (!customControls.classList.contains('visible')) return;
     if (videoPlayer.muted) {
       videoPlayer.muted = false;
       showVideoToast('UnMuted 🔊');
@@ -1314,6 +1319,7 @@ function initCustomVideoPlayer(videoPlayer, lessonKey) {
   addEventListenerWithCleanup(volumeBtn, 'click', volumeBtnHandler);
   
   const volumeSliderHandler = function() {
+  if (!customControls.classList.contains('visible')) return;
     const volume = this.value;
     videoPlayer.volume = volume / 100;
     videoPlayer.muted = false;
@@ -1323,6 +1329,7 @@ function initCustomVideoPlayer(videoPlayer, lessonKey) {
   
   // Speed control
   const speedSelectHandler = function() {
+  if (!customControls.classList.contains('visible')) return;
     videoPlayer.playbackRate = parseFloat(this.value);
     localStorage.setItem('playbackSpeed', this.value);
     showVideoToast(`Speed: ${this.value}x`);
@@ -1336,6 +1343,7 @@ function initCustomVideoPlayer(videoPlayer, lessonKey) {
   
   // Quality control (placeholder - would need actual implementation)
   const qualitySelectHandler = function() {
+  if (!customControls.classList.contains('visible')) return;
     localStorage.setItem('videoQuality', this.value);
     showVideoToast(`Quality: ${this.value === 'auto' ? 'Auto' : this.value + 'p'}`);
   };
@@ -1347,6 +1355,7 @@ function initCustomVideoPlayer(videoPlayer, lessonKey) {
   
   // Settings menu toggle
   const settingsBtnHandler = function() {
+  if (!customControls.classList.contains('visible')) return;
     settingsMenu.classList.toggle('show');
   };
   addEventListenerWithCleanup(settingsBtn, 'click', settingsBtnHandler);
@@ -1361,6 +1370,7 @@ function initCustomVideoPlayer(videoPlayer, lessonKey) {
   
   // Fullscreen functionality (skip binding if inline handler exists)
   const fullscreenHandler = function() {
+  if (!customControls.classList.contains('visible')) return;
     if (!document.fullscreenElement) {
       videoWrapper.requestFullscreen().catch(err => {
         console.error('Error entering fullscreen:', err);
@@ -1542,12 +1552,21 @@ function initCustomVideoPlayer(videoPlayer, lessonKey) {
   let lastTouchTime = 0;
   let lastTouchX = 0;
   let touchTimeout;
+  let touchStartedWithHiddenControls = false;
 
   // On any touchstart over the video, immediately show controls (does not interfere with double-tap logic)
   const touchStartHandler = function(e) {
     if (customControls.contains(e.target) || progressContainer.contains(e.target)) return;
     if (e.target === videoWrapper || e.target === videoPlayer) {
-      resetControlsTimeout();
+      const wasHidden = !customControls.classList.contains('visible');
+      if (wasHidden) {
+        resetControlsTimeout();
+        touchStartedWithHiddenControls = true;
+      } else {
+        // Extend visibility without toggling
+        resetControlsTimeout();
+        touchStartedWithHiddenControls = false;
+      }
     }
   };
 
@@ -1589,6 +1608,12 @@ function initCustomVideoPlayer(videoPlayer, lessonKey) {
           lastTouchX = touchX;
 
           touchTimeout = setTimeout(() => {
+            if (touchStartedWithHiddenControls) {
+              // Keep them visible; just extend timer
+              touchStartedWithHiddenControls = false;
+              resetControlsTimeout();
+              return;
+            }
             if (customControls.classList.contains('visible')) {
               hideControls();
             } else {
