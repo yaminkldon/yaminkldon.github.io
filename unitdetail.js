@@ -981,9 +981,6 @@ function addVideoWatermark(userEmail, lessonKey) {
     watermarkOverlay.appendChild(element);
   });
   
-  // Add the moving watermark
-  watermarkOverlay.appendChild(movingWatermark);
-  
   // Add watermark to document body (so it appears over fullscreen)
   document.body.appendChild(watermarkOverlay);
   
