@@ -659,6 +659,20 @@ document.addEventListener('DOMContentLoaded', () => {
       window.sessionManager = null;
     }
   });
+
+  // Initialize Pull-to-Refresh (mobile only)
+  if (!window.pullToRefresh) {
+    try {
+      window.pullToRefresh = new PullToRefresh();
+      // Default behavior: full page reload if no custom callback registered
+      window.pullToRefresh.setCallback(() => {
+        // Allow a tiny delay for spinner UX then reload
+        setTimeout(() => { window.location.reload(); }, 150);
+      });
+    } catch (e) {
+      console.warn('Pull-to-Refresh init failed:', e);
+    }
+  }
 });
 
 // Export globals
@@ -667,3 +681,132 @@ window.ProgressTracker = ProgressTracker;
 window.NotificationManager = NotificationManager;
 window.AuthManager = AuthManager;
 window.SessionManager = SessionManager;
+
+// Lightweight Pull-to-Refresh for touch devices
+class PullToRefresh {
+  constructor(options = {}) {
+    this.enabled = true;
+    this.threshold = options.threshold || 70; // px to trigger
+    this.maxPull = options.maxPull || 120; // max visual pull
+    this.dampen = options.dampen || 0.5; // resistance factor
+    this.callback = null;
+    this._active = false;
+    this._startY = 0;
+    this._pull = 0;
+    this._atTop = false;
+    this._isTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+    this._scrollEl = document.scrollingElement || document.documentElement;
+    this._buildIndicator();
+    this._bind();
+  }
+
+  setCallback(cb) { this.callback = cb; }
+  enable() { this.enabled = true; }
+  disable() { this.enabled = false; this._reset(); }
+
+  _buildIndicator() {
+    const el = document.createElement('div');
+    el.id = 'ptr-indicator';
+    el.style.cssText = `
+      position: fixed; left: 0; right: 0; top: 0; height: 60px;
+      display: flex; align-items: center; justify-content: center;
+      z-index: 9998; transform: translateY(-100%);
+      background: rgba(0,0,0,0.6); color: #fff; font-family: 'Segoe UI', Arial, sans-serif;
+      backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+      transition: transform 180ms ease; pointer-events: none;
+    `;
+    el.innerHTML = `
+      <div style="display:flex;align-items:center;gap:10px;">
+        <span id="ptr-icon" class="material-icons" style="font-size:20px;">south</span>
+        <span id="ptr-text" style="font-size:14px;">Pull to refresh</span>
+      </div>`;
+    document.body.appendChild(el);
+    this._el = el;
+    this._icon = el.querySelector('#ptr-icon');
+    this._text = el.querySelector('#ptr-text');
+  }
+
+  _bind() {
+    if (!this._isTouch) return; // desktop: let browser default
+    const opts = { passive: false };
+
+    this._onStart = (e) => {
+      if (!this.enabled) return;
+      // Ignore if inside an input/textarea/select (avoid fighting native behaviors)
+      const t = e.target;
+      if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable)) return;
+
+      this._atTop = (this._scrollEl.scrollTop || window.scrollY || 0) <= 0;
+      if (!this._atTop) return;
+      this._active = true;
+      this._startY = (e.touches ? e.touches[0].clientY : e.clientY);
+      this._pull = 0;
+    };
+
+    this._onMove = (e) => {
+      if (!this._active || !this._atTop) return;
+      const y = (e.touches ? e.touches[0].clientY : e.clientY);
+      const delta = y - this._startY;
+      if (delta <= 0) return; // only pull down
+      // Prevent browser bounce/overscroll
+      e.preventDefault();
+      const damped = Math.min(this.maxPull, delta * this.dampen);
+      this._pull = damped;
+      this._render();
+    };
+
+    this._onEnd = () => {
+      if (!this._active) return;
+      const shouldRefresh = this._pull >= this.threshold;
+      if (shouldRefresh) {
+        this._text.textContent = 'Refreshing…';
+        this._icon.textContent = 'refresh';
+        this._el.style.transform = 'translateY(0)';
+        // Run callback
+        try {
+          const res = this.callback && this.callback();
+          if (res && typeof res.then === 'function') {
+            res.finally(() => this._finish());
+          } else {
+            // If callback not promise-based, hide after a short delay
+            setTimeout(() => this._finish(), 800);
+          }
+        } catch (_) {
+          setTimeout(() => this._finish(), 600);
+        }
+      } else {
+        this._reset();
+      }
+      this._active = false;
+      this._pull = 0;
+    };
+
+    window.addEventListener('touchstart', this._onStart, opts);
+    window.addEventListener('touchmove', this._onMove, opts);
+    window.addEventListener('touchend', this._onEnd, { passive: true });
+    window.addEventListener('touchcancel', this._onEnd, { passive: true });
+  }
+
+  _render() {
+    const p = this._pull;
+    const progress = Math.min(1, p / this.threshold);
+    // Slide indicator in proportionally
+    this._el.style.transform = `translateY(${Math.min(100, progress * 100)}%)`;
+    this._icon.style.transform = `rotate(${progress * 180}deg)`;
+    this._text.textContent = progress >= 1 ? 'Release to refresh' : 'Pull to refresh';
+  }
+
+  _finish() {
+    this._text.textContent = 'Pull to refresh';
+    this._icon.textContent = 'south';
+    this._reset();
+  }
+
+  _reset() {
+    this._el.style.transform = 'translateY(-100%)';
+    this._pull = 0;
+  }
+}
+
+// Expose
+window.PullToRefresh = PullToRefresh;

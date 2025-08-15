@@ -36,6 +36,26 @@ firebase.auth().onAuthStateChanged(function(user) {
   }
 });
 
+// Register Pull-to-Refresh callback (soft refresh of stats)
+(function registerPTR(){
+  const setup = () => {
+    if (window.pullToRefresh) {
+      window.pullToRefresh.setCallback(() => {
+        try {
+          loadProgress();
+        } catch (e) {
+          setTimeout(()=>window.location.reload(), 150);
+        }
+      });
+    }
+  };
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', setup, { once: true });
+  } else {
+    setup();
+  }
+})();
+
 function loadProgress() {
   const userId = currentUser.uid;
   

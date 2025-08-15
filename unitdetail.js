@@ -190,6 +190,26 @@ firebase.auth().onAuthStateChanged(function(user) {
         validateCacheInBackground();
       }
     }, 30000);
+    // Register Pull-to-Refresh for this page: soft refresh lessons/content
+    if (window.pullToRefresh) {
+      window.pullToRefresh.setCallback(async () => {
+        try {
+          // If a video is open, close it to avoid issues
+          const modal = document.getElementById('video-modal');
+          if (modal && modal.style.display === 'flex') {
+            closeVideoModal();
+          }
+          // Clear unit cache to force fresh fetch
+          CacheManager.clearCache(CacheManager.CACHE_KEYS.UNITS);
+          if (currentUnitName) {
+            await new Promise(r => setTimeout(r, 50));
+            loadUnitLessons(currentUnitName);
+          } else {
+            loadUnitFromParams();
+          }
+        } catch (_) {}
+      });
+    }
   } else {
     Navigation.goToLogin();
   }

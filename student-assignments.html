@@ -1036,6 +1036,30 @@
       }
     });
 
+    // Register Pull-to-Refresh callback for this page
+    (function registerPTR(){
+      const setup = () => {
+        if (window.pullToRefresh) {
+          window.pullToRefresh.setCallback(() => {
+            try {
+              CacheManager.clearCache(CacheManager.CACHE_KEYS.ASSIGNMENTS);
+              CacheManager.clearCache(CacheManager.CACHE_KEYS.QUIZZES);
+              // Soft refresh lists
+              loadAssignments();
+              loadQuizzes();
+            } catch (e) {
+              setTimeout(()=>window.location.reload(), 150);
+            }
+          });
+        }
+      };
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', setup, { once: true });
+      } else {
+        setup();
+      }
+    })();
+
     // Tab switching
     function switchTab(tabName) {
       const tabs = document.querySelectorAll('.tab');
