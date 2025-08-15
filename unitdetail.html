@@ -975,24 +975,88 @@
     }
   </style>
   <script>
-    function toggleFullscreenWithWatermark() {
-      var elem = document.getElementById('video-player-wrapper');
-      if (!document.fullscreenElement && !document.webkitFullscreenElement && !document.msFullscreenElement) {
-        if (elem.requestFullscreen) {
-          elem.requestFullscreen();
-        } else if (elem.webkitRequestFullscreen) {
-          elem.webkitRequestFullscreen();
-        } else if (elem.msRequestFullscreen) {
-          elem.msRequestFullscreen();
+    // Capacitor-aware orientation helpers (fallback to Web Screen Orientation API)
+    async function lockLandscapeOrientation() {
+      try {
+        // Prefer Capacitor plugin when running natively
+        if (window.Capacitor && typeof window.Capacitor.isNativePlatform === 'function' && window.Capacitor.isNativePlatform()) {
+          const so = (window.Capacitor.Plugins && window.Capacitor.Plugins.ScreenOrientation) || window.ScreenOrientation;
+          if (so && typeof so.lock === 'function') {
+            // Capacitor plugin expects an object { orientation: 'landscape' }
+            await so.lock({ orientation: 'landscape' });
+            return true;
+          }
         }
+        // Web fallback
+        if (screen.orientation && typeof screen.orientation.lock === 'function') {
+          await screen.orientation.lock('landscape');
+          return true;
+        }
+      } catch (e) {
+        console.log('Orientation lock failed:', e);
+      }
+      return false;
+    }
+
+    async function unlockOrientation() {
+      try {
+        if (window.Capacitor && typeof window.Capacitor.isNativePlatform === 'function' && window.Capacitor.isNativePlatform()) {
+          const so = (window.Capacitor.Plugins && window.Capacitor.Plugins.ScreenOrientation) || window.ScreenOrientation;
+          if (so && typeof so.unlock === 'function') {
+            await so.unlock();
+            return true;
+          }
+        }
+        if (screen.orientation && typeof screen.orientation.unlock === 'function') {
+          screen.orientation.unlock();
+          return true;
+        }
+      } catch (e) {
+        console.log('Orientation unlock failed:', e);
+      }
+      return false;
+    }
+
+    async function toggleFullscreenWithWatermark() {
+      var wrapper = document.getElementById('video-player-wrapper');
+      var videoEl = document.getElementById('video-player');
+      var btn = document.getElementById('fullscreen-btn');
+
+      var entering = !document.fullscreenElement && !document.webkitFullscreenElement && !document.msFullscreenElement;
+
+      if (entering) {
+        try {
+          if (wrapper.requestFullscreen) {
+            await wrapper.requestFullscreen();
+          } else if (wrapper.webkitRequestFullscreen) {
+            wrapper.webkitRequestFullscreen();
+          } else if (wrapper.msRequestFullscreen) {
+            wrapper.msRequestFullscreen();
+          } else if (videoEl && videoEl.webkitEnterFullscreen) {
+            // iOS fallback to native video fullscreen
+            videoEl.webkitEnterFullscreen();
+          }
+        } catch (e) {
+          console.log('Enter fullscreen failed:', e);
+        }
+        // Try to lock orientation to landscape
+        lockLandscapeOrientation();
+        if (btn) { btn.querySelector('.material-icons').textContent = 'fullscreen_exit'; }
       } else {
-        if (document.exitFullscreen) {
-          document.exitFullscreen();
-        } else if (document.webkitExitFullscreen) {
-          document.webkitExitFullscreen();
-        } else if (document.msExitFullscreen) {
-          document.msExitFullscreen();
+        try {
+          if (document.exitFullscreen) {
+            await document.exitFullscreen();
+          } else if (document.webkitExitFullscreen) {
+            document.webkitExitFullscreen();
+          } else if (document.msExitFullscreen) {
+            document.msExitFullscreen();
+          }
+        } catch (e) {
+          console.log('Exit fullscreen failed:', e);
         }
+        // Unlock on exit
+        unlockOrientation();
+        if (btn) { btn.querySelector('.material-icons').textContent = 'fullscreen'; }
       }
     }
 

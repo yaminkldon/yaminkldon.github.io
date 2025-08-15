@@ -1352,7 +1352,7 @@ function initCustomVideoPlayer(videoPlayer, lessonKey) {
   };
   addEventListenerWithCleanup(document, 'click', documentClickHandler);
   
-  // Fullscreen functionality
+  // Fullscreen functionality (skip binding if inline handler exists)
   const fullscreenHandler = function() {
     if (!document.fullscreenElement) {
       videoWrapper.requestFullscreen().catch(err => {
@@ -1362,14 +1362,18 @@ function initCustomVideoPlayer(videoPlayer, lessonKey) {
       document.exitFullscreen();
     }
   };
-  addEventListenerWithCleanup(fullscreenBtn, 'click', fullscreenHandler);
+  if (typeof window.toggleFullscreenWithWatermark !== 'function') {
+    addEventListenerWithCleanup(fullscreenBtn, 'click', fullscreenHandler);
+  }
   
   // Mobile orientation handler
   function handleMobileOrientation() {
     const isMobile = window.innerWidth <= 768;
     if (isMobile && document.fullscreenElement) {
-      // Try to lock orientation to landscape on mobile when in fullscreen
-      if (screen.orientation && screen.orientation.lock) {
+      // Prefer Capacitor-aware helper if present
+      if (typeof window.lockLandscapeOrientation === 'function') {
+        window.lockLandscapeOrientation();
+      } else if (screen.orientation && screen.orientation.lock) {
         screen.orientation.lock('landscape').catch(err => {
           console.log('Orientation lock not supported or failed:', err);
         });
@@ -1382,10 +1386,15 @@ function initCustomVideoPlayer(videoPlayer, lessonKey) {
     if (document.fullscreenElement) {
       fullscreenBtn.querySelector('.material-icons').textContent = 'fullscreen_exit';
       handleMobileOrientation();
+      if (typeof window.lockLandscapeOrientation === 'function') {
+        window.lockLandscapeOrientation();
+      }
     } else {
       fullscreenBtn.querySelector('.material-icons').textContent = 'fullscreen';
       // Unlock orientation when exiting fullscreen
-      if (screen.orientation && screen.orientation.unlock) {
+      if (typeof window.unlockOrientation === 'function') {
+        window.unlockOrientation();
+      } else if (screen.orientation && screen.orientation.unlock) {
         screen.orientation.unlock();
       }
     }
