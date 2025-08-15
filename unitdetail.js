@@ -1116,15 +1116,22 @@ function initCustomVideoPlayer(videoPlayer, lessonKey) {
     }
   }
   
-  // Controls visibility functions
+  // Controls visibility + interactivity
+  function setControlsInteractive(enabled) {
+    // Prevent clicks/touches from hitting hidden controls
+    customControls.style.pointerEvents = enabled ? 'auto' : 'none';
+  }
+
   function showControls() {
     customControls.classList.add('visible');
+    setControlsInteractive(true);
     clearTimeout(controlsTimeout);
   }
   
   function hideControls() {
     if (!isMouseOverControls && !videoPlayer.paused) {
       customControls.classList.remove('visible');
+      setControlsInteractive(false);
     }
   }
   
@@ -1535,80 +1542,57 @@ function initCustomVideoPlayer(videoPlayer, lessonKey) {
   let lastTouchTime = 0;
   let lastTouchX = 0;
   let touchTimeout;
-  
+
+  // On any touchstart over the video, immediately show controls (does not interfere with double-tap logic)
+  const touchStartHandler = function(e) {
+    if (customControls.contains(e.target) || progressContainer.contains(e.target)) return;
+    if (e.target === videoWrapper || e.target === videoPlayer) {
+      resetControlsTimeout();
+    }
+  };
+
   const touchEndHandler = function(e) {
     // Don't handle touches on controls or progress bar
     if (customControls.contains(e.target) || progressContainer.contains(e.target)) {
       return;
     }
-    
-    // Only handle touches on video itself
+
     if ((e.target === videoWrapper || e.target === videoPlayer)) {
       if (e.changedTouches && e.changedTouches.length === 1) {
         const touch = e.changedTouches[0];
         const currentTime = Date.now();
         const timeDiff = currentTime - lastTouchTime;
         const touchX = touch.clientX;
-        const isMobile = window.innerWidth <= 768 || !!document.fullscreenElement;
-        
-        console.log('Touch detected:', {
-          isMobile, 
-          timeDiff, 
-          touchX, 
-          isFullscreen: !!document.fullscreenElement,
-          target: e.target.tagName
-        }); // Debug log
-        
-        // Check if this is a double-tap (within 400ms)
-        if (timeDiff < 400 && timeDiff > 50 ) {
-          // Clear any pending single-tap action
+
+        // Double-tap = seek left/right 5s
+        if (timeDiff < 400 && timeDiff > 50) {
           clearTimeout(touchTimeout);
-          
-          // Determine if tap was on left or right side of video
-          const videoRect = videoWrapper.getBoundingClientRect();
-          const videoCenter = videoRect.left + videoRect.width / 2;
-          
-          console.log('Double-tap detected:', {
-            touchX, 
-            videoCenter, 
-            isFullscreen: !!document.fullscreenElement,
-            side: touchX < videoCenter ? 'left' : 'right'
-          }); // Debug log
-          
-          if (touchX < videoCenter) {
-            // Double-tap on left side - seek backward 5 seconds
+          const rect = videoWrapper.getBoundingClientRect();
+          const center = rect.left + rect.width / 2;
+
+          if (touchX < center) {
             videoPlayer.currentTime = Math.max(0, videoPlayer.currentTime - 5);
             showVideoToast('⏪ Backward 5s');
           } else {
-            // Double-tap on right side - seek forward 5 seconds
-            videoPlayer.currentTime = Math.min(videoPlayer.duration, videoPlayer.currentTime + 5);
+            videoPlayer.currentTime = Math.min(videoPlayer.duration || 0, videoPlayer.currentTime + 5);
             showVideoToast('⏩ Forward 5s');
           }
-          
-          // Reset touch tracking
+
           lastTouchTime = 0;
           lastTouchX = 0;
-          
-          // Prevent default behavior and stop propagation
           e.preventDefault();
           e.stopPropagation();
-          return; // Exit early to prevent single-tap handling
+          return;
         } else {
-          // This could be a single tap - wait to see if there's a second tap
+          // Single tap on mobile: toggle controls (don’t play/pause)
           lastTouchTime = currentTime;
           lastTouchX = touchX;
-          
-          // Set timeout for single-tap action (play/pause)
+
           touchTimeout = setTimeout(() => {
-            console.log('Single tap - toggling play/pause');
-            if (videoPlayer.ended) {
-              // If video ended, restart from beginning
-              videoPlayer.currentTime = 0;
-              videoPlayer.play();
-            } else if (videoPlayer.paused) {
-              videoPlayer.play();
+            if (customControls.classList.contains('visible')) {
+              hideControls();
             } else {
-              videoPlayer.pause();
+              resetControlsTimeout(); // show and auto-hide
             }
           }, 400);
         }
@@ -1617,9 +1601,10 @@ function initCustomVideoPlayer(videoPlayer, lessonKey) {
   };
   
   // Add touch event listeners to video wrapper only
+  addEventListenerWithCleanup(videoWrapper, 'touchstart', touchStartHandler);
   addEventListenerWithCleanup(videoWrapper, 'touchend', touchEndHandler);
   
-  // Show controls initially
+  // Show controls initially and make them interactive
   resetControlsTimeout();
   
   // Initialize cursor state for desktop
