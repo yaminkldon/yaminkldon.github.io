@@ -161,26 +161,6 @@ firebase.auth().onAuthStateChanged(function(user) {
   }
 });
 
-// Register Pull-to-Refresh callback (refresh dashboard sections)
-(function registerPTR(){
-  const setup = () => {
-    if (window.pullToRefresh) {
-      window.pullToRefresh.setCallback(() => {
-        try {
-          loadDashboardData();
-        } catch (e) {
-          setTimeout(()=>window.location.reload(), 150);
-        }
-      });
-    }
-  };
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', setup, { once: true });
-  } else {
-    setup();
-  }
-})();
-
 // Teacher settings helpers (theme + session)
 function loadTeacherSettings() {
   try {

@@ -937,33 +937,6 @@ document.addEventListener('DOMContentLoaded', function() {
   // Initialize security measures for file viewing (removed for simplified implementation)
 });
 
-// Register Pull-to-Refresh callback (soft refresh)
-(function registerPTR() {
-  const setup = () => {
-    if (window.pullToRefresh) {
-      window.pullToRefresh.setCallback(() => {
-        try {
-          // Clear caches so fresh data is fetched if structures changed
-          if (typeof CacheManager !== 'undefined') {
-            CacheManager.clearCache(CacheManager.CACHE_KEYS.UNITS);
-            CacheManager.clearCache(CacheManager.CACHE_KEYS.PROGRESS);
-          }
-          // Reload units list (with progress when available)
-          loadUnits();
-        } catch (e) {
-          // Fallback to full reload on unexpected errors
-          setTimeout(() => window.location.reload(), 150);
-        }
-      });
-    }
-  };
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', setup, { once: true });
-  } else {
-    setup();
-  }
-})();
-
 function addTeacherDashboardIfApplicable() {
   const user = firebase.auth().currentUser;
   if (!user) return;

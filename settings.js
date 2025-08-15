@@ -36,32 +36,6 @@ document.addEventListener('DOMContentLoaded', function() {
   }
 });
 
-// Register Pull-to-Refresh callback (refresh user info and settings)
-(function registerPTR(){
-  const setup = () => {
-    if (window.pullToRefresh) {
-      window.pullToRefresh.setCallback(() => {
-        try {
-          if (currentUser) {
-            loadUserInfo();
-            loadSettings();
-            if (window.advancedFeatures) {
-              window.advancedFeatures.applyFeatures();
-            }
-          }
-        } catch (e) {
-          setTimeout(()=>window.location.reload(), 150);
-        }
-      });
-    }
-  };
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', setup, { once: true });
-  } else {
-    setup();
-  }
-})();
-
 function getDeviceId() {
   let id = localStorage.getItem('device_id');
   if (!id) {
