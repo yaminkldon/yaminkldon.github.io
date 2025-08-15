@@ -1078,6 +1078,20 @@ function initCustomVideoPlayer(videoPlayer, lessonKey) {
   const videoWrapper = document.querySelector('.video-player-wrapper');
   const videoToast = document.getElementById('video-toast');
   
+  // Create a tap shield overlay (between video and controls) to intercept taps when controls are hidden
+  let tapShield = document.getElementById('video-tap-shield');
+  if (!tapShield) {
+    tapShield = document.createElement('div');
+    tapShield.id = 'video-tap-shield';
+    tapShield.style.position = 'absolute';
+    tapShield.style.inset = '0';
+    tapShield.style.zIndex = '6'; // controls overlay is higher (z-index via CSS)
+    tapShield.style.pointerEvents = 'none'; // enabled only when controls hidden
+    tapShield.style.background = 'transparent';
+    // Insert just under controls so it doesn't cover them when visible
+    videoWrapper.insertBefore(tapShield, customControls);
+  }
+  
   // Video Toast Manager
   function showVideoToast(message, duration = 2000) {
     clearTimeout(videoToastTimeout);
@@ -1120,6 +1134,8 @@ function initCustomVideoPlayer(videoPlayer, lessonKey) {
   function setControlsInteractive(enabled) {
     // Prevent clicks/touches from hitting hidden controls
     customControls.style.pointerEvents = enabled ? 'auto' : 'none';
+  // Enable tap shield only when controls are hidden
+  if (tapShield) tapShield.style.pointerEvents = enabled ? 'none' : 'auto';
   }
 
   function showControls() {
@@ -1439,9 +1455,11 @@ function initCustomVideoPlayer(videoPlayer, lessonKey) {
     cursorHideTimeout = setTimeout(() => {
       videoWrapper.style.cursor = 'none';
       customControls.classList.remove('visible');
+      setControlsInteractive(false);
       // Also hide controls when cursor is hidden
       if (!isMouseOverControls) {
         customControls.classList.remove('visible');
+        setControlsInteractive(false);
       }
     }, 3000);
   };
@@ -1460,6 +1478,7 @@ function initCustomVideoPlayer(videoPlayer, lessonKey) {
     clearTimeout(cursorHideTimeout);
     if (!isMouseOverControls) {
       customControls.classList.remove('visible');
+  setControlsInteractive(false);
     }
   };
   addEventListenerWithCleanup(videoWrapper, 'mouseleave', mouseLeaveVideoHandler);
@@ -1506,6 +1525,18 @@ function initCustomVideoPlayer(videoPlayer, lessonKey) {
     e.stopPropagation();
   };
   addEventListenerWithCleanup(customControls, 'click', controlsClickHandler);
+  
+  // Block default click-to-pause on the video element for touch/fullscreen; show controls instead
+  const videoClickBlocker = function(e) {
+    const isTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+    const inFullscreen = !!document.fullscreenElement;
+    if (isTouch || inFullscreen) {
+      e.preventDefault();
+      e.stopPropagation();
+      resetControlsTimeout();
+    }
+  };
+  addEventListenerWithCleanup(videoPlayer, 'click', videoClickBlocker, true);
   
   // Keyboard controls
   const keydownHandler = function(e) {
@@ -1625,9 +1656,11 @@ function initCustomVideoPlayer(videoPlayer, lessonKey) {
     }
   };
   
-  // Add touch event listeners to video wrapper only
-  addEventListenerWithCleanup(videoWrapper, 'touchstart', touchStartHandler);
+  // Add touch event listeners to wrapper and tapShield (captures taps when controls are hidden)
+  addEventListenerWithCleanup(videoWrapper, 'touchstart', touchStartHandler, { passive: true });
   addEventListenerWithCleanup(videoWrapper, 'touchend', touchEndHandler);
+  addEventListenerWithCleanup(tapShield, 'touchstart', touchStartHandler, { passive: true });
+  addEventListenerWithCleanup(tapShield, 'touchend', touchEndHandler);
   
   // Show controls initially and make them interactive
   resetControlsTimeout();
