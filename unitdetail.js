@@ -958,7 +958,6 @@ function addVideoWatermark(userEmail, lessonKey) {
       text-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
     `;
     element.textContent = watermark.text;
-    watermarkOverlay.appendChild(element);
   });
   
   // Add watermark to document body (so it appears over fullscreen)
