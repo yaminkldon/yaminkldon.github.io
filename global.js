@@ -478,7 +478,6 @@ class AuthManager {
       }
       
       await firebase.auth().signOut();
-      localStorage.removeItem('device_id');
       localStorage.removeItem('lastActivity');
       localStorage.removeItem('pageHiddenTime');
       Navigation.goToLogin();
