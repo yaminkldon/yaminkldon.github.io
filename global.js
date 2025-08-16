@@ -92,15 +92,105 @@ function isFromApp() {
 // Ensure a stable device id exists (shared helper)
 function ensureDeviceId() {
   try {
+    // 1) If app injects a device ID in the UA (e.g., "RaedApp/1.0; DID=xxxx"), prefer it
+    const ua = navigator.userAgent || '';
+    const didMatch = ua.match(/\bDID=([A-Za-z0-9._\-]+)/);
+    if (didMatch && didMatch[1]) {
+      const appId = 'app-' + didMatch[1];
+      const existing = localStorage.getItem('device_id');
+      if (existing !== appId) localStorage.setItem('device_id', appId);
+      return appId;
+    }
+
+    // 2) If we already have a stored id, use it (backward-compatible)
     let id = localStorage.getItem('device_id');
-    if (!id) {
-      id = 'web-' + Date.now() + '-' + Math.random().toString(36).slice(2, 12);
-      localStorage.setItem('device_id', id);
+    if (id) return id;
+
+    // 3) Compute a deterministic browser serial from relatively-stable properties
+    const serial = computeBrowserSerial();
+    id = 'browser-' + serial;
+    localStorage.setItem('device_id', id);
+
+    // Try to persist storage for better durability
+    if (navigator.storage && navigator.storage.persist) {
+      navigator.storage.persist().catch(() => {});
     }
     return id;
   } catch (_) {
-    return null;
+    // Ultimate fallback: minimal deterministic hash of UA
+    try {
+      const ua = navigator.userAgent || 'unknown';
+      const fallback = 'browser-fallback-' + hashString(ua);
+      localStorage.setItem('device_id', fallback);
+      return fallback;
+    } catch {
+      return 'browser-fallback-unknown';
+    }
   }
+}
+
+// Build a deterministic browser serial. Not a hardware ID, but stable across sessions
+function computeBrowserSerial() {
+  const nav = navigator || {};
+  const scr = window.screen || {};
+  const tz = getTimeZone();
+  const parts = [
+    nav.userAgent || '',
+    nav.language || '',
+    nav.platform || '',
+    nav.vendor || '',
+    String(nav.hardwareConcurrency || ''),
+    String(nav.deviceMemory || ''),
+    String(scr.colorDepth || ''),
+    `${scr.width || ''}x${scr.height || ''}`,
+    `${scr.availWidth || ''}x${scr.availHeight || ''}`,
+    String(scr.pixelDepth || ''),
+    tz,
+    // Lightweight canvas fingerprint
+    getCanvasFingerprint()
+  ];
+  const raw = parts.join('||');
+  return hashString(raw);
+}
+
+function getTimeZone() {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || '';
+  } catch {
+    return '';
+  }
+}
+
+function getCanvasFingerprint() {
+  try {
+    const c = document.createElement('canvas');
+    c.width = 200; c.height = 50;
+    const ctx = c.getContext('2d');
+    if (!ctx) return '';
+    ctx.textBaseline = 'top';
+    ctx.font = "14px 'Arial'";
+    ctx.textBaseline = 'alphabetic';
+    ctx.fillStyle = '#f60';
+    ctx.fillRect(125, 1, 62, 20);
+    ctx.fillStyle = '#069';
+    ctx.fillText('RaedFingerprint', 2, 15);
+    ctx.fillStyle = 'rgba(102, 204, 0, 0.7)';
+    ctx.fillText('RaedFingerprint', 4, 17);
+    const gl = !!window.WebGLRenderingContext;
+    return (gl ? 'gl:' : '2d:') + c.toDataURL();
+  } catch {
+    return '';
+  }
+}
+
+// Simple deterministic hash (FNV-1a-inspired) for string -> hex
+function hashString(str) {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < str.length; i++) {
+    h ^= str.charCodeAt(i);
+    h = (h + (h << 1) + (h << 4) + (h << 7) + (h << 8) + (h << 24)) >>> 0;
+  }
+  return ('00000000' + h.toString(16)).slice(-8);
 }
 
 // Global navigation helpers

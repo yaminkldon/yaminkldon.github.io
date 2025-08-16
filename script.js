@@ -17,14 +17,24 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 
-// Ensure a stable device id exists
+// Ensure a stable device id exists: delegate to global.js implementation
 function ensureDeviceId() {
-  let id = localStorage.getItem('device_id');
-  if (!id) {
-    id = 'web-' + Date.now() + '-' + Math.random().toString(36).slice(2, 12);
-    localStorage.setItem('device_id', id);
+  if (typeof window.ensureDeviceId === 'function') {
+    return window.ensureDeviceId();
   }
-  return id;
+  // Fallback to reading stored value only (no random generation here)
+  let id = localStorage.getItem('device_id');
+  if (id) return id;
+  // As a last resort, set a deterministic UA-hash fallback (kept minimal here)
+  try {
+    const ua = navigator.userAgent || 'unknown';
+    const h = (function hash(s){let x=0;for(let i=0;i<s.length;i++){x=(x*31 + s.charCodeAt(i))>>>0;}return x.toString(16);} )(ua);
+    id = 'browser-fallback-' + h;
+    localStorage.setItem('device_id', id);
+    return id;
+  } catch {
+    return 'browser-fallback-unknown';
+  }
 }
 
 // Lightweight auth debug helper
