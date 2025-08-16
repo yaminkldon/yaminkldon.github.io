@@ -174,6 +174,18 @@ function resolveVideoURL(videoFile) {
   return storage.ref('videos/' + videoFile).getDownloadURL().then(url => { VideoURLCache.set(videoFile, url); return { url, fromCache: false }; });
 }
 
+// Hint the browser to connect early to Firebase Storage/CDN for faster start
+function ensurePreconnect(href) {
+  try {
+    if (document.querySelector(`link[rel="preconnect"][href="${href}"]`)) return;
+    const link = document.createElement('link');
+    link.rel = 'preconnect';
+    link.href = href;
+    link.crossOrigin = '';
+    document.head.appendChild(link);
+  } catch(e) { /* noop */ }
+}
+
 // Initialize page
 firebase.auth().onAuthStateChanged(function(user) {
   if (user) {
@@ -560,6 +572,16 @@ function playLesson(lessonKey, lessonData) {
     .then(({ url, fromCache }) => {
       console.log('Video URL loaded' + (fromCache ? ' (cache)' : ''), url);
       const videoPlayer = document.getElementById('video-player');
+      // Improve iPhone/Safari behavior: keep inline, avoid forced native fullscreen, and load metadata first
+      try {
+        videoPlayer.setAttribute('playsinline', '');
+        videoPlayer.setAttribute('webkit-playsinline', '');
+        videoPlayer.setAttribute('disablepictureinpicture', '');
+        videoPlayer.preload = 'metadata';
+      } catch(e) {}
+      // Warm up storage host connection for faster start
+      ensurePreconnect('https://firebasestorage.googleapis.com');
+      ensurePreconnect('https://lh3.googleusercontent.com');
       let retried = false;
       const onError = () => {
         if (fromCache && !retried) {
@@ -577,10 +599,16 @@ function playLesson(lessonKey, lessonData) {
       };
       if (fromCache) videoPlayer.addEventListener('error', onError, { once: true });
 
+      // Set src, then explicitly call load() for Safari; start playback on canplay if immediate play is blocked
       videoPlayer.src = url;
+      try { videoPlayer.load(); } catch(e) {}
       addVideoWatermark(userEmail, lessonKey);
       initCustomVideoPlayer(videoPlayer, lessonKey);
-      videoPlayer.play().catch(error => { console.log('Autoplay prevented:', error); });
+      const tryPlay = () => videoPlayer.play().catch(err => console.log('Play deferred until canplay:', err));
+      // Attempt to play; if blocked, wait for canplay
+      tryPlay();
+      const onCanPlay = () => { tryPlay(); videoPlayer.removeEventListener('canplay', onCanPlay); };
+      videoPlayer.addEventListener('canplay', onCanPlay);
     })
     .catch(error => {
       console.error('Error loading video:', error);
@@ -913,7 +941,19 @@ function addVideoWatermark(userEmail, lessonKey) {
     existingWatermark.remove();
   }
 
-  
+  // Create overlay container pinned to the video wrapper
+  const videoWrapper = document.querySelector('.video-player-wrapper');
+  if (!videoWrapper) return;
+  const watermarkOverlay = document.createElement('div');
+  watermarkOverlay.id = 'videoWatermarkOverlay';
+  watermarkOverlay.style.cssText = `
+    position: absolute;
+    inset: 0;
+    z-index: 5; /* below custom controls overlay */
+    pointer-events: none;
+  `;
+  videoWrapper.appendChild(watermarkOverlay);
+
   // Create moving watermark elements
   const movingWatermark = document.createElement('div');
   movingWatermark.id = 'movingWatermark';
@@ -932,6 +972,7 @@ function addVideoWatermark(userEmail, lessonKey) {
     animation: moveWatermark 15s linear infinite;
   `;
   movingWatermark.textContent = `🔒 ${userEmail}`;
+  watermarkOverlay.appendChild(movingWatermark);
   
   // Add additional static watermarks
   const staticWatermarks = [
@@ -958,6 +999,7 @@ function addVideoWatermark(userEmail, lessonKey) {
       text-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
     `;
     element.textContent = watermark.text;
+    watermarkOverlay.appendChild(element);
   });
   
   // Add CSS animation for moving watermark
@@ -995,6 +1037,9 @@ function addVideoWatermark(userEmail, lessonKey) {
   
   // Listen for fullscreen changes
   document.addEventListener('fullscreenchange', updateWatermarkForFullscreen);
+  watermarkOverlay.cleanup = () => {
+    document.removeEventListener('fullscreenchange', updateWatermarkForFullscreen);
+  };
 }
 
 function goBack() {
@@ -1042,6 +1087,8 @@ function initCustomVideoPlayer(videoPlayer, lessonKey) {
   const fullscreenBtn = document.getElementById('fullscreen-btn');
   const videoWrapper = document.querySelector('.video-player-wrapper');
   const videoToast = document.getElementById('video-toast');
+  const isiOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  let isPseudoFullscreen = false;
   
   // Create a tap shield overlay (between video and controls) to intercept taps when controls are hidden
   let tapShield = document.getElementById('video-tap-shield');
@@ -1350,8 +1397,35 @@ function initCustomVideoPlayer(videoPlayer, lessonKey) {
   addEventListenerWithCleanup(document, 'click', documentClickHandler);
   
   // Fullscreen functionality (skip binding if inline handler exists)
+  // iOS native fullscreen replaces overlays; use CSS-based pseudo fullscreen to keep custom controls
+  function enterPseudoFullscreen() {
+    if (isPseudoFullscreen) return;
+    isPseudoFullscreen = true;
+    // Pin wrapper to viewport
+    videoWrapper.__prevStyle = videoWrapper.getAttribute('style') || '';
+    videoWrapper.style.position = 'fixed';
+    videoWrapper.style.inset = '0';
+    videoWrapper.style.width = '100vw';
+    videoWrapper.style.height = '100vh';
+    videoWrapper.style.zIndex = '12000';
+    document.body.__prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    fullscreenBtn.querySelector('.material-icons').textContent = 'fullscreen_exit';
+  }
+  function exitPseudoFullscreen() {
+    if (!isPseudoFullscreen) return;
+    isPseudoFullscreen = false;
+    videoWrapper.setAttribute('style', videoWrapper.__prevStyle || '');
+    document.body.style.overflow = document.body.__prevOverflow || '';
+    fullscreenBtn.querySelector('.material-icons').textContent = 'fullscreen';
+  }
   const fullscreenHandler = function() {
-  if (!customControls.classList.contains('visible')) return;
+    if (!customControls.classList.contains('visible')) return;
+    if (isiOS) {
+      // Toggle pseudo fullscreen on iOS to preserve custom controls
+      if (!isPseudoFullscreen) enterPseudoFullscreen(); else exitPseudoFullscreen();
+      return;
+    }
     if (!document.fullscreenElement) {
       videoWrapper.requestFullscreen().catch(err => {
         console.error('Error entering fullscreen:', err);
@@ -1381,7 +1455,7 @@ function initCustomVideoPlayer(videoPlayer, lessonKey) {
   
   // Fullscreen change events
   const fullscreenChangeHandler = function() {
-    if (document.fullscreenElement) {
+    if (document.fullscreenElement || isPseudoFullscreen) {
       fullscreenBtn.querySelector('.material-icons').textContent = 'fullscreen_exit';
       handleMobileOrientation();
       if (typeof window.lockLandscapeOrientation === 'function') {
@@ -1701,6 +1775,8 @@ function initCustomVideoPlayer(videoPlayer, lessonKey) {
     // Reset video player state
     videoPlayer.pause();
     videoPlayer.currentTime = 0;
+  // Ensure pseudo fullscreen is exited on cleanup (iOS)
+  try { if (isPseudoFullscreen) exitPseudoFullscreen(); } catch(e) {}
     
     console.log('Video player cleanup completed');
   };
@@ -2631,6 +2707,26 @@ document.addEventListener('DOMContentLoaded', function() {
   
   // Initialize developer tools detection
   detectDevTools();
+  
+  // Inject small iOS video tweaks to keep inline behavior and proper stacking
+  try {
+    const isiOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    if (isiOS && !document.getElementById('ios-video-inline-style')) {
+      const s = document.createElement('style');
+      s.id = 'ios-video-inline-style';
+      s.textContent = `
+        video#video-player { 
+          -webkit-playsinline: true; 
+          playsinline: true; 
+          object-fit: contain;
+        }
+        .video-player-wrapper { position: relative; }
+        #custom-controls { z-index: 10; }
+        #videoWatermarkOverlay { z-index: 5; }
+      `;
+      document.head.appendChild(s);
+    }
+  } catch(e) {}
 });
 
 // Simple PDF security (handled by viewer itself)
