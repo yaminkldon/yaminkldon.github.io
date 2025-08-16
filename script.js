@@ -104,7 +104,7 @@ async function login() {
   firebase.auth().signInWithEmailAndPassword(email, password)
     .then(userCredential => {
       db.ref('users').orderByChild('email').equalTo(email).once('value')
-        .then(snapshot => {
+        .then(async snapshot => {
           showProgress(false);
           if (snapshot.exists()) {
             const records = [];
@@ -186,7 +186,7 @@ firebase.auth().onAuthStateChanged(async function(user) {
     AuthDebug.log('Auth state changed: user present');
     // Double-check user record to enforce student app-only rule even if token is present
     const email = user.email || '';
-    db.ref('users').orderByChild('email').equalTo(email).once('value').then(snapshot => {
+  db.ref('users').orderByChild('email').equalTo(email).once('value').then(async snapshot => {
       if (!snapshot.exists()) {
         AuthDebug.log('No DB record found for email');
         return Navigation.goToMainPage();
