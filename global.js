@@ -873,11 +873,14 @@ document.addEventListener('DOMContentLoaded', () => {
       if (!snap.exists()) return;
       let isStudent = false;
       let deviceAllowed = true;
+      let allowedByExpiry = false; // allow if at least one record is not expired (or has no expiration)
+      const now = Date.now();
       const localId = ensureDeviceId();
       snap.forEach(ch => {
         const u = ch.val();
         if ((u.type === 'student')) isStudent = true;
         if (u.deviceId && localId && u.deviceId !== localId) deviceAllowed = false;
+        if (!u.expirationDate || now <= u.expirationDate) allowedByExpiry = true;
       });
       if (isStudent && !isFromApp()) {
     window.__authEnforcementInProgress = true;
@@ -889,6 +892,13 @@ document.addEventListener('DOMContentLoaded', () => {
       if (!deviceAllowed) {
     window.__authEnforcementInProgress = true;
         NotificationManager.showToast('This account is already bound to another device');
+        await firebase.auth().signOut();
+    window.__authEnforcementInProgress = false;
+        return;
+      }
+      if (!allowedByExpiry) {
+    window.__authEnforcementInProgress = true;
+        NotificationManager.showToast('Account expired');
         await firebase.auth().signOut();
     window.__authEnforcementInProgress = false;
         return;

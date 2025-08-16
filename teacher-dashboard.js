@@ -2508,7 +2508,9 @@ function filterUsers() {
 }
 
 function refreshUserList() {
-  loadAllUsers();
+  // Refresh both views so the same button works from either modal
+  try { loadAllUsers(); } catch (_) {}
+  try { loadUserList(); } catch (_) {}
   NotificationManager.showToast('User list refreshed');
 }
 
