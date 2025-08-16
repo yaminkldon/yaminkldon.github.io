@@ -89,6 +89,20 @@ function isFromApp() {
   }
 }
 
+// Ensure a stable device id exists (shared helper)
+function ensureDeviceId() {
+  try {
+    let id = localStorage.getItem('device_id');
+    if (!id) {
+      id = 'web-' + Date.now() + '-' + Math.random().toString(36).slice(2, 12);
+      localStorage.setItem('device_id', id);
+    }
+    return id;
+  } catch (_) {
+    return null;
+  }
+}
+
 // Global navigation helpers
 class Navigation {
   static goToMainPage() {
@@ -132,21 +146,6 @@ class ProgressTracker {
       if (snapshot.exists()) {
         snapshot.forEach(child => {
           databaseUserID = child.key; // This is the database user ID
-        });
-
-        // Enforce: students may only access via official app
-        firebase.auth().onAuthStateChanged((user) => {
-          if (!user) return;
-          try {
-            firebase.database().ref('users').orderByChild('email').equalTo(user.email).once('value').then(s => {
-              if (!s.exists()) return;
-              const data = Object.values(s.val())[0] || {};
-              if (data.type === 'student' && !isFromApp()) {
-                NotificationManager.showToast('Access allowed only from the official app');
-                firebase.auth().signOut();
-              }
-            });
-          } catch (_) {}
         });
       }
     } catch (error) {
@@ -684,6 +683,42 @@ document.addEventListener('DOMContentLoaded', () => {
       window.sessionManager = null;
     }
   });
+
+  // Global auth guard: enforce app-only + single-device for students on all pages
+  firebase.auth().onAuthStateChanged(async (user) => {
+    if (!user) return;
+  if (window.__authEnforcementInProgress) return;
+    const email = user.email || '';
+    try {
+      const snap = await firebase.database().ref('users').orderByChild('email').equalTo(email).once('value');
+      if (!snap.exists()) return;
+      let isStudent = false;
+      let deviceAllowed = true;
+      const localId = ensureDeviceId();
+      snap.forEach(ch => {
+        const u = ch.val();
+        if ((u.type === 'student')) isStudent = true;
+        if (u.deviceId && localId && u.deviceId !== localId) deviceAllowed = false;
+      });
+      if (isStudent && !isFromApp()) {
+    window.__authEnforcementInProgress = true;
+        NotificationManager.showToast('Access allowed only from the official app');
+        await firebase.auth().signOut();
+    window.__authEnforcementInProgress = false;
+        return;
+      }
+      if (!deviceAllowed) {
+    window.__authEnforcementInProgress = true;
+        NotificationManager.showToast('This account is already bound to another device');
+        await firebase.auth().signOut();
+    window.__authEnforcementInProgress = false;
+        return;
+      }
+    } catch (e) {
+      // Fail closed only on explicit checks; otherwise allow
+      console.warn('Auth guard check failed:', e);
+    }
+  });
 });
 
 // Export globals
@@ -692,3 +727,5 @@ window.ProgressTracker = ProgressTracker;
 window.NotificationManager = NotificationManager;
 window.AuthManager = AuthManager;
 window.SessionManager = SessionManager;
+window.isFromApp = isFromApp;
+window.ensureDeviceId = ensureDeviceId;
