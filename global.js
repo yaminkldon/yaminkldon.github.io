@@ -83,10 +83,7 @@ class ThemeManager {
 function isFromApp() {
   try {
     const ua = navigator.userAgent || '';
-  // Treat Capacitor presence as app too
-  const cap = window.Capacitor || {};
-  const isCapacitor = !!cap && (typeof cap.isNativePlatform === 'function' ? cap.isNativePlatform() : !!cap.Plugins);
-  return ua.includes('RaedApp/1.0') || isCapacitor;
+    return ua.includes('RaedApp/1.0');
   } catch (_) {
     return false;
   }
@@ -137,42 +134,6 @@ function ensureDeviceId() {
     } catch {
       return 'browser-fallback-unknown';
     }
-  }
-}
-
-// Async resolver that prefers app-provided/Capacitor Device ID when available
-async function resolveDeviceId() {
-  try {
-    // Prefer UA DID immediately if present
-    const ua = navigator.userAgent || '';
-    const didMatch = ua.match(/\bDID=([A-Za-z0-9._\-]+)/);
-    if (didMatch && didMatch[1]) {
-      const appId = 'app-' + didMatch[1];
-      writeAllStores(appId);
-      idbWriteId(appId);
-      return appId;
-    }
-
-    // Try Capacitor Device plugin (if the app exposes it)
-    const cap = window.Capacitor;
-    const hasDevicePlugin = cap && cap.Plugins && cap.Plugins.Device && typeof cap.Plugins.Device.getId === 'function';
-    if (hasDevicePlugin) {
-      try {
-        const info = await cap.Plugins.Device.getId();
-        const identifier = info && (info.identifier || info.uuid || info.id);
-        if (identifier) {
-          const capId = 'app-' + String(identifier);
-          writeAllStores(capId);
-          idbWriteId(capId);
-          return capId;
-        }
-      } catch (_) { /* ignore and fallback */ }
-    }
-
-    // Fallback to sync generator
-    return ensureDeviceId();
-  } catch (_) {
-    return ensureDeviceId();
   }
 }
 
@@ -891,70 +852,53 @@ class SessionManager {
 // Initialize theme and session management on page load
 document.addEventListener('DOMContentLoaded', () => {
   window.themeManager = new ThemeManager();
-
-  // Defer any firebase usage until the app is initialized
-  waitForFirebaseApp().then(() => {
-    // Initialize session manager only if user is authenticated
-    firebase.auth().onAuthStateChanged((user) => {
-      if (user && !window.sessionManager) {
-        window.sessionManager = new SessionManager();
-      } else if (!user && window.sessionManager) {
-        window.sessionManager.destroy();
-        window.sessionManager = null;
-      }
-    });
+  
+  // Initialize session manager only if user is authenticated
+  firebase.auth().onAuthStateChanged((user) => {
+    if (user && !window.sessionManager) {
+      window.sessionManager = new SessionManager();
+    } else if (!user && window.sessionManager) {
+      window.sessionManager.destroy();
+      window.sessionManager = null;
+    }
+  });
 
   // Global auth guard: enforce app-only + single-device for students on all pages
   firebase.auth().onAuthStateChanged(async (user) => {
-      if (!user) return;
-      if (window.__authEnforcementInProgress) return;
-      const email = user.email || '';
-      try {
-        // Allow a brief grace period after binding to avoid race with redirects
-        if (window.__loginBindingGraceUntil && Date.now() < window.__loginBindingGraceUntil) return;
-        const snap = await firebase.database().ref('users').orderByChild('email').equalTo(email).once('value');
-        if (!snap.exists()) return;
-        let isStudent = false;
-        let deviceAllowed = true;
-    const localId = (typeof resolveDeviceId === 'function') ? await resolveDeviceId() : ensureDeviceId();
-        snap.forEach(ch => {
-          const u = ch.val();
-          if ((u.type === 'student')) isStudent = true;
-          if (u.deviceId && localId && u.deviceId !== localId) deviceAllowed = false;
-        });
-        if (isStudent && !isFromApp()) {
-          window.__authEnforcementInProgress = true;
-          NotificationManager.showToast('Access allowed only from the official app');
-          await firebase.auth().signOut();
-          window.__authEnforcementInProgress = false;
-          return;
-        }
-        if (!deviceAllowed) {
-          window.__authEnforcementInProgress = true;
-          NotificationManager.showToast('This account is already bound to another device');
-          await firebase.auth().signOut();
-          window.__authEnforcementInProgress = false;
-          return;
-        }
-      } catch (e) {
-        console.warn('Auth guard check failed:', e);
+    if (!user) return;
+  if (window.__authEnforcementInProgress) return;
+    const email = user.email || '';
+    try {
+      const snap = await firebase.database().ref('users').orderByChild('email').equalTo(email).once('value');
+      if (!snap.exists()) return;
+      let isStudent = false;
+      let deviceAllowed = true;
+      const localId = ensureDeviceId();
+      snap.forEach(ch => {
+        const u = ch.val();
+        if ((u.type === 'student')) isStudent = true;
+        if (u.deviceId && localId && u.deviceId !== localId) deviceAllowed = false;
+      });
+      if (isStudent && !isFromApp()) {
+    window.__authEnforcementInProgress = true;
+        NotificationManager.showToast('Access allowed only from the official app');
+        await firebase.auth().signOut();
+    window.__authEnforcementInProgress = false;
+        return;
       }
-    });
+      if (!deviceAllowed) {
+    window.__authEnforcementInProgress = true;
+        NotificationManager.showToast('This account is already bound to another device');
+        await firebase.auth().signOut();
+    window.__authEnforcementInProgress = false;
+        return;
+      }
+    } catch (e) {
+      // Fail closed only on explicit checks; otherwise allow
+      console.warn('Auth guard check failed:', e);
+    }
   });
 });
-
-// Wait until firebase.initializeApp has been called elsewhere (compat API)
-function waitForFirebaseApp() {
-  return new Promise((resolve) => {
-    const check = () => {
-      try {
-        if (window.firebase && firebase.apps && firebase.apps.length > 0) return resolve();
-      } catch {}
-      setTimeout(check, 30);
-    };
-    check();
-  });
-}
 
 // Export globals
 window.Navigation = Navigation;
@@ -964,4 +908,3 @@ window.AuthManager = AuthManager;
 window.SessionManager = SessionManager;
 window.isFromApp = isFromApp;
 window.ensureDeviceId = ensureDeviceId;
-window.resolveDeviceId = resolveDeviceId;

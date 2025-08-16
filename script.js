@@ -46,9 +46,16 @@ const AuthDebug = {
 // Expose for console use
 window.AuthDebug = AuthDebug;
 
-// Use global app detection (handles Capacitor too)
+// Detect if request is coming from the official app (stand-in for server header check)
 function isFromApp() {
-  try { return typeof window.isFromApp === 'function' ? window.isFromApp() : false; } catch { return false; }
+  try {
+    const ua = navigator.userAgent || '';
+    // Match your app’s custom UA segment (e.g., set by Capacitor/Android WebView)
+    // Example expected: 'RaedApp/1.0'
+    return ua.includes('RaedApp/1.0');
+  } catch (_) {
+    return false;
+  }
 }
 
 function getDeviceId() {
@@ -80,10 +87,10 @@ function showProgress(show) {
   }
 }
 
-async function login() {
+function login() {
   const email = document.getElementById("email").value.trim();
   const password = document.getElementById("password").value.trim();
-  const deviceId = (typeof window.resolveDeviceId === 'function') ? await window.resolveDeviceId() : getDeviceId();
+  const deviceId = getDeviceId();
 
   AuthDebug.log('Login attempt', { email, deviceId, ua: navigator.userAgent, fromApp: isFromApp() });
 
@@ -94,13 +101,10 @@ async function login() {
 
   showProgress(true);
 
-  // Ensure local persistence in Capacitor/WebView
-  await firebase.auth().setPersistence(firebase.auth.Auth.Persistence.LOCAL).catch(()=>{});
-
   firebase.auth().signInWithEmailAndPassword(email, password)
     .then(userCredential => {
       db.ref('users').orderByChild('email').equalTo(email).once('value')
-        .then(async snapshot => {
+        .then(snapshot => {
           showProgress(false);
           if (snapshot.exists()) {
             const records = [];
@@ -130,9 +134,7 @@ async function login() {
             // If ALL records are empty deviceId, bind the first record to this device
             if (allEmpty && records.length > 0) {
               AuthDebug.log('Binding deviceId to first record', { key: records[0].key, localId });
-              try { await records[0].ref.update({ deviceId: localId }); } catch(_) {}
-              // Provide a short grace window for global guard to avoid race
-              window.__loginBindingGraceUntil = Date.now() + 5000;
+              records[0].ref.update({ deviceId: localId });
             }
 
             // Check expiration and allow if at least one record permits
@@ -146,8 +148,6 @@ async function login() {
             }
 
             NotificationManager.showToast("Login Successful");
-            // Grace period even if already bound to avoid double listeners racing
-            if (!window.__loginBindingGraceUntil) window.__loginBindingGraceUntil = Date.now() + 3000;
             setTimeout(() => { Navigation.goToMainPage(); }, 800);
           } else {
             NotificationManager.showToast("User not found");
@@ -181,23 +181,23 @@ document.getElementById('email').addEventListener('input', function() {
   }
 });
 
-firebase.auth().onAuthStateChanged(async function(user) {
+firebase.auth().onAuthStateChanged(function(user) {
   if (user) {
     AuthDebug.log('Auth state changed: user present');
     // Double-check user record to enforce student app-only rule even if token is present
     const email = user.email || '';
-  db.ref('users').orderByChild('email').equalTo(email).once('value').then(async snapshot => {
+    db.ref('users').orderByChild('email').equalTo(email).once('value').then(snapshot => {
       if (!snapshot.exists()) {
         AuthDebug.log('No DB record found for email');
         return Navigation.goToMainPage();
       }
-  let allowed = true;
-  let deviceAllowed = true;
-  const localDeviceId = (typeof window.resolveDeviceId === 'function') ? await window.resolveDeviceId() : getDeviceId();
+      let allowed = true;
+      let deviceAllowed = true;
+      const localDeviceId = ensureDeviceId();
       const deviceIds = [];
       snapshot.forEach(child => {
         const u = child.val();
-  if ((u.type === 'student') && !isFromApp()) {
+        if ((u.type === 'student') && !isFromApp()) {
           allowed = false;
         }
         if (u.deviceId && localDeviceId && u.deviceId !== localDeviceId) {
