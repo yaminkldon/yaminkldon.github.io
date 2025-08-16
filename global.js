@@ -282,6 +282,30 @@ function hashString(str) {
   return ('00000000' + h.toString(16)).slice(-8);
 }
 
+// ----- Server time sync (resilient against manual clock changes) -----
+let __serverTimeOffset = 0; // ms; serverNow ~= Date.now() + offset
+function initServerTimeSync() {
+  try {
+    const ref = firebase.database().ref('.info/serverTimeOffset');
+    ref.on('value', async (snap) => {
+      const v = snap.val();
+      __serverTimeOffset = (typeof v === 'number') ? v : 0;
+      // Re-check policies if user is logged in and offset changed
+      try {
+        const user = firebase.auth().currentUser;
+        if (user && typeof runGlobalAuthGuard === 'function') {
+          runGlobalAuthGuard(user);
+        }
+      } catch {}
+    });
+  } catch (e) {
+    console.warn('Server time sync not available:', e);
+  }
+}
+function getServerNow() {
+  return Date.now() + (__serverTimeOffset || 0);
+}
+
 // Global navigation helpers
 class Navigation {
   static goToMainPage() {
@@ -863,52 +887,111 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
+  // Initialize server time sync early so policy checks use server time
+  initServerTimeSync();
+
   // Global auth guard: enforce app-only + single-device for students on all pages
-  firebase.auth().onAuthStateChanged(async (user) => {
-    if (!user) return;
-  if (window.__authEnforcementInProgress) return;
-    const email = user.email || '';
-    try {
-      const snap = await firebase.database().ref('users').orderByChild('email').equalTo(email).once('value');
-      if (!snap.exists()) return;
-      let isStudent = false;
-      let deviceAllowed = true;
-      let allowedByExpiry = false; // allow if at least one record is not expired (or has no expiration)
-      const now = Date.now();
-      const localId = ensureDeviceId();
-      snap.forEach(ch => {
-        const u = ch.val();
-        if ((u.type === 'student')) isStudent = true;
-        if (u.deviceId && localId && u.deviceId !== localId) deviceAllowed = false;
-        if (!u.expirationDate || now <= u.expirationDate) allowedByExpiry = true;
-      });
-      if (isStudent && !isFromApp()) {
-    window.__authEnforcementInProgress = true;
-        NotificationManager.showToast('Access allowed only from the official app');
-        await firebase.auth().signOut();
-    window.__authEnforcementInProgress = false;
-        return;
-      }
-      if (!deviceAllowed) {
-    window.__authEnforcementInProgress = true;
-        NotificationManager.showToast('This account is already bound to another device');
-        await firebase.auth().signOut();
-    window.__authEnforcementInProgress = false;
-        return;
-      }
-      if (!allowedByExpiry) {
-    window.__authEnforcementInProgress = true;
-        NotificationManager.showToast('Account expired');
-        await firebase.auth().signOut();
-    window.__authEnforcementInProgress = false;
-        return;
-      }
-    } catch (e) {
-      // Fail closed only on explicit checks; otherwise allow
-      console.warn('Auth guard check failed:', e);
-    }
-  });
+  firebase.auth().onAuthStateChanged((user) => runGlobalAuthGuard(user));
 });
+
+// Reusable global auth guard using server time, with 10s expiry modal
+async function runGlobalAuthGuard(user) {
+  if (!user) return;
+  if (window.__authEnforcementInProgress) return;
+  const email = user.email || '';
+  try {
+    const snap = await firebase.database().ref('users').orderByChild('email').equalTo(email).once('value');
+    if (!snap.exists()) return;
+    let isStudent = false;
+    let deviceAllowed = true;
+    let allowedByExpiry = false; // allow if at least one record is not expired (or has no expiration)
+    const now = getServerNow();
+    const localId = ensureDeviceId();
+    snap.forEach(ch => {
+      const u = ch.val();
+      if ((u.type === 'student')) isStudent = true;
+      if (u.deviceId && localId && u.deviceId !== localId) deviceAllowed = false;
+      if (!u.expirationDate || now <= u.expirationDate) allowedByExpiry = true;
+    });
+    if (isStudent && !isFromApp()) {
+      window.__authEnforcementInProgress = true;
+      NotificationManager.showToast('Access allowed only from the official app');
+      await firebase.auth().signOut();
+      window.__authEnforcementInProgress = false;
+      return;
+    }
+    if (!deviceAllowed) {
+      window.__authEnforcementInProgress = true;
+      NotificationManager.showToast('This account is already bound to another device');
+      await firebase.auth().signOut();
+      window.__authEnforcementInProgress = false;
+      return;
+    }
+    if (!allowedByExpiry) {
+      // Show a blocking modal with 10s countdown, then sign out
+      showAccountExpiredModalAndLogout(10);
+      return;
+    }
+  } catch (e) {
+    console.warn('Auth guard check failed:', e);
+  }
+}
+
+function showAccountExpiredModalAndLogout(seconds = 10) {
+  if (window.__authEnforcementInProgress) return;
+  window.__authEnforcementInProgress = true;
+  try {
+    // Remove existing modal if any
+    const existing = document.getElementById('accountExpiredModal');
+    if (existing) existing.remove();
+    const modal = document.createElement('div');
+    modal.id = 'accountExpiredModal';
+    modal.style.cssText = `
+      position: fixed; inset: 0; background: rgba(0,0,0,0.7); display: flex; align-items: center; justify-content: center; z-index: 100000;
+    `;
+    modal.innerHTML = `
+      <div style="background: white; padding: 28px; border-radius: 12px; max-width: 420px; text-align: center; box-shadow: 0 4px 20px rgba(0,0,0,0.3);">
+        <div style="font-size: 44px; margin-bottom: 8px;">⏳</div>
+        <h3 style="margin: 0 0 8px 0; color: #333;">Account Expired</h3>
+        <p style="margin: 0 0 16px 0; color: #555;">Your subscription has expired and needs renewal to continue.</p>
+        <p style="margin: 0 0 16px 0; color: #666;">You will be signed out in <strong id="expiryCountdown">${seconds}</strong> seconds.</p>
+        <div style="display:flex; gap:12px; justify-content:center;">
+          <button id="logoutNowBtn" style="background:#dc3545;color:#fff;border:none;padding:10px 16px;border-radius:6px;cursor:pointer;">Logout Now</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(modal);
+
+    const countdownEl = document.getElementById('expiryCountdown');
+    const logoutNowBtn = document.getElementById('logoutNowBtn');
+    let remaining = seconds;
+    const tick = setInterval(async () => {
+      remaining -= 1;
+      if (countdownEl) countdownEl.textContent = String(remaining);
+      if (remaining <= 0) {
+        clearInterval(tick);
+        try { await firebase.auth().signOut(); } catch {}
+        if (modal && modal.parentNode) modal.parentNode.removeChild(modal);
+        window.__authEnforcementInProgress = false;
+        Navigation.goToLogin();
+      }
+    }, 1000);
+
+    logoutNowBtn?.addEventListener('click', async () => {
+      clearInterval(tick);
+      try { await firebase.auth().signOut(); } catch {}
+      if (modal && modal.parentNode) modal.parentNode.removeChild(modal);
+      window.__authEnforcementInProgress = false;
+      Navigation.goToLogin();
+    });
+  } catch (e) {
+    console.warn('Failed to show expiry modal, signing out immediately');
+    firebase.auth().signOut().finally(() => {
+      window.__authEnforcementInProgress = false;
+      Navigation.goToLogin();
+    });
+  }
+}
 
 // Export globals
 window.Navigation = Navigation;
