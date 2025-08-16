@@ -142,14 +142,19 @@ firebase.auth().onAuthStateChanged(function(user) {
     }
     
     // Apply global theme preference from settings (unified ThemeManager)
-    if (window.themeManager && typeof window.themeManager.apply === 'function') {
-      // Migrate any legacy teacherTheme to unified themeMode
-      const legacyTeacherTheme = localStorage.getItem('teacherTheme');
-      if (legacyTeacherTheme === 'dark' || legacyTeacherTheme === 'light') {
-        window.themeManager.setMode(legacyTeacherTheme);
-        localStorage.removeItem('teacherTheme');
+    if (window.themeManager && typeof window.themeManager.setMode === 'function') {
+      const savedMode = localStorage.getItem('themeMode');
+      if (['light','dark','auto'].includes(savedMode)) {
+        window.themeManager.setMode(savedMode);
       } else {
-        window.themeManager.apply();
+        // Migrate any legacy teacherTheme to unified themeMode
+        const legacyTeacherTheme = localStorage.getItem('teacherTheme');
+        if (legacyTeacherTheme === 'dark' || legacyTeacherTheme === 'light') {
+          window.themeManager.setMode(legacyTeacherTheme);
+          localStorage.removeItem('teacherTheme');
+        } else if (typeof window.themeManager.apply === 'function') {
+          window.themeManager.apply();
+        }
       }
     }
     

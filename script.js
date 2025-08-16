@@ -163,12 +163,13 @@ function login() {
               records[0].ref.update({ deviceId: localId });
             }
 
-            // Check expiration and allow if at least one record permits
-            const now = Date.now();
+            // Check expiration using server time and block login before completion
+            const now = (window.getServerNow && typeof window.getServerNow === 'function') ? window.getServerNow() : Date.now();
             const allowedByExpiry = records.some(r => !r.data.expirationDate || now <= r.data.expirationDate);
             if (!allowedByExpiry) {
-              NotificationManager.showToast("Account expired");
+              NotificationManager.showToast('Account expired');
               AuthDebug.log('Denied: expired');
+              // Cancel this login by signing out immediately and staying on login page
               try { firebase.auth().signOut(); } catch (_) {}
               return;
             }

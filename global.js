@@ -1001,3 +1001,4 @@ window.AuthManager = AuthManager;
 window.SessionManager = SessionManager;
 window.isFromApp = isFromApp;
 window.ensureDeviceId = ensureDeviceId;
+window.getServerNow = getServerNow;
