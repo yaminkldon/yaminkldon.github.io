@@ -98,35 +98,124 @@ function ensureDeviceId() {
     if (didMatch && didMatch[1]) {
       const appId = 'app-' + didMatch[1];
       const existing = localStorage.getItem('device_id');
-      if (existing !== appId) localStorage.setItem('device_id', appId);
+      if (existing !== appId) {
+        writeAllStores(appId);
+        idbWriteId(appId);
+      }
       return appId;
     }
 
-    // 2) If we already have a stored id, use it (backward-compatible)
-    let id = localStorage.getItem('device_id');
-    if (id) return id;
-
-    // 3) Compute a deterministic browser serial from relatively-stable properties
-    const serial = computeBrowserSerial();
-    id = 'browser-' + serial;
-    localStorage.setItem('device_id', id);
-
-    // Try to persist storage for better durability
-    if (navigator.storage && navigator.storage.persist) {
-      navigator.storage.persist().catch(() => {});
+    // 2) Try existing values from multiple stores (Biri-style)
+    let id = localStorage.getItem('device_id') || getCookie('device_id') || getWindowNameId();
+    if (id) {
+      // Sync to all stores in case some are missing
+      writeAllStores(id);
+      idbWriteId(id);
+      // Async promote storage persistence
+      if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
+      // Also try reading IDB to reconcile if it has an older value
+      idbReadId().then(stored => { if (stored && stored !== id) writeAllStores(stored); }).catch(()=>{});
+      return id;
     }
+
+    // 3) Nothing found: generate a cryptographically random persistent ID
+    id = 'pid-' + generateRandomHex(16);
+    writeAllStores(id);
+    idbWriteId(id);
+    if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
     return id;
   } catch (_) {
     // Ultimate fallback: minimal deterministic hash of UA
     try {
       const ua = navigator.userAgent || 'unknown';
       const fallback = 'browser-fallback-' + hashString(ua);
-      localStorage.setItem('device_id', fallback);
+      writeAllStores(fallback);
       return fallback;
     } catch {
       return 'browser-fallback-unknown';
     }
   }
+}
+
+// Helpers: multi-store (localStorage, cookie, window.name) and IndexedDB
+function writeAllStores(id) {
+  try { localStorage.setItem('device_id', id); } catch {}
+  try { setCookie('device_id', id, 3650); } catch {}
+  try { setWindowNameId(id); } catch {}
+}
+
+function getCookie(name) {
+  try {
+    const m = document.cookie.match(new RegExp('(?:^|; )' + name.replace(/([.$?*|{}()\[\]\\\/\+^])/g, '\\$1') + '=([^;]*)'));
+    return m ? decodeURIComponent(m[1]) : null;
+  } catch { return null; }
+}
+
+function setCookie(name, value, days) {
+  try {
+    const d = new Date();
+    d.setTime(d.getTime() + (days*24*60*60*1000));
+    document.cookie = `${name}=${encodeURIComponent(value)}; expires=${d.toUTCString()}; path=/; SameSite=Lax`;
+  } catch {}
+}
+
+function getWindowNameId() {
+  try {
+    const w = window.name || '';
+    if (w.startsWith('did:')) return w.slice(4);
+    return null;
+  } catch { return null; }
+}
+
+function setWindowNameId(id) {
+  try {
+    // Preserve existing name tail if it contains other data
+    const w = window.name || '';
+    const rest = w.includes('|') ? w.split('|').slice(1).join('|') : '';
+    window.name = 'did:' + id + (rest ? ('|' + rest) : '');
+  } catch {}
+}
+
+function generateRandomHex(bytes) {
+  try {
+    const arr = new Uint8Array(bytes);
+    (window.crypto || window.msCrypto).getRandomValues(arr);
+    return Array.from(arr).map(b => b.toString(16).padStart(2, '0')).join('');
+  } catch {
+    // Fallback to less-secure random
+    let s = '';
+    for (let i = 0; i < bytes; i++) s += Math.floor(Math.random()*256).toString(16).padStart(2,'0');
+    return s;
+  }
+}
+
+function idbWriteId(id) {
+  try {
+    const req = indexedDB.open('biri', 1);
+    req.onupgradeneeded = () => { const db = req.result; if (!db.objectStoreNames.contains('kv')) db.createObjectStore('kv'); };
+    req.onsuccess = () => {
+      const db = req.result; const tx = db.transaction('kv', 'readwrite'); const store = tx.objectStore('kv');
+      store.put(id, 'device_id');
+    };
+  } catch {}
+}
+
+function idbReadId() {
+  return new Promise((resolve, reject) => {
+    try {
+      const req = indexedDB.open('biri', 1);
+      req.onupgradeneeded = () => { const db = req.result; if (!db.objectStoreNames.contains('kv')) db.createObjectStore('kv'); };
+      req.onsuccess = () => {
+        try {
+          const db = req.result; const tx = db.transaction('kv', 'readonly'); const store = tx.objectStore('kv');
+          const getReq = store.get('device_id');
+          getReq.onsuccess = () => resolve(getReq.result || null);
+          getReq.onerror = () => resolve(null);
+        } catch { resolve(null); }
+      };
+      req.onerror = () => resolve(null);
+    } catch (e) { resolve(null); }
+  });
 }
 
 // Build a deterministic browser serial. Not a hardware ID, but stable across sessions
