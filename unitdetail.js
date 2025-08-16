@@ -960,9 +960,6 @@ function addVideoWatermark(userEmail, lessonKey) {
     element.textContent = watermark.text;
   });
   
-  // Add watermark to document body (so it appears over fullscreen)
-  document.body.appendChild(watermarkOverlay);
-  
   // Add CSS animation for moving watermark
   const style = document.createElement('style');
   style.textContent = `
