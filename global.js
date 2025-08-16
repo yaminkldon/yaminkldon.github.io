@@ -904,17 +904,19 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     });
 
-    // Global auth guard: enforce app-only + single-device for students on all pages
-    firebase.auth().onAuthStateChanged(async (user) => {
+  // Global auth guard: enforce app-only + single-device for students on all pages
+  firebase.auth().onAuthStateChanged(async (user) => {
       if (!user) return;
       if (window.__authEnforcementInProgress) return;
       const email = user.email || '';
       try {
+        // Allow a brief grace period after binding to avoid race with redirects
+        if (window.__loginBindingGraceUntil && Date.now() < window.__loginBindingGraceUntil) return;
         const snap = await firebase.database().ref('users').orderByChild('email').equalTo(email).once('value');
         if (!snap.exists()) return;
         let isStudent = false;
         let deviceAllowed = true;
-        const localId = ensureDeviceId();
+    const localId = (typeof resolveDeviceId === 'function') ? await resolveDeviceId() : ensureDeviceId();
         snap.forEach(ch => {
           const u = ch.val();
           if ((u.type === 'student')) isStudent = true;

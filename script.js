@@ -94,6 +94,9 @@ async function login() {
 
   showProgress(true);
 
+  // Ensure local persistence in Capacitor/WebView
+  await firebase.auth().setPersistence(firebase.auth.Auth.Persistence.LOCAL).catch(()=>{});
+
   firebase.auth().signInWithEmailAndPassword(email, password)
     .then(userCredential => {
       db.ref('users').orderByChild('email').equalTo(email).once('value')
@@ -127,7 +130,9 @@ async function login() {
             // If ALL records are empty deviceId, bind the first record to this device
             if (allEmpty && records.length > 0) {
               AuthDebug.log('Binding deviceId to first record', { key: records[0].key, localId });
-              records[0].ref.update({ deviceId: localId });
+              try { await records[0].ref.update({ deviceId: localId }); } catch(_) {}
+              // Provide a short grace window for global guard to avoid race
+              window.__loginBindingGraceUntil = Date.now() + 5000;
             }
 
             // Check expiration and allow if at least one record permits
@@ -141,6 +146,8 @@ async function login() {
             }
 
             NotificationManager.showToast("Login Successful");
+            // Grace period even if already bound to avoid double listeners racing
+            if (!window.__loginBindingGraceUntil) window.__loginBindingGraceUntil = Date.now() + 3000;
             setTimeout(() => { Navigation.goToMainPage(); }, 800);
           } else {
             NotificationManager.showToast("User not found");
