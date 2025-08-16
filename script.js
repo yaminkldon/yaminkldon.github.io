@@ -125,9 +125,36 @@ function login() {
     return;
   }
 
-  showProgress(true);
+  // Preflight: try to check expiration with server time before signing in
+  const preflight = (async () => {
+    try {
+      const snap = await db.ref('users').orderByChild('email').equalTo(email).once('value');
+      if (snap.exists()) {
+        const now = (window.getServerNow && typeof window.getServerNow === 'function') ? window.getServerNow() : Date.now();
+        let allowedByExpiry = false;
+        snap.forEach(child => {
+          const u = child.val();
+          if (!u.expirationDate || now <= u.expirationDate) allowedByExpiry = true;
+        });
+        return allowedByExpiry;
+      }
+      // No matching DB record; allow auth to proceed so we can handle normally
+      return true;
+    } catch (e) {
+      // Likely permission denied for unauth reads; proceed to auth and handle post-check
+      return null;
+    }
+  })();
 
-  firebase.auth().signInWithEmailAndPassword(email, password)
+  preflight.then((allowedByExpiry) => {
+    if (allowedByExpiry === false) {
+      NotificationManager.showToast('Account expired');
+      return; // Block signing in at all
+    }
+
+    showProgress(true);
+
+    firebase.auth().signInWithEmailAndPassword(email, password)
     .then(userCredential => {
       db.ref('users').orderByChild('email').equalTo(email).once('value')
         .then(snapshot => {
@@ -185,6 +212,7 @@ function login() {
       showProgress(false);
       NotificationManager.showToast("Login failed: " + error.message);
     });
+  });
 }
 
 function goToRegister() {
@@ -220,6 +248,8 @@ firebase.auth().onAuthStateChanged(function(user) {
       }
       let allowed = true;
       let deviceAllowed = true;
+      let allowedByExpiry = false;
+      const now = (window.getServerNow && typeof window.getServerNow === 'function') ? window.getServerNow() : Date.now();
       const localDeviceId = ensureDeviceId();
       const deviceIds = [];
       snapshot.forEach(child => {
@@ -230,9 +260,12 @@ firebase.auth().onAuthStateChanged(function(user) {
         if (u.deviceId && localDeviceId && u.deviceId !== localDeviceId) {
           deviceAllowed = false;
         }
+        if (!u.expirationDate || now <= u.expirationDate) {
+          allowedByExpiry = true;
+        }
         deviceIds.push(u.deviceId || null);
       });
-      AuthDebug.log('Post-login check', { localDeviceId, deviceIds, fromApp: isFromApp(), allowed, deviceAllowed });
+      AuthDebug.log('Post-login check', { localDeviceId, deviceIds, fromApp: isFromApp(), allowed, deviceAllowed, allowedByExpiry });
       if (!allowed) {
         NotificationManager.showToast('Access allowed only from the official app');
         try { firebase.auth().signOut(); } catch (_) {}
@@ -240,6 +273,11 @@ firebase.auth().onAuthStateChanged(function(user) {
       }
       if (!deviceAllowed) {
         NotificationManager.showToast('This account is already bound to another device');
+        try { firebase.auth().signOut(); } catch (_) {}
+        return;
+      }
+      if (!allowedByExpiry) {
+        NotificationManager.showToast('Account expired');
         try { firebase.auth().signOut(); } catch (_) {}
         return;
       }
