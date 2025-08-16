@@ -995,14 +995,6 @@ function addVideoWatermark(userEmail, lessonKey) {
   
   // Listen for fullscreen changes
   document.addEventListener('fullscreenchange', updateWatermarkForFullscreen);
-  
-  // Store cleanup function
-  watermarkOverlay.cleanup = () => {
-    document.removeEventListener('fullscreenchange', updateWatermarkForFullscreen);
-    if (style.parentNode) {
-      style.parentNode.removeChild(style);
-    }
-  };
 }
 
 function goBack() {
