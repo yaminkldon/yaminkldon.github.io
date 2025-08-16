@@ -17,26 +17,6 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 
-// Ensure a stable device id exists: delegate to global.js implementation
-function ensureDeviceId() {
-  if (typeof window.ensureDeviceId === 'function') {
-    return window.ensureDeviceId();
-  }
-  // Fallback to reading stored value only (no random generation here)
-  let id = localStorage.getItem('device_id');
-  if (id) return id;
-  // As a last resort, set a deterministic UA-hash fallback (kept minimal here)
-  try {
-    const ua = navigator.userAgent || 'unknown';
-    const h = (function hash(s){let x=0;for(let i=0;i<s.length;i++){x=(x*31 + s.charCodeAt(i))>>>0;}return x.toString(16);} )(ua);
-    id = 'browser-fallback-' + h;
-    localStorage.setItem('device_id', id);
-    return id;
-  } catch {
-    return 'browser-fallback-unknown';
-  }
-}
-
 // Lightweight auth debug helper
 const AuthDebug = {
   enabled: false,
@@ -47,7 +27,7 @@ const AuthDebug = {
     const user = firebase.auth().currentUser;
     if (!user) { console.warn('[AuthDebug] No current user'); return null; }
     const email = user.email || '';
-    const localId = ensureDeviceId();
+  const localId = (typeof window.ensureDeviceId === 'function') ? window.ensureDeviceId() : getDeviceId();
     const ua = navigator.userAgent || '';
     const snap = await db.ref('users').orderByChild('email').equalTo(email).once('value');
     const records = [];
@@ -79,7 +59,21 @@ function isFromApp() {
 }
 
 function getDeviceId() {
-  return ensureDeviceId();
+  if (typeof window.ensureDeviceId === 'function') {
+    return window.ensureDeviceId();
+  }
+  // Fallback to stored value or UA-hash
+  let id = localStorage.getItem('device_id');
+  if (id) return id;
+  try {
+    const ua = navigator.userAgent || 'unknown';
+    let x = 0; for (let i = 0; i < ua.length; i++) { x = (x * 31 + ua.charCodeAt(i)) >>> 0; }
+    id = 'browser-fallback-' + x.toString(16);
+    localStorage.setItem('device_id', id);
+    return id;
+  } catch {
+    return 'browser-fallback-unknown';
+  }
 }
 
 function showProgress(show) {
