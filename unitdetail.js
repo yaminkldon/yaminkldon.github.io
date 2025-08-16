@@ -1516,25 +1516,65 @@ function initCustomVideoPlayer(videoPlayer, lessonKey) {
   
   // Fullscreen functionality (skip binding if inline handler exists)
   // iOS native fullscreen replaces overlays; use CSS-based pseudo fullscreen to keep custom controls
+  // iOS "page fullscreen": rotate content to landscape in-page (no Fullscreen API)
+  let iosLayoutHandlers = [];
+  function updateIOSPageFullscreenLayout() {
+    if (!isPseudoFullscreen) return;
+    const isPortrait = window.innerHeight > window.innerWidth;
+    // Base pinned layout
+    videoWrapper.style.position = 'fixed';
+    videoWrapper.style.zIndex = '20000';
+    videoWrapper.style.backgroundColor = '#000';
+    videoWrapper.style.transformOrigin = 'center center';
+    // When portrait, rotate 90deg and swap width/height to fill
+    if (isPortrait) {
+      const w = window.innerWidth;
+      const h = window.innerHeight;
+      videoWrapper.style.left = '50%';
+      videoWrapper.style.top = '50%';
+      // After rotation, width becomes height and vice-versa
+      videoWrapper.style.width = h + 'px';
+      videoWrapper.style.height = w + 'px';
+      videoWrapper.style.transform = 'translate(-50%, -50%) rotate(90deg)';
+    } else {
+      // Landscape: no rotation, just fill viewport
+      videoWrapper.style.inset = '0';
+      videoWrapper.style.width = '100vw';
+      videoWrapper.style.height = '100vh';
+      videoWrapper.style.transform = 'none';
+    }
+  }
+
   function enterPseudoFullscreen() {
     if (isPseudoFullscreen) return;
     isPseudoFullscreen = true;
-    // Pin wrapper to viewport
+    // Save prior inline styles to restore later
     videoWrapper.__prevStyle = videoWrapper.getAttribute('style') || '';
-    videoWrapper.style.position = 'fixed';
-    videoWrapper.style.inset = '0';
-    videoWrapper.style.width = '100vw';
-    videoWrapper.style.height = '100vh';
-    videoWrapper.style.zIndex = '12000';
     document.body.__prevOverflow = document.body.style.overflow;
+    const appbar = document.querySelector('.appbar');
+    if (appbar) { appbar.__prevDisplay = appbar.style.display; appbar.style.display = 'none'; }
     document.body.style.overflow = 'hidden';
+    // Apply iOS page-fullscreen layout (works fine on Android too, but we keep Fullscreen API there)
+    updateIOSPageFullscreenLayout();
+    // Listen to orientation/resize to keep layout correct
+    const onResize = () => updateIOSPageFullscreenLayout();
+    window.addEventListener('resize', onResize);
+    window.addEventListener('orientationchange', onResize);
+    iosLayoutHandlers.push({ t: 'resize', h: onResize });
+    iosLayoutHandlers.push({ t: 'orientationchange', h: onResize });
     fullscreenBtn.querySelector('.material-icons').textContent = 'fullscreen_exit';
   }
   function exitPseudoFullscreen() {
     if (!isPseudoFullscreen) return;
     isPseudoFullscreen = false;
+    // Remove listeners
+    iosLayoutHandlers.forEach(({ t, h }) => window.removeEventListener(t, h));
+    iosLayoutHandlers = [];
+    // Restore styles/UI
     videoWrapper.setAttribute('style', videoWrapper.__prevStyle || '');
     document.body.style.overflow = document.body.__prevOverflow || '';
+    const appbar = document.querySelector('.appbar');
+    if (appbar) { appbar.style.display = appbar.__prevDisplay || ''; }
     fullscreenBtn.querySelector('.material-icons').textContent = 'fullscreen';
   }
   const fullscreenHandler = function() {
