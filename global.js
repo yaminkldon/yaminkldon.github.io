@@ -137,6 +137,42 @@ function ensureDeviceId() {
   }
 }
 
+// Async resolver that prefers app-provided/Capacitor Device ID when available
+async function resolveDeviceId() {
+  try {
+    // Prefer UA DID immediately if present
+    const ua = navigator.userAgent || '';
+    const didMatch = ua.match(/\bDID=([A-Za-z0-9._\-]+)/);
+    if (didMatch && didMatch[1]) {
+      const appId = 'app-' + didMatch[1];
+      writeAllStores(appId);
+      idbWriteId(appId);
+      return appId;
+    }
+
+    // Try Capacitor Device plugin (if the app exposes it)
+    const cap = window.Capacitor;
+    const hasDevicePlugin = cap && cap.Plugins && cap.Plugins.Device && typeof cap.Plugins.Device.getId === 'function';
+    if (hasDevicePlugin) {
+      try {
+        const info = await cap.Plugins.Device.getId();
+        const identifier = info && (info.identifier || info.uuid || info.id);
+        if (identifier) {
+          const capId = 'app-' + String(identifier);
+          writeAllStores(capId);
+          idbWriteId(capId);
+          return capId;
+        }
+      } catch (_) { /* ignore and fallback */ }
+    }
+
+    // Fallback to sync generator
+    return ensureDeviceId();
+  } catch (_) {
+    return ensureDeviceId();
+  }
+}
+
 // Helpers: multi-store (localStorage, cookie, window.name) and IndexedDB
 function writeAllStores(id) {
   try { localStorage.setItem('device_id', id); } catch {}
@@ -478,6 +514,7 @@ class AuthManager {
       }
       
       await firebase.auth().signOut();
+      localStorage.removeItem('device_id');
       localStorage.removeItem('lastActivity');
       localStorage.removeItem('pageHiddenTime');
       Navigation.goToLogin();
@@ -907,3 +944,4 @@ window.AuthManager = AuthManager;
 window.SessionManager = SessionManager;
 window.isFromApp = isFromApp;
 window.ensureDeviceId = ensureDeviceId;
+window.resolveDeviceId = resolveDeviceId;

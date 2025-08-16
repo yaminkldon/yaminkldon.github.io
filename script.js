@@ -87,10 +87,10 @@ function showProgress(show) {
   }
 }
 
-function login() {
+async function login() {
   const email = document.getElementById("email").value.trim();
   const password = document.getElementById("password").value.trim();
-  const deviceId = getDeviceId();
+  const deviceId = (typeof window.resolveDeviceId === 'function') ? await window.resolveDeviceId() : getDeviceId();
 
   AuthDebug.log('Login attempt', { email, deviceId, ua: navigator.userAgent, fromApp: isFromApp() });
 
@@ -181,7 +181,7 @@ document.getElementById('email').addEventListener('input', function() {
   }
 });
 
-firebase.auth().onAuthStateChanged(function(user) {
+firebase.auth().onAuthStateChanged(async function(user) {
   if (user) {
     AuthDebug.log('Auth state changed: user present');
     // Double-check user record to enforce student app-only rule even if token is present
@@ -191,9 +191,9 @@ firebase.auth().onAuthStateChanged(function(user) {
         AuthDebug.log('No DB record found for email');
         return Navigation.goToMainPage();
       }
-      let allowed = true;
-      let deviceAllowed = true;
-      const localDeviceId = ensureDeviceId();
+  let allowed = true;
+  let deviceAllowed = true;
+  const localDeviceId = (typeof window.resolveDeviceId === 'function') ? await window.resolveDeviceId() : getDeviceId();
       const deviceIds = [];
       snapshot.forEach(child => {
         const u = child.val();
