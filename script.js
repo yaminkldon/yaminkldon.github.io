@@ -141,14 +141,24 @@ firebase.auth().onAuthStateChanged(function(user) {
         return Navigation.goToMainPage();
       }
       let allowed = true;
+      let deviceAllowed = true;
+      const localDeviceId = localStorage.getItem('device_id') || '';
       snapshot.forEach(child => {
         const u = child.val();
         if ((u.type === 'student') && !isFromApp()) {
           allowed = false;
         }
+        if (u.deviceId && localDeviceId && u.deviceId !== localDeviceId) {
+          deviceAllowed = false;
+        }
       });
       if (!allowed) {
         NotificationManager.showToast('Access allowed only from the official app');
+        try { firebase.auth().signOut(); } catch (_) {}
+        return;
+      }
+      if (!deviceAllowed) {
+        NotificationManager.showToast('This account is already bound to another device');
         try { firebase.auth().signOut(); } catch (_) {}
         return;
       }
