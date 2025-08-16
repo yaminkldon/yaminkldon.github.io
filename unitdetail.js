@@ -1595,6 +1595,9 @@ function initCustomVideoPlayer(videoPlayer, lessonKey) {
   if (typeof window.toggleFullscreenWithWatermark !== 'function') {
     addEventListenerWithCleanup(fullscreenBtn, 'click', fullscreenHandler);
   }
+  // Ensure any inline onclick="toggleFullscreenWithWatermark()" uses our handler (iOS-safe)
+  const prevToggleFS = window.toggleFullscreenWithWatermark;
+  window.toggleFullscreenWithWatermark = function() { fullscreenHandler(); };
   
   // Mobile orientation handler
   function handleMobileOrientation() {
@@ -1937,13 +1940,16 @@ function initCustomVideoPlayer(videoPlayer, lessonKey) {
     videoToast.style.display = 'none';
     videoToast.style.opacity = '0';
     
-    // Reset video player state
+  // Reset video player state
     videoPlayer.pause();
     videoPlayer.currentTime = 0;
   // Ensure pseudo fullscreen is exited on cleanup (iOS)
   try { if (isPseudoFullscreen) exitPseudoFullscreen(); } catch(e) {}
   // Destroy HLS instance if present
   try { if (currentHls) { currentHls.destroy(); currentHls = null; } } catch(e) {}
+
+  // Restore previous global fullscreen toggle if it existed
+  try { window.toggleFullscreenWithWatermark = prevToggleFS; } catch(e) {}
     
     console.log('Video player cleanup completed');
   };
