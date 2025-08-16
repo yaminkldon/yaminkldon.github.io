@@ -83,7 +83,10 @@ class ThemeManager {
 function isFromApp() {
   try {
     const ua = navigator.userAgent || '';
-    return ua.includes('RaedApp/1.0');
+  // Treat Capacitor presence as app too
+  const cap = window.Capacitor || {};
+  const isCapacitor = !!cap && (typeof cap.isNativePlatform === 'function' ? cap.isNativePlatform() : !!cap.Plugins);
+  return ua.includes('RaedApp/1.0') || isCapacitor;
   } catch (_) {
     return false;
   }
@@ -888,53 +891,68 @@ class SessionManager {
 // Initialize theme and session management on page load
 document.addEventListener('DOMContentLoaded', () => {
   window.themeManager = new ThemeManager();
-  
-  // Initialize session manager only if user is authenticated
-  firebase.auth().onAuthStateChanged((user) => {
-    if (user && !window.sessionManager) {
-      window.sessionManager = new SessionManager();
-    } else if (!user && window.sessionManager) {
-      window.sessionManager.destroy();
-      window.sessionManager = null;
-    }
-  });
 
-  // Global auth guard: enforce app-only + single-device for students on all pages
-  firebase.auth().onAuthStateChanged(async (user) => {
-    if (!user) return;
-  if (window.__authEnforcementInProgress) return;
-    const email = user.email || '';
-    try {
-      const snap = await firebase.database().ref('users').orderByChild('email').equalTo(email).once('value');
-      if (!snap.exists()) return;
-      let isStudent = false;
-      let deviceAllowed = true;
-      const localId = ensureDeviceId();
-      snap.forEach(ch => {
-        const u = ch.val();
-        if ((u.type === 'student')) isStudent = true;
-        if (u.deviceId && localId && u.deviceId !== localId) deviceAllowed = false;
-      });
-      if (isStudent && !isFromApp()) {
-    window.__authEnforcementInProgress = true;
-        NotificationManager.showToast('Access allowed only from the official app');
-        await firebase.auth().signOut();
-    window.__authEnforcementInProgress = false;
-        return;
+  // Defer any firebase usage until the app is initialized
+  waitForFirebaseApp().then(() => {
+    // Initialize session manager only if user is authenticated
+    firebase.auth().onAuthStateChanged((user) => {
+      if (user && !window.sessionManager) {
+        window.sessionManager = new SessionManager();
+      } else if (!user && window.sessionManager) {
+        window.sessionManager.destroy();
+        window.sessionManager = null;
       }
-      if (!deviceAllowed) {
-    window.__authEnforcementInProgress = true;
-        NotificationManager.showToast('This account is already bound to another device');
-        await firebase.auth().signOut();
-    window.__authEnforcementInProgress = false;
-        return;
+    });
+
+    // Global auth guard: enforce app-only + single-device for students on all pages
+    firebase.auth().onAuthStateChanged(async (user) => {
+      if (!user) return;
+      if (window.__authEnforcementInProgress) return;
+      const email = user.email || '';
+      try {
+        const snap = await firebase.database().ref('users').orderByChild('email').equalTo(email).once('value');
+        if (!snap.exists()) return;
+        let isStudent = false;
+        let deviceAllowed = true;
+        const localId = ensureDeviceId();
+        snap.forEach(ch => {
+          const u = ch.val();
+          if ((u.type === 'student')) isStudent = true;
+          if (u.deviceId && localId && u.deviceId !== localId) deviceAllowed = false;
+        });
+        if (isStudent && !isFromApp()) {
+          window.__authEnforcementInProgress = true;
+          NotificationManager.showToast('Access allowed only from the official app');
+          await firebase.auth().signOut();
+          window.__authEnforcementInProgress = false;
+          return;
+        }
+        if (!deviceAllowed) {
+          window.__authEnforcementInProgress = true;
+          NotificationManager.showToast('This account is already bound to another device');
+          await firebase.auth().signOut();
+          window.__authEnforcementInProgress = false;
+          return;
+        }
+      } catch (e) {
+        console.warn('Auth guard check failed:', e);
       }
-    } catch (e) {
-      // Fail closed only on explicit checks; otherwise allow
-      console.warn('Auth guard check failed:', e);
-    }
+    });
   });
 });
+
+// Wait until firebase.initializeApp has been called elsewhere (compat API)
+function waitForFirebaseApp() {
+  return new Promise((resolve) => {
+    const check = () => {
+      try {
+        if (window.firebase && firebase.apps && firebase.apps.length > 0) return resolve();
+      } catch {}
+      setTimeout(check, 30);
+    };
+    check();
+  });
+}
 
 // Export globals
 window.Navigation = Navigation;

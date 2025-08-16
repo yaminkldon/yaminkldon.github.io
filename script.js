@@ -46,16 +46,9 @@ const AuthDebug = {
 // Expose for console use
 window.AuthDebug = AuthDebug;
 
-// Detect if request is coming from the official app (stand-in for server header check)
+// Use global app detection (handles Capacitor too)
 function isFromApp() {
-  try {
-    const ua = navigator.userAgent || '';
-    // Match your app’s custom UA segment (e.g., set by Capacitor/Android WebView)
-    // Example expected: 'RaedApp/1.0'
-    return ua.includes('RaedApp/1.0');
-  } catch (_) {
-    return false;
-  }
+  try { return typeof window.isFromApp === 'function' ? window.isFromApp() : false; } catch { return false; }
 }
 
 function getDeviceId() {
@@ -197,7 +190,7 @@ firebase.auth().onAuthStateChanged(async function(user) {
       const deviceIds = [];
       snapshot.forEach(child => {
         const u = child.val();
-        if ((u.type === 'student') && !isFromApp()) {
+  if ((u.type === 'student') && !isFromApp()) {
           allowed = false;
         }
         if (u.deviceId && localDeviceId && u.deviceId !== localDeviceId) {
