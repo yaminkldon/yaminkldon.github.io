@@ -2436,10 +2436,11 @@ function loadAllUsers() {
             Expires: ${expirationDate.toLocaleDateString()}
             ${userData.createdAt ? `<br>Created: ${new Date(userData.createdAt).toLocaleDateString()}` : ''}
           </div>
-          <div style="display: flex; gap: 8px;">
+          <div style="display: flex; gap: 8px; flex-wrap: wrap;">
             <button onclick="editUser('${userId}')" style="padding: 4px 8px; background: #6c4fc1; color: white; border: none; border-radius: 4px; font-size: 12px;">Edit</button>
             <button onclick="deleteUser('${userId}')" style="padding: 4px 8px; background: #dc3545; color: white; border: none; border-radius: 4px; font-size: 12px;">Delete</button>
             <button onclick="extendUser('${userId}')" style="padding: 4px 8px; background: #28a745; color: white; border: none; border-radius: 4px; font-size: 12px;">Extend</button>
+            <button onclick="resetDeviceId('${userId}')" style="padding: 4px 8px; background: #17a2b8; color: white; border: none; border-radius: 4px; font-size: 12px;">Reset Device</button>
           </div>
         `;
         
@@ -3951,10 +3952,11 @@ function loadUserList() {
             ${userData.createdAt ? `<div style="font-size: 11px; color: #666;">Created: ${new Date(userData.createdAt).toLocaleDateString()}</div>` : ''}
           </td>
           <td style="padding: 12px; border-bottom: 1px solid #ddd;">
-            <div style="display: flex; gap: 4px;">
+            <div style="display: flex; gap: 4px; flex-wrap: wrap;">
               <button onclick="editUser('${userId}')" style="padding: 4px 8px; background: #6c4fc1; color: white; border: none; border-radius: 4px; font-size: 11px;">Edit</button>
               <button onclick="deleteUser('${userId}')" style="padding: 4px 8px; background: #dc3545; color: white; border: none; border-radius: 4px; font-size: 11px;">Delete</button>
               <button onclick="extendUser('${userId}')" style="padding: 4px 8px; background: #28a745; color: white; border: none; border-radius: 4px; font-size: 11px;">Extend</button>
+              <button onclick="resetDeviceId('${userId}')" style="padding: 4px 8px; background: #17a2b8; color: white; border: none; border-radius: 4px; font-size: 11px;">Reset Device</button>
             </div>
           </td>
         `;
@@ -5145,6 +5147,26 @@ function extendUser(userId) {
     .catch(error => {
       console.error('Error extending user:', error);
       NotificationManager.showToast('Error extending user');
+    });
+}
+
+// Reset a user's device binding so next login binds to the current device
+function resetDeviceId(userId) {
+  if (!userId) return;
+  const confirmMsg = 'Reset this user\'s device binding?\n\nThis clears the stored device ID so the next successful login binds to the new device.';
+  if (!confirm(confirmMsg)) return;
+
+  // Setting to empty string maintains compatibility with existing checks (allEmpty detection)
+  db.ref(`users/${userId}/deviceId`).set('')
+    .then(() => {
+      NotificationManager.showToast('Device binding cleared');
+      // Refresh lists if present
+      try { loadAllUsers(); } catch(_) {}
+      try { loadUserList(); } catch(_) {}
+    })
+    .catch(err => {
+      console.error('Error resetting device ID:', err);
+      NotificationManager.showToast('Error resetting device ID');
     });
 }
 
