@@ -79,6 +79,16 @@ class ThemeManager {
   }
 }
 
+// Detect if app-origin (client-side stand-in for server header check)
+function isFromApp() {
+  try {
+    const ua = navigator.userAgent || '';
+    return ua.includes('RaedApp/1.0');
+  } catch (_) {
+    return false;
+  }
+}
+
 // Global navigation helpers
 class Navigation {
   static goToMainPage() {
@@ -122,6 +132,21 @@ class ProgressTracker {
       if (snapshot.exists()) {
         snapshot.forEach(child => {
           databaseUserID = child.key; // This is the database user ID
+        });
+
+        // Enforce: students may only access via official app
+        firebase.auth().onAuthStateChanged((user) => {
+          if (!user) return;
+          try {
+            firebase.database().ref('users').orderByChild('email').equalTo(user.email).once('value').then(s => {
+              if (!s.exists()) return;
+              const data = Object.values(s.val())[0] || {};
+              if (data.type === 'student' && !isFromApp()) {
+                NotificationManager.showToast('Access allowed only from the official app');
+                firebase.auth().signOut();
+              }
+            });
+          } catch (_) {}
         });
       }
     } catch (error) {

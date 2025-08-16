@@ -17,6 +17,18 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 
+// Detect if request is coming from the official app (stand-in for server header check)
+function isFromApp() {
+  try {
+    const ua = navigator.userAgent || '';
+    // Match your app’s custom UA segment (e.g., set by Capacitor/Android WebView)
+    // Example expected: 'RaedApp/1.0'
+    return ua.includes('RaedApp/1.0');
+  } catch (_) {
+    return false;
+  }
+}
+
 function getDeviceId() {
   let id = localStorage.getItem('device_id');
   if (!id) {
@@ -59,6 +71,15 @@ function login() {
             snapshot.forEach(child => {
               const user = child.val();
               const userRef = db.ref('users/' + child.key);
+
+              // Students must log in from the mobile app (UA-based check).
+              if ((user.type === 'student') && !isFromApp()) {
+                NotificationManager.showToast("Login allowed only from the official app");
+                valid = false;
+                // Ensure sign out so token isn't kept
+                try { firebase.auth().signOut(); } catch (_) {}
+                return; // skip further checks for this record
+              }
 
               if (!user.deviceId) {
                 userRef.update({ deviceId: deviceId });
@@ -113,8 +134,26 @@ document.getElementById('email').addEventListener('input', function() {
 
 firebase.auth().onAuthStateChanged(function(user) {
   if (user) {
-    Navigation.goToMainPage();
+    // Double-check user record to enforce student app-only rule even if token is present
+    const email = user.email || '';
+    db.ref('users').orderByChild('email').equalTo(email).once('value').then(snapshot => {
+      if (!snapshot.exists()) {
+        return Navigation.goToMainPage();
+      }
+      let allowed = true;
+      snapshot.forEach(child => {
+        const u = child.val();
+        if ((u.type === 'student') && !isFromApp()) {
+          allowed = false;
+        }
+      });
+      if (!allowed) {
+        NotificationManager.showToast('Access allowed only from the official app');
+        try { firebase.auth().signOut(); } catch (_) {}
+        return;
+      }
+      Navigation.goToMainPage();
+    }).catch(() => Navigation.goToMainPage());
   }
-  // Do NOT redirect to index.html again if not logged in
-  // Just stay on the login page
+  // Do NOT redirect to index.html again if not logged in; stay on login page
 });
