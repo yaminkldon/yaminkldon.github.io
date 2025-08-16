@@ -1525,6 +1525,8 @@ function initCustomVideoPlayer(videoPlayer, lessonKey) {
     videoWrapper.style.position = 'fixed';
     videoWrapper.style.zIndex = '20000';
     videoWrapper.style.backgroundColor = '#000';
+  // Smooth transition when rotating/resizing
+  videoWrapper.style.transition = 'transform 300ms ease, width 300ms ease, height 300ms ease, left 300ms ease, top 300ms ease, inset 300ms ease';
     videoWrapper.style.transformOrigin = 'center center';
     // When portrait, rotate 90deg and swap width/height to fill
     if (isPortrait) {
@@ -1556,6 +1558,13 @@ function initCustomVideoPlayer(videoPlayer, lessonKey) {
     document.body.style.overflow = 'hidden';
     // Apply iOS page-fullscreen layout (works fine on Android too, but we keep Fullscreen API there)
     updateIOSPageFullscreenLayout();
+    // Ensure controls are visible on entry
+    try {
+      customControls.classList.add('visible');
+      setControlsInteractive(true);
+      clearTimeout(controlsTimeout);
+      controlsTimeout = setTimeout(hideControls, 4000);
+    } catch(e) {}
     // Listen to orientation/resize to keep layout correct
     const onResize = () => updateIOSPageFullscreenLayout();
     window.addEventListener('resize', onResize);
