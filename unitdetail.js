@@ -19,6 +19,7 @@ let advancedFeatures = null;
 let currentUnitName = null;
 let currentUnitData = null;
 let currentVideoPlayerCleanup = null;
+let currentHls = null; // hls.js instance when using HLS
 
 // Cache management
 const CacheManager = {
@@ -184,6 +185,20 @@ function ensurePreconnect(href) {
     link.crossOrigin = '';
     document.head.appendChild(link);
   } catch(e) { /* noop */ }
+}
+
+// Load an external script once by id
+function loadScriptOnce(src, id) {
+  return new Promise((resolve, reject) => {
+    if (id && document.getElementById(id)) return resolve();
+    const s = document.createElement('script');
+    if (id) s.id = id;
+    s.src = src;
+    s.async = true;
+    s.onload = () => resolve();
+    s.onerror = (e) => reject(e);
+    document.head.appendChild(s);
+  });
 }
 
 // Initialize page
@@ -549,6 +564,7 @@ function playLesson(lessonKey, lessonData) {
   }
   
   const videoFile = lessonData.videoURL || lessonData.videoFile;
+  const hlsUrl = lessonData.hlsURL || (videoFile && /\.m3u8($|\?)/.test(videoFile) ? videoFile : null);
   
   if (!videoFile) {
     NotificationManager.showToast('No video available for this lesson');
@@ -567,11 +583,100 @@ function playLesson(lessonKey, lessonData) {
   // Prevent body scrolling when modal is open
   document.body.style.overflow = 'hidden';
   
-  // Resolve video URL with caching and fallback
+  const videoPlayer = document.getElementById('video-player');
+  // Always ensure no native controls
+  try { videoPlayer.controls = false; } catch(e) {}
+
+  // If HLS is provided, prefer it for fast start on iOS and desktop
+  if (hlsUrl) {
+    const isiOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    try {
+      videoPlayer.setAttribute('playsinline', '');
+      videoPlayer.setAttribute('webkit-playsinline', '');
+      videoPlayer.setAttribute('disablepictureinpicture', '');
+      videoPlayer.preload = 'metadata';
+    } catch(e) {}
+    // Preconnect common CDNs
+    ensurePreconnect('https://cdn.jsdelivr.net');
+    // Setup watermark and controls when ready
+    const afterReady = () => {
+      addVideoWatermark(userEmail, lessonKey);
+      initCustomVideoPlayer(videoPlayer, lessonKey);
+      const tryPlay = () => videoPlayer.play().catch(()=>{});
+      tryPlay();
+      const onCanPlay = () => { tryPlay(); videoPlayer.removeEventListener('canplay', onCanPlay); };
+      videoPlayer.addEventListener('canplay', onCanPlay);
+    };
+    if (isiOS) {
+      // iOS plays HLS natively
+      videoPlayer.src = hlsUrl;
+      try { videoPlayer.load(); } catch(e) {}
+      afterReady();
+    } else {
+      // Desktop/Android browsers: use hls.js
+      loadScriptOnce('https://cdn.jsdelivr.net/npm/hls.js@latest', 'hlsjs-cdn')
+        .then(() => {
+          if (window.Hls && window.Hls.isSupported()) {
+            // Destroy previous instance if any
+            try { currentHls && currentHls.destroy(); } catch(e) {}
+            const hls = new window.Hls({
+              lowLatencyMode: true,
+              maxBufferLength: 30,
+              backBufferLength: 60,
+              capLevelOnFPSDrop: true
+            });
+            currentHls = hls;
+            hls.attachMedia(videoPlayer);
+            hls.on(window.Hls.Events.MEDIA_ATTACHED, () => {
+              hls.loadSource(hlsUrl);
+            });
+            hls.on(window.Hls.Events.MANIFEST_PARSED, () => {
+              afterReady();
+            });
+            hls.on(window.Hls.Events.ERROR, (event, data) => {
+              console.warn('HLS error:', data);
+              if (data.fatal) {
+                switch (data.type) {
+                  case window.Hls.ErrorTypes.NETWORK_ERROR:
+                    hls.startLoad();
+                    break;
+                  case window.Hls.ErrorTypes.MEDIA_ERROR:
+                    hls.recoverMediaError();
+                    break;
+                  default:
+                    try { hls.destroy(); } catch(e) {}
+                    currentHls = null;
+                    NotificationManager.showToast('Video error. Retrying with fallback…');
+                    // Fallback to direct src if available
+                    videoPlayer.src = hlsUrl;
+                    try { videoPlayer.load(); } catch(e) {}
+                    afterReady();
+                    break;
+                }
+              }
+            });
+          } else {
+            // Browser supports native HLS
+            videoPlayer.src = hlsUrl;
+            try { videoPlayer.load(); } catch(e) {}
+            afterReady();
+          }
+        })
+        .catch(err => {
+          console.error('Failed to load hls.js:', err);
+          // Last resort fallback
+          videoPlayer.src = hlsUrl;
+          try { videoPlayer.load(); } catch(e) {}
+          afterReady();
+        });
+    }
+    return;
+  }
+
+  // Resolve video URL with caching and fallback for MP4
   resolveVideoURL(videoFile)
     .then(({ url, fromCache }) => {
       console.log('Video URL loaded' + (fromCache ? ' (cache)' : ''), url);
-      const videoPlayer = document.getElementById('video-player');
       // Improve iPhone/Safari behavior: keep inline, avoid forced native fullscreen, and load metadata first
       try {
         videoPlayer.setAttribute('playsinline', '');
@@ -1089,6 +1194,19 @@ function initCustomVideoPlayer(videoPlayer, lessonKey) {
   const videoToast = document.getElementById('video-toast');
   const isiOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
   let isPseudoFullscreen = false;
+  // Prevent iOS from entering native fullscreen (keeps custom UI)
+  if (isiOS) {
+    try {
+      videoPlayer.setAttribute('webkit-playsinline', '');
+      videoPlayer.setAttribute('playsinline', '');
+      // Intercept WebKit begin/end fullscreen events (some browsers expose them)
+      const preventIOSFullscreen = (e) => { e.stopPropagation(); e.preventDefault(); };
+      // Older WebKit events
+      videoPlayer.addEventListener('webkitbeginfullscreen', preventIOSFullscreen, true);
+      videoPlayer.addEventListener('webkitendfullscreen', preventIOSFullscreen, true);
+      // Gesture double-tap often triggers fullscreen on iOS; rely on our touch handlers and prevent default clicks
+    } catch(e) {}
+  }
   
   // Create a tap shield overlay (between video and controls) to intercept taps when controls are hidden
   let tapShield = document.getElementById('video-tap-shield');
@@ -1472,6 +1590,13 @@ function initCustomVideoPlayer(videoPlayer, lessonKey) {
     }
   };
   addEventListenerWithCleanup(document, 'fullscreenchange', fullscreenChangeHandler);
+  // Also watch WebKit-specific fullscreen to resync icon if needed
+  const webkitFSHandler = function() {
+    if (!document.webkitFullscreenElement && isPseudoFullscreen) {
+      // no-op; pseudo handled by our toggle
+    }
+  };
+  addEventListenerWithCleanup(document, 'webkitfullscreenchange', webkitFSHandler);
   
   // Orientation change handler for mobile
   const orientationChangeHandler = function() {
@@ -1777,6 +1902,8 @@ function initCustomVideoPlayer(videoPlayer, lessonKey) {
     videoPlayer.currentTime = 0;
   // Ensure pseudo fullscreen is exited on cleanup (iOS)
   try { if (isPseudoFullscreen) exitPseudoFullscreen(); } catch(e) {}
+  // Destroy HLS instance if present
+  try { if (currentHls) { currentHls.destroy(); currentHls = null; } } catch(e) {}
     
     console.log('Video player cleanup completed');
   };
