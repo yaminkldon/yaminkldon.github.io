@@ -87,6 +87,68 @@ function showProgress(show) {
   }
 }
 
+// Auto-submit helpers: trigger login on autofill or Enter/Go
+(function initLoginAutoSubmit(){
+  // Defer until DOM is ready
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initLoginAutoSubmit);
+    return;
+  }
+  const emailEl = document.getElementById('email');
+  const pwdEl = document.getElementById('password');
+  const btn = document.getElementById('login-btn');
+  if (!emailEl || !pwdEl || !btn) return;
+
+  let triggered = false;
+  function isValidEmail(e){ return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e); }
+  function ready(){ return isValidEmail(emailEl.value.trim()) && !!pwdEl.value.trim(); }
+  function tryTrigger(reason){
+    if (triggered) return;
+    if (!ready()) return;
+    triggered = true;
+    // Keep button state consistent
+    btn.disabled = false;
+    login();
+    // Safety: re-arm only after some time in case of failure
+    setTimeout(() => { triggered = false; }, 5000);
+  }
+
+  // Enter/Go key in either field
+  function onKey(e){
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      tryTrigger('enter');
+    }
+  }
+  emailEl.addEventListener('keydown', onKey);
+  pwdEl.addEventListener('keydown', onKey);
+
+  // Input/change updates; on password change (common after autofill), attempt
+  const onChange = () => tryTrigger('change');
+  pwdEl.addEventListener('change', onChange);
+  emailEl.addEventListener('change', onChange);
+
+  // WebKit autofill animation hook (paired with CSS in index.html)
+  const onAnim = (e) => { if (e.animationName === 'onAutoFillStart') setTimeout(() => tryTrigger('autofill-anim'), 100); };
+  emailEl.addEventListener('animationstart', onAnim);
+  pwdEl.addEventListener('animationstart', onAnim);
+
+  // Light polling for cases where no events fire on autofill
+  let last = emailEl.value + '|' + pwdEl.value;
+  const t0 = Date.now();
+  const poll = setInterval(() => {
+    const cur = emailEl.value + '|' + pwdEl.value;
+    if (cur !== last) {
+      last = cur;
+      if (ready()) tryTrigger('poll-change');
+    }
+    if (Date.now() - t0 > 6000 || triggered) { clearInterval(poll); }
+  }, 200);
+
+  // Also try once shortly after load for instant autofill
+  setTimeout(() => tryTrigger('post-load'), 300);
+})();
+
 function login() {
   const email = document.getElementById("email").value.trim();
   const password = document.getElementById("password").value.trim();

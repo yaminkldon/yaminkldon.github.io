@@ -7,6 +7,11 @@
   <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
   <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
   <link rel="stylesheet" href="styles.css" />
+  <style>
+    /* Hook to detect WebKit autofill start */
+    @keyframes onAutoFillStart { from {} to {} }
+    input:-webkit-autofill { animation-name: onAutoFillStart; animation-duration: 0.001s; }
+  </style>
 </head>
 <body>
   <div class="login-container">
@@ -15,9 +20,9 @@
       
     </div>
 
-    <input type="email" id="email" placeholder="Email" autocomplete="email" />
+  <input type="email" id="email" placeholder="Email" autocomplete="email" />
     <span id="email-error" style="color:#ff5252; font-size:14px; display:none;"></span>
-    <input type="password" id="password" placeholder="Password" autocomplete="current-password" />
+  <input type="password" id="password" placeholder="Password" autocomplete="current-password" />
 
     <div class="progress-bar" id="progressBar"></div>
 
