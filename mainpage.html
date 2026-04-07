@@ -637,11 +637,10 @@ body.dark-mode .search-result-description {
   #account-menu { max-width: 90vw; }
 }
 
-/* Stack hero and streak vertically on phones */
+/* On small phones the greeting row stays horizontal (avatar + text + icons) */
 @media (max-width: 700px) {
-  #home-hero > div { flex-direction: column !important; align-items: stretch !important; }
-  #home-hero .qa-btn { width: 100%; justify-content: center; }
-  #hero-avatar { min-width: 56px !important; width: 56px !important; height: 56px !important; }
+  #home-hero .qa-btn { width: 36px !important; justify-content: center; }
+  #hero-avatar { min-width: 40px !important; width: 40px !important; height: 40px !important; }
 }
 
 @media (max-width: 700px) {
@@ -651,12 +650,85 @@ body.dark-mode .search-result-description {
 
 /* Compact typography on small phones */
 @media (max-width: 430px) {
-  #greeting-text { font-size: 16px !important; }
+  #greeting-text { font-size: 15px !important; }
   #greeting-sub { font-size: 12px !important; }
-  .qa-btn { font-size: 14px !important; padding: 8px 10px !important; }
+  .qa-btn { font-size: 14px !important; }
   #stat-units, #stat-lessons { font-size: 20px !important; }
   .streak-card { padding: 12px !important; }
+  #continue-btn-label { font-size: 14px !important; }
 }
+
+/* Continue Learning button */
+#continue-learn-btn {
+  transition: transform 0.1s ease, box-shadow 0.2s ease;
+}
+#continue-learn-btn:hover {
+  transform: scale(1.01);
+  box-shadow: 0 4px 14px rgba(0,0,0,0.14) !important;
+}
+#continue-learn-btn:active {
+  transform: scale(0.99);
+}
+
+/* Subscription card variants */
+.subscription-card-active {
+  background: #fff;
+  border-radius: 12px;
+  padding: 14px 16px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.06);
+}
+.subscription-card-warning {
+  background: #fff8e1;
+  border-radius: 12px;
+  padding: 14px 16px;
+  border-left: 4px solid #ffa000;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.06);
+}
+.subscription-card-expired {
+  background: #ffebee;
+  border-radius: 12px;
+  padding: 14px 16px;
+  border-left: 4px solid #e53935;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.06);
+}
+body.dark-mode .subscription-card-active { background: #2d2d2d; }
+body.dark-mode .subscription-card-warning { background: #3d2e00; border-left-color: #ffa000; }
+body.dark-mode .subscription-card-expired { background: #3d0000; border-left-color: #e53935; }
+body.dark-mode .subscription-card-active .sub-label,
+body.dark-mode .subscription-card-warning .sub-label,
+body.dark-mode .subscription-card-expired .sub-label { color: #ccc; }
+
+/* Unit progress bar (inside drawer) */
+.unit-progress-bar-wrap {
+  height: 4px;
+  background: #e0e0f0;
+  border-radius: 2px;
+  margin: 5px 0 3px;
+  overflow: hidden;
+}
+.unit-progress-bar-fill {
+  height: 100%;
+  background: #6c4fc1;
+  border-radius: 2px;
+  transition: width 0.3s ease;
+}
+body.dark-mode .unit-progress-bar-wrap { background: #444; }
+
+/* Locked unit styling */
+.locked-unit-item {
+  opacity: 0.55;
+}
+.locked-unit-item .unit-name { color: #888; }
+
+/* Streak engagement message */
+#streak-action-msg {
+  font-size: 12px;
+  color: #e65100;
+  margin-top: 6px;
+  font-weight: 600;
+  display: none;
+}
+body.dark-mode #streak-action-msg { color: #ffb74d; }
   </style>
 </head>
 <body>
@@ -803,32 +875,51 @@ body.dark-mode .search-result-description {
   </div>
   
   <div class="main-content" id="main-content">
-    <!-- Home Hero -->
+    <!-- Home Hero: Continue Learning + Subscription Status -->
     <section id="home-hero" class="home-hero" style="width:100%;max-width:900px;background:linear-gradient(135deg,#6c4fc1 0%, #8b7cf6 100%);color:#fff;border-radius:16px;padding:20px 18px;margin-top:18px;box-shadow:0 10px 24px rgba(108,79,193,0.25);">
-      <div style="display:flex;align-items:center;gap:14px;">
+      <!-- Greeting row -->
+      <div style="display:flex;align-items:center;gap:14px;margin-bottom:14px;">
         <div id="hero-avatar" style="min-width:48px;width:48px;height:48px;border-radius:50%;background:#ffffff22;display:flex;align-items:center;justify-content:center;font-weight:700;">
           <span id="hero-initials">--</span>
         </div>
-        <div style="flex:1;">
-          <div id="greeting-text" style="font-size:18px;font-weight:700;">Hi there</div>
-          <div id="greeting-sub" style="opacity:0.9;margin-top:2px;">Welcome back</div>
+        <div style="flex:1;min-width:0;">
+          <div id="greeting-text" style="font-size:18px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Hi there</div>
+          <div id="greeting-sub" style="opacity:0.9;margin-top:2px;font-size:13px;">Ready to continue learning?</div>
         </div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap;">
-          <button class="qa-btn" onclick="openSearchFromAppbar()" style="display:flex;align-items:center;gap:6px;background:#fff;color:#222c5c;border:none;border-radius:20px;padding:8px 12px;font-weight:600;cursor:pointer;">
-            <span class="material-icons" style="font-size:18px;">search</span> Search
+        <div style="display:flex;gap:6px;flex-shrink:0;">
+          <button class="qa-btn" onclick="openSearchFromAppbar()" title="Search" style="display:flex;align-items:center;justify-content:center;background:#ffffff22;color:#fff;border:none;border-radius:50%;width:36px;height:36px;padding:0;cursor:pointer;">
+            <span class="material-icons" style="font-size:18px;">search</span>
           </button>
-          <button class="qa-btn" onclick="openAssignments()" style="display:flex;align-items:center;gap:6px;background:#fff;color:#222c5c;border:none;border-radius:20px;padding:8px 12px;font-weight:600;cursor:pointer;">
-            <span class="material-icons" style="font-size:18px;">assignment</span> Assignments
-          </button>
-          <button class="qa-btn" onclick="openProgress()" style="display:flex;align-items:center;gap:6px;background:#fff;color:#222c5c;border:none;border-radius:20px;padding:8px 12px;font-weight:600;cursor:pointer;">
-            <span class="material-icons" style="font-size:18px;">trending_up</span> Progress
+          <button class="qa-btn" onclick="openProgress()" title="Progress" style="display:flex;align-items:center;justify-content:center;background:#ffffff22;color:#fff;border:none;border-radius:50%;width:36px;height:36px;padding:0;cursor:pointer;">
+            <span class="material-icons" style="font-size:18px;">trending_up</span>
           </button>
         </div>
       </div>
+
+      <!-- BIG Continue Learning Button -->
+      <button id="continue-learn-btn" onclick="continueLastLesson()" style="width:100%;background:#fff;color:#6c4fc1;border:none;border-radius:12px;padding:14px 16px;display:flex;align-items:center;gap:12px;cursor:pointer;margin-bottom:12px;box-shadow:0 2px 8px rgba(0,0,0,0.1);text-align:left;">
+        <span class="material-icons" style="font-size:32px;color:#6c4fc1;flex-shrink:0;">play_circle_filled</span>
+        <div style="flex:1;min-width:0;">
+          <div id="continue-btn-label" style="font-weight:700;font-size:15px;color:#222c5c;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Start Learning</div>
+          <div id="continue-btn-sublabel" style="font-size:12px;color:#888;margin-top:2px;">Tap to begin your journey</div>
+        </div>
+        <span class="material-icons" style="color:#6c4fc1;flex-shrink:0;">chevron_right</span>
+      </button>
+
+      <!-- Subscription Status Bar -->
+      <div id="subscription-status-bar" style="background:#ffffff18;border-radius:8px;padding:10px 14px;display:flex;align-items:center;gap:8px;">
+        <span class="material-icons" id="sub-status-icon" style="font-size:18px;">hourglass_empty</span>
+        <span id="sub-status-text" style="font-size:13px;font-weight:500;">Loading subscription status...</span>
+      </div>
+    </section>
+
+    <!-- Subscription Card (expanded detail below hero) -->
+    <section id="subscription-card" style="display:none;width:100%;max-width:900px;margin-top:12px;">
+      <div id="subscription-card-inner"></div>
     </section>
 
     <!-- Quick Stats -->
-    <section id="home-stats" class="home-stats" style="display:grid;grid-template-columns:repeat(2,minmax(120px,1fr));gap:12px;width:100%;max-width:900px;margin-top:16px;">
+    <section id="home-stats" class="home-stats" style="display:grid;grid-template-columns:repeat(2,minmax(120px,1fr));gap:12px;width:100%;max-width:900px;margin-top:12px;">
       <div class="stat-card" style="background:#fff;border-radius:12px;padding:14px;box-shadow:0 2px 10px rgba(0,0,0,0.06);">
         <div style="font-size:12px;color:#666;">Units</div>
         <div id="stat-units" style="font-size:22px;font-weight:800;color:#222c5c;">0</div>
@@ -847,14 +938,15 @@ body.dark-mode .search-result-description {
           <div id="streak-title" style="font-weight:800;color:#222c5c;">Current streak: 0 days</div>
           <div id="streak-sub" style="font-size:12px;color:#666;margin-top:2px;">This week: 0/7 days active</div>
           <div id="streak-week" style="display:flex;gap:6px;margin-top:8px;"></div>
+          <div id="streak-action-msg"></div>
         </div>
-        <button onclick="openProgress()" style="background:#6c4fc1;color:#fff;border:none;border-radius:8px;padding:8px 10px;font-weight:600;cursor:pointer;">View progress</button>
+        <button onclick="openProgress()" style="background:#6c4fc1;color:#fff;border:none;border-radius:8px;padding:8px 10px;font-weight:600;cursor:pointer;">View</button>
       </div>
     </section>
 
     <!-- Recent Lessons -->
     <section id="recent-section" style="width:100%;max-width:900px;margin-top:18px;display:none;">
-      <div class="section-title" style="font-weight:700;color:#222c5c;margin-bottom:8px;">Continue learning</div>
+      <div class="section-title" style="font-weight:700;color:#222c5c;margin-bottom:8px;">Recent Lessons</div>
       <div id="recent-list" class="recent-list" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;"></div>
     </section>
     <div class="lesson-grid" id="lesson-grid"></div>
@@ -1104,24 +1196,47 @@ body.dark-mode .search-result-description {
         // Add units
         Object.keys(units).forEach(unitKey => {
           const unit = units[unitKey];
+          const isLocked = unit && (unit.locked === true || unit.locked === 1);
+          // Use shared helper from mainpage.js if available, else inline fallback
+          const displayName = (typeof formatUnitName === 'function')
+            ? formatUnitName(unitKey, unit)
+            : (unit && (unit.title || unit.name)) || unitKey;
+          
           const li = document.createElement('li');
-          li.onclick = () => {
-            if (typeof openUnit === 'function') {
-              openUnit(unitKey);
-            } else {
-              // Fallback navigation
-              window.location.href = `unitdetail.html?unit=${encodeURIComponent(unitKey)}`;
-            }
-          };
+          if (isLocked) {
+            li.className = 'locked-unit-item';
+            // Use shared helper from mainpage.js if available
+            li.onclick = () => {
+              if (typeof showLockedUnitMessage === 'function') {
+                showLockedUnitMessage();
+              } else if (typeof NotificationManager !== 'undefined' && typeof NotificationManager.showToast === 'function') {
+                NotificationManager.showToast('🔒 Subscribe to unlock this unit');
+              } else {
+                alert('🔒 Subscribe to unlock this unit');
+              }
+            };
+          } else {
+            li.onclick = () => {
+              if (typeof openUnit === 'function') {
+                openUnit(unitKey);
+              } else {
+                window.location.href = `unitdetail.html?unit=${encodeURIComponent(unitKey)}`;
+              }
+            };
+          }
           li.innerHTML = `
             <div class="unit-item">
-              <div class="unit-info">
-                <div class="unit-name">${unit.name || unitKey}</div>
+              <div class="unit-info" style="flex:1;padding-right:6px;">
+                <div class="unit-name" style="display:flex;align-items:center;gap:6px;">
+                  ${isLocked ? '<span class="material-icons" style="font-size:16px;color:#ff7043;flex-shrink:0;">lock</span>' : ''}
+                  <span style="flex:1;">${displayName}</span>
+                </div>
               </div>
+              ${!isLocked ? `
               <button class="unit-files-btn" onclick="event.stopPropagation(); openStudentFileViewer('${unitKey}', null)" style="margin: 0%; width: 50%;">
                 <span class="material-icons">folder</span>
                 Files
-              </button>
+              </button>` : ''}
             </div>
           `;
           unitsList.appendChild(li);
@@ -1325,6 +1440,12 @@ body.dark-mode .search-result-description {
       if (su) su.textContent = String(units.length);
       if (sl) sl.textContent = String(lessonsCount);
 
+      // Continue Learning button
+      renderContinueLearningButton();
+
+      // Subscription data (loads from Firebase)
+      loadSubscriptionData();
+
       // Recent lessons
       let recent = [];
       try { recent = JSON.parse(localStorage.getItem('recentLessons') || '[]'); } catch (e) {}
@@ -1339,12 +1460,11 @@ body.dark-mode .search-result-description {
           card.className = 'recent-card';
           card.style.cssText = 'background:#fff;border-radius:10px;box-shadow:0 2px 10px rgba(0,0,0,0.06);overflow:hidden;cursor:pointer;';
           card.onclick = () => {
-            // Navigate to unit detail and optionally deep-link
             window.location.href = `unitdetail.html?unit=${encodeURIComponent(r.unitId)}`;
           };
-      card.innerHTML = `
+          card.innerHTML = `
             <div style="width:100%;height:110px;background:#f0f1f6;display:block;overflow:hidden;">
-        ${r.thumbnailURL ? `<img src="${r.thumbnailURL}" alt="thumb" loading="lazy" decoding="async" style="width:100%;height:100%;object-fit:cover;">` : ''}
+              ${r.thumbnailURL ? `<img src="${r.thumbnailURL}" alt="thumb" loading="lazy" decoding="async" style="width:100%;height:100%;object-fit:cover;">` : ''}
             </div>
             <div style="padding:10px 12px;">
               <div style="font-weight:700;color:#222c5c;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${r.title || r.lessonKey}</div>
@@ -1359,6 +1479,150 @@ body.dark-mode .search-result-description {
 
       // Streak card
       try { renderStreakCard(recent); } catch (e) { console.warn('streak render failed', e); }
+    }
+
+    // Populate the Continue Learning button based on last viewed lesson
+    function renderContinueLearningButton() {
+      let recent = [];
+      try { recent = JSON.parse(localStorage.getItem('recentLessons') || '[]'); } catch (e) {}
+
+      const btnLabel = document.getElementById('continue-btn-label');
+      const btnSublabel = document.getElementById('continue-btn-sublabel');
+      if (!btnLabel || !btnSublabel) return;
+
+      if (recent && recent.length > 0) {
+        recent.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+        const last = recent[0];
+        const lessonName = last.title || last.lessonKey || 'Last Lesson';
+        const unitName = last.unitId || '';
+        btnLabel.textContent = `Continue: ${lessonName}`;
+        btnSublabel.textContent = unitName ? `📚 ${unitName}` : 'Resume where you left off';
+      } else {
+        btnLabel.textContent = 'Start Learning';
+        btnSublabel.textContent = 'Tap the menu icon to browse units';
+      }
+    }
+
+    // Navigate to the last opened lesson, or open the drawer if none
+    function continueLastLesson() {
+      let recent = [];
+      try { recent = JSON.parse(localStorage.getItem('recentLessons') || '[]'); } catch (e) {}
+
+      if (recent && recent.length > 0) {
+        recent.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+        const last = recent[0];
+        if (last.unitId) {
+          window.location.href = `unitdetail.html?unit=${encodeURIComponent(last.unitId)}`;
+          return;
+        }
+      }
+      // No history — open the drawer so user can pick a unit
+      try { openDrawer(); } catch (e) {}
+    }
+
+    // Load subscription info from Firebase and update the UI
+    function loadSubscriptionData() {
+      const user = (window.firebase && firebase.auth) ? firebase.auth().currentUser : null;
+      if (!user) return;
+
+      const statusIcon = document.getElementById('sub-status-icon');
+      const statusText = document.getElementById('sub-status-text');
+      const subCard = document.getElementById('subscription-card');
+      const subCardInner = document.getElementById('subscription-card-inner');
+
+      if (window.db) {
+        window.db.ref('users').orderByChild('email').equalTo(user.email).once('value')
+          .then(snapshot => {
+            if (!snapshot.exists()) return;
+            let userData = null;
+            snapshot.forEach(child => { userData = child.val(); });
+            if (!userData) return;
+
+            const expirationDate = userData.expirationDate;
+            const planType = userData.planType || userData.plan || 'Monthly';
+            const now = Date.now();
+
+            if (!expirationDate) {
+              if (statusIcon) statusIcon.textContent = 'verified';
+              if (statusText) statusText.textContent = '✅ Subscription: Lifetime access';
+              renderSubscriptionCard(subCard, subCardInner, 'active', null, null, planType);
+              return;
+            }
+
+            const expDate = new Date(expirationDate);
+            const daysLeft = Math.ceil((expirationDate - now) / (1000 * 60 * 60 * 24));
+
+            if (daysLeft <= 0) {
+              if (statusIcon) statusIcon.textContent = 'warning';
+              if (statusText) statusText.textContent = '⚠️ Subscription expired — renew to continue';
+              renderSubscriptionCard(subCard, subCardInner, 'expired', expDate, daysLeft, planType);
+            } else if (daysLeft <= 7) {
+              if (statusIcon) statusIcon.textContent = 'schedule';
+              if (statusText) statusText.textContent = `⏳ Expires in ${daysLeft} day${daysLeft === 1 ? '' : 's'} — renew soon!`;
+              renderSubscriptionCard(subCard, subCardInner, 'warning', expDate, daysLeft, planType);
+            } else if (daysLeft <= 30) {
+              if (statusIcon) statusIcon.textContent = 'schedule';
+              if (statusText) statusText.textContent = `⏳ Subscription expires in ${daysLeft} days`;
+              renderSubscriptionCard(subCard, subCardInner, 'active', expDate, daysLeft, planType);
+            } else {
+              if (statusIcon) statusIcon.textContent = 'verified';
+              if (statusText) statusText.textContent = `✅ Active · Expires ${expDate.toLocaleDateString()}`;
+              renderSubscriptionCard(subCard, subCardInner, 'active', expDate, daysLeft, planType);
+            }
+          })
+          .catch(err => console.error('Error loading subscription data:', err));
+      }
+    }
+
+    // Render subscription detail card
+    function renderSubscriptionCard(container, inner, status, expDate, daysLeft, planType) {
+      if (!container || !inner) return;
+      container.style.display = 'block';
+      const plan = planType || 'Monthly';
+      const expString = expDate
+        ? expDate.toLocaleDateString(undefined, { day: '2-digit', month: 'short', year: 'numeric' })
+        : 'Never';
+
+      if (status === 'expired') {
+        inner.className = 'subscription-card-expired';
+        inner.innerHTML = `
+          <div style="display:flex;align-items:center;gap:10px;">
+            <span class="material-icons" style="color:#e53935;font-size:28px;">error_outline</span>
+            <div>
+              <div style="font-weight:700;color:#c62828;font-size:15px;">⚠️ Your access has expired</div>
+              <div class="sub-label" style="font-size:13px;color:#666;margin-top:2px;">Renew your subscription to continue learning</div>
+            </div>
+          </div>
+          <div class="sub-label" style="margin-top:10px;padding-top:10px;border-top:1px solid #ffcdd2;font-size:12px;color:#888;">
+            Plan: ${plan} &nbsp;|&nbsp; Expired: ${expString}
+          </div>`;
+      } else if (status === 'warning') {
+        inner.className = 'subscription-card-warning';
+        inner.innerHTML = `
+          <div style="display:flex;align-items:center;gap:10px;">
+            <span class="material-icons" style="color:#ffa000;font-size:26px;">schedule</span>
+            <div>
+              <div style="font-weight:700;color:#e65100;font-size:14px;">⏳ Subscription expires soon</div>
+              <div class="sub-label" style="font-size:13px;color:#666;margin-top:2px;">Only ${daysLeft} day${daysLeft === 1 ? '' : 's'} remaining</div>
+            </div>
+          </div>
+          <div class="sub-label" style="margin-top:10px;padding-top:10px;border-top:1px solid #ffe0b2;font-size:12px;color:#888;">
+            Plan: ${plan} &nbsp;|&nbsp; Expires: ${expString}
+          </div>`;
+      } else {
+        inner.className = 'subscription-card-active';
+        inner.innerHTML = `
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
+            <div>
+              <div style="font-weight:600;color:#333;font-size:14px;">Subscription</div>
+              <div class="sub-label" style="font-size:12px;color:#666;margin-top:2px;">
+                Plan: ${plan} &nbsp;|&nbsp; Status: <span style="color:#2e7d32;font-weight:600;">Active</span>
+              </div>
+              <div class="sub-label" style="font-size:12px;color:#666;margin-top:2px;">Expires: ${expString}</div>
+            </div>
+            <span class="material-icons" style="color:#2e7d32;font-size:28px;">verified</span>
+          </div>`;
+      }
     }
 
     // Account menu interactions
@@ -1379,7 +1643,6 @@ body.dark-mode .search-result-description {
     })();
 
     function gotoProfile(){
-      // Navigate to settings profile page or a dedicated profile page if available
       if (typeof openSettings === 'function') {
         openSettings();
       } else {
@@ -1392,7 +1655,10 @@ body.dark-mode .search-result-description {
       const title = document.getElementById('streak-title');
       const sub = document.getElementById('streak-sub');
       const week = document.getElementById('streak-week');
+      const actionMsg = document.getElementById('streak-action-msg');
       if (!streakSection || !title || !sub || !week) return;
+
+      const MAX_STREAK_LOOKBACK_DAYS = 365;
 
       // Build a set of activity dates (YYYY-MM-DD)
       const dateKey = (t)=>{
@@ -1408,14 +1674,14 @@ body.dark-mode .search-result-description {
       // Compute current streak (consecutive days ending today)
       let streak = 0;
       const today = new Date();
-      for (let i=0;i<365;i++){
+      for (let i=0;i<MAX_STREAK_LOOKBACK_DAYS;i++){
         const d = new Date();
         d.setDate(today.getDate()-i);
         const key = dateKey(d.getTime());
         if (activity.has(key)) streak++; else break;
       }
 
-      // Compute this week (Mon..Sun) or Sun..Sat depending on locale; we'll use Sun..Sat
+      // Compute this week (Sun..Sat)
       const now = new Date();
       const dow = now.getDay(); // 0=Sun
       const weekStart = new Date(now);
@@ -1441,8 +1707,47 @@ body.dark-mode .search-result-description {
       });
 
       const activeCount = days.filter(d=>d.active).length;
-      title.textContent = `Current streak: ${streak} day${streak===1?'':'s'}`;
-      sub.textContent = `This week: ${activeCount}/7 days active`;
+      const todayKey = dateKey(now.getTime());
+      const studiedToday = activity.has(todayKey);
+
+      // Calculate "yesterday streak": consecutive days ending with yesterday
+      // (so we can show motivation even if user hasn't studied today yet)
+      let yesterdayStreak = 0;
+      for (let i = 1; i < MAX_STREAK_LOOKBACK_DAYS; i++) {
+        const d = new Date();
+        d.setDate(now.getDate() - i);
+        const key = dateKey(d.getTime());
+        if (activity.has(key)) yesterdayStreak++; else break;
+      }
+
+      // Display streak = today's streak if studied today, otherwise yesterday's streak
+      const displayStreak = studiedToday ? streak : yesterdayStreak;
+
+      title.textContent = `🔥 ${displayStreak} day${displayStreak === 1 ? '' : 's'} streak`;
+
+      // Engagement-driven sub-text
+      let engagementMsg = '';
+      if (displayStreak === 0) {
+        engagementMsg = 'Start today to build your streak!';
+      } else if (activeCount < 3) {
+        engagementMsg = `You studied ${activeCount} day${activeCount===1?'':'s'} this week — keep going!`;
+      } else if (activeCount < 7) {
+        engagementMsg = `You studied ${activeCount}/7 days this week 🚀`;
+      } else {
+        engagementMsg = '🏆 Perfect week! You studied every day!';
+      }
+      sub.textContent = engagementMsg;
+
+      // Action prompt: remind user if streak is at risk today
+      if (actionMsg) {
+        if (yesterdayStreak > 0 && !studiedToday) {
+          actionMsg.textContent = '⚡ Complete 1 lesson today to keep your streak!';
+          actionMsg.style.display = 'block';
+        } else {
+          actionMsg.style.display = 'none';
+        }
+      }
+
       streakSection.style.display = 'block';
     }
   </script>

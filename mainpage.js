@@ -229,25 +229,39 @@ function displayUnits(unitsData, userProgress) {
   if (unitsData) {
     Object.keys(unitsData).forEach(unitName => {
       const unitData = unitsData[unitName];
+      const isLocked = unitData && (unitData.locked === true || unitData.locked === 1);
       
       // Calculate progress for this unit
       const progress = calculateUnitProgress(unitName, unitData, userProgress);
+      const displayName = formatUnitName(unitName, unitData);
       
       const li = document.createElement('li');
-      li.onclick = () => goToUnit(unitName);
+      if (isLocked) {
+        li.className = 'locked-unit-item';
+        li.onclick = () => showLockedUnitMessage();
+      } else {
+        li.onclick = () => goToUnit(unitName);
+      }
       li.innerHTML = `
         <div class="unit-item">
-          <div class="unit-info">
-            <div class="unit-name">${unitName}</div>
+          <div class="unit-info" style="flex:1;padding-right:6px;">
+            <div class="unit-name" style="display:flex;align-items:center;gap:6px;">
+              ${isLocked ? '<span class="material-icons" style="font-size:16px;color:#ff7043;flex-shrink:0;">lock</span>' : ''}
+              <span style="flex:1;">${displayName}</span>
+            </div>
+            <div class="unit-progress-bar-wrap">
+              <div class="unit-progress-bar-fill" style="width:${progress.percentage}%"></div>
+            </div>
             <div class="unit-progress">
               ${progress.completed}/${progress.total} lessons
-              ${progress.percentage > 0 ? `(${progress.percentage}%)` : ''}
+              ${progress.percentage > 0 ? `· ${progress.percentage}%` : ''}
             </div>
           </div>
+          ${!isLocked ? `
           <button class="unit-files-btn" onclick="event.stopPropagation(); openStudentFileViewer('${unitName}', null)" style="margin: 0%; width: 50%;">
             <span class="material-icons">folder</span>
             Files
-          </button>
+          </button>` : ''}
         </div>
       `;
       
@@ -334,21 +348,55 @@ function displayUnitsWithoutProgress(unitsData) {
   
   if (unitsData) {
     Object.keys(unitsData).forEach(unitName => {
+      const unitData = unitsData[unitName];
+      const isLocked = unitData && (unitData.locked === true || unitData.locked === 1);
+      const displayName = formatUnitName(unitName, unitData);
+      
       const li = document.createElement('li');
-      li.onclick = () => goToUnit(unitName);
+      if (isLocked) {
+        li.className = 'locked-unit-item';
+        li.onclick = () => showLockedUnitMessage();
+      } else {
+        li.onclick = () => goToUnit(unitName);
+      }
       li.innerHTML = `
         <div class="unit-item">
-          <div class="unit-info">
-            <div class="unit-name">${unitName}</div>
+          <div class="unit-info" style="flex:1;padding-right:6px;">
+            <div class="unit-name" style="display:flex;align-items:center;gap:6px;">
+              ${isLocked ? '<span class="material-icons" style="font-size:16px;color:#ff7043;flex-shrink:0;">lock</span>' : ''}
+              <span style="flex:1;">${displayName}</span>
+            </div>
           </div>
+          ${!isLocked ? `
           <button class="unit-files-btn" onclick="event.stopPropagation(); openStudentFileViewer('${unitName}', null)" style="margin: 0%; width: 50%;">
             <span class="material-icons">folder</span>
             Files
-          </button>
+          </button>` : ''}
         </div>
       `;
       unitsList.appendChild(li);
     });
+  }
+}
+
+// Format a unit name for display (use title if present, otherwise prettify the key)
+function formatUnitName(unitName, unitData) {
+  if (unitData && unitData.title) return unitData.title;
+  // Prettify the key: replace separators, capitalize
+  return unitName
+    .replace(/[-_]/g, ' ')
+    .replace(/([a-z])([A-Z])/g, '$1 $2')
+    .split(' ')
+    .map(w => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(' ');
+}
+
+// Show a message when the user taps a locked unit
+function showLockedUnitMessage() {
+  if (typeof NotificationManager !== 'undefined' && typeof NotificationManager.showToast === 'function') {
+    NotificationManager.showToast('🔒 Subscribe to unlock this unit');
+  } else {
+    alert('🔒 Subscribe to unlock this unit');
   }
 }
 
