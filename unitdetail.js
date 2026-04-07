@@ -570,6 +570,20 @@ function playLesson(lessonKey, lessonData) {
     NotificationManager.showToast('No video available for this lesson');
     return;
   }
+
+  try {
+    const entry = {
+      unitId: currentUnitName || '',
+      lessonKey: lessonKey || '',
+      title: lessonKey || '',
+      thumbnailURL: lessonData && lessonData.thumbnailURL ? lessonData.thumbnailURL : '',
+      description: lessonData && lessonData.description ? lessonData.description : '',
+      timestamp: Date.now()
+    };
+    localStorage.setItem('lastOpenedLesson', JSON.stringify(entry));
+  } catch (e) {
+    console.warn('Failed to save lastOpenedLesson:', e);
+  }
   
   // Get current user email for watermark
   const currentUser = firebase.auth().currentUser;

@@ -657,6 +657,95 @@ body.dark-mode .search-result-description {
   #stat-units, #stat-lessons { font-size: 20px !important; }
   .streak-card { padding: 12px !important; }
 }
+
+.learn-top-card {
+  width: 100%;
+  max-width: 900px;
+  background: linear-gradient(135deg, #6c4fc1 0%, #8b7cf6 100%);
+  color: #fff;
+  border-radius: 16px;
+  padding: 18px;
+  margin-top: 18px;
+  box-shadow: 0 10px 24px rgba(108,79,193,0.25);
+}
+
+.continue-btn {
+  width: 100%;
+  border: none;
+  border-radius: 14px;
+  padding: 14px;
+  font-size: 16px;
+  font-weight: 700;
+  background: #fff;
+  color: #222c5c;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.status-card {
+  width: 100%;
+  max-width: 900px;
+  margin-top: 12px;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.06);
+  padding: 14px 16px;
+}
+
+.units-cards {
+  width: 100%;
+  max-width: 900px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 12px;
+}
+
+.unit-card {
+  background: #fff;
+  border-radius: 12px;
+  border: 1px solid #eee;
+  padding: 14px;
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.unit-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(0,0,0,0.1);
+}
+
+.unit-card.locked {
+  background: #f5f5f5;
+  border-color: #dddddd;
+  color: #777;
+}
+
+.mini-progress {
+  height: 8px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: #ece9f4;
+  margin-top: 8px;
+}
+
+.mini-progress > div {
+  height: 100%;
+  background: #6c4fc1;
+}
+
+body.dark-mode .status-card,
+body.dark-mode .unit-card {
+  background: #2d2d2d;
+  border-color: #444;
+}
+
+body.dark-mode .unit-card.locked {
+  background: #3a3a3a;
+  color: #b7b7b7;
+}
   </style>
 </head>
 <body>
@@ -803,40 +892,23 @@ body.dark-mode .search-result-description {
   </div>
   
   <div class="main-content" id="main-content">
-    <!-- Home Hero -->
-    <section id="home-hero" class="home-hero" style="width:100%;max-width:900px;background:linear-gradient(135deg,#6c4fc1 0%, #8b7cf6 100%);color:#fff;border-radius:16px;padding:20px 18px;margin-top:18px;box-shadow:0 10px 24px rgba(108,79,193,0.25);">
-      <div style="display:flex;align-items:center;gap:14px;">
-        <div id="hero-avatar" style="min-width:48px;width:48px;height:48px;border-radius:50%;background:#ffffff22;display:flex;align-items:center;justify-content:center;font-weight:700;">
-          <span id="hero-initials">--</span>
-        </div>
-        <div style="flex:1;">
-          <div id="greeting-text" style="font-size:18px;font-weight:700;">Hi there</div>
-          <div id="greeting-sub" style="opacity:0.9;margin-top:2px;">Welcome back</div>
-        </div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap;">
-          <button class="qa-btn" onclick="openSearchFromAppbar()" style="display:flex;align-items:center;gap:6px;background:#fff;color:#222c5c;border:none;border-radius:20px;padding:8px 12px;font-weight:600;cursor:pointer;">
-            <span class="material-icons" style="font-size:18px;">search</span> Search
-          </button>
-          <button class="qa-btn" onclick="openAssignments()" style="display:flex;align-items:center;gap:6px;background:#fff;color:#222c5c;border:none;border-radius:20px;padding:8px 12px;font-weight:600;cursor:pointer;">
-            <span class="material-icons" style="font-size:18px;">assignment</span> Assignments
-          </button>
-          <button class="qa-btn" onclick="openProgress()" style="display:flex;align-items:center;gap:6px;background:#fff;color:#222c5c;border:none;border-radius:20px;padding:8px 12px;font-weight:600;cursor:pointer;">
-            <span class="material-icons" style="font-size:18px;">trending_up</span> Progress
-          </button>
-        </div>
-      </div>
+    <section id="home-hero" class="learn-top-card">
+      <div id="greeting-text" style="font-size:18px;font-weight:700;">Welcome back</div>
+      <div id="greeting-sub" style="opacity:0.9;margin-top:4px;">Resume where you stopped</div>
+      <button id="continue-learning-btn" class="continue-btn" style="margin-top:12px;">
+        <span class="material-icons">play_circle</span>
+        Continue Learning
+      </button>
+      <div id="last-lesson-line" style="margin-top:10px;font-size:14px;opacity:0.95;">Continue: No lesson yet</div>
+      <div id="top-subscription-line" style="margin-top:4px;font-size:13px;opacity:0.92;">Checking subscription status...</div>
     </section>
 
-    <!-- Quick Stats -->
-    <section id="home-stats" class="home-stats" style="display:grid;grid-template-columns:repeat(2,minmax(120px,1fr));gap:12px;width:100%;max-width:900px;margin-top:16px;">
-      <div class="stat-card" style="background:#fff;border-radius:12px;padding:14px;box-shadow:0 2px 10px rgba(0,0,0,0.06);">
-        <div style="font-size:12px;color:#666;">Units</div>
-        <div id="stat-units" style="font-size:22px;font-weight:800;color:#222c5c;">0</div>
-      </div>
-      <div class="stat-card" style="background:#fff;border-radius:12px;padding:14px;box-shadow:0 2px 10px rgba(0,0,0,0.06);">
-        <div style="font-size:12px;color:#666;">Lessons</div>
-        <div id="stat-lessons" style="font-size:22px;font-weight:800;color:#222c5c;">0</div>
-      </div>
+    <section id="subscription-section" class="status-card">
+      <div style="font-weight:700;color:#222c5c;">Subscription</div>
+      <div id="subscription-plan" style="margin-top:8px;font-size:14px;color:#444;">Plan: Monthly</div>
+      <div id="subscription-status" style="margin-top:4px;font-size:14px;color:#444;">Status: Active</div>
+      <div id="subscription-expires" style="margin-top:4px;font-size:14px;color:#444;">Expires: --</div>
+      <button id="renew-btn" onclick="openSettings()" style="display:none;margin-top:10px;background:#d32f2f;color:#fff;border:none;border-radius:8px;padding:8px 12px;font-weight:600;cursor:pointer;">Renew to continue learning</button>
     </section>
 
     <!-- Weekly Streak Card -->
@@ -845,17 +917,17 @@ body.dark-mode .search-result-description {
         <span class="material-icons" style="color:#ff7043;">local_fire_department</span>
         <div style="flex:1;">
           <div id="streak-title" style="font-weight:800;color:#222c5c;">Current streak: 0 days</div>
-          <div id="streak-sub" style="font-size:12px;color:#666;margin-top:2px;">This week: 0/7 days active</div>
+          <div id="streak-sub" style="font-size:12px;color:#666;margin-top:2px;">You studied 0 days this week</div>
+          <div id="engagement-trigger" style="font-size:12px;color:#6c4fc1;margin-top:4px;font-weight:600;">Complete 1 lesson to keep streak</div>
           <div id="streak-week" style="display:flex;gap:6px;margin-top:8px;"></div>
         </div>
         <button onclick="openProgress()" style="background:#6c4fc1;color:#fff;border:none;border-radius:8px;padding:8px 10px;font-weight:600;cursor:pointer;">View progress</button>
       </div>
     </section>
 
-    <!-- Recent Lessons -->
-    <section id="recent-section" style="width:100%;max-width:900px;margin-top:18px;display:none;">
-      <div class="section-title" style="font-weight:700;color:#222c5c;margin-bottom:8px;">Continue learning</div>
-      <div id="recent-list" class="recent-list" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;"></div>
+    <section id="units-section" style="width:100%;max-width:900px;margin-top:18px;">
+      <div class="section-title" style="font-weight:700;color:#222c5c;margin-bottom:8px;">Learn</div>
+      <div id="units-cards" class="units-cards"></div>
     </section>
     <div class="lesson-grid" id="lesson-grid"></div>
     <div class="lesson-details" id="lesson-details" style="display:none;"></div>
@@ -1299,63 +1371,143 @@ body.dark-mode .search-result-description {
       const user = (window.firebase && firebase.auth && firebase.auth().currentUser) ? firebase.auth().currentUser : null;
       const initials = getInitialsFromUser(user);
       const chip = document.getElementById('user-initials');
-      const hero = document.getElementById('hero-initials');
       if (chip) chip.textContent = initials;
-      if (hero) hero.textContent = initials;
       const greet = document.getElementById('greeting-text');
       const who = user && (user.displayName || user.email) ? (user.displayName || user.email) : '';
       const prefix = getTimeOfDayGreeting();
       if (greet) greet.textContent = who ? `${prefix}, ${who}` : `${prefix}`;
       const sub = document.getElementById('greeting-sub');
-      if (sub) sub.textContent = 'Ready to continue your learning journey?';
+      if (sub) sub.textContent = 'Resume where you stopped';
+    }
+
+    function formatDateForCard(ts) {
+      if (!ts) return '--';
+      try {
+        return new Date(ts).toLocaleDateString(undefined, { day: '2-digit', month: 'short' });
+      } catch (e) {
+        return '--';
+      }
+    }
+
+    function readLastOpenedLesson(recent) {
+      let last = null;
+      try {
+        last = JSON.parse(localStorage.getItem('lastOpenedLesson') || 'null');
+      } catch (e) {}
+      if (!last && recent && recent.length > 0) {
+        const sorted = [...recent].sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+        last = sorted[0];
+      }
+      return last;
+    }
+
+    function renderSubscriptionCard() {
+      const planEl = document.getElementById('subscription-plan');
+      const statusEl = document.getElementById('subscription-status');
+      const expiresEl = document.getElementById('subscription-expires');
+      const topLine = document.getElementById('top-subscription-line');
+      const renewBtn = document.getElementById('renew-btn');
+      const state = window.subscriptionState || {};
+      const isActive = !!state.isActive;
+      const plan = state.plan || 'Monthly';
+
+      if (planEl) planEl.textContent = `Plan: ${plan}`;
+      if (statusEl) statusEl.textContent = `Status: ${isActive ? 'Active' : 'Expired'}`;
+      if (expiresEl) expiresEl.textContent = `Expires: ${formatDateForCard(state.expiresAt)}`;
+
+      if (isActive) {
+        const daysLeft = typeof state.daysLeft === 'number' ? state.daysLeft : null;
+        if (topLine) {
+          topLine.textContent = daysLeft === null
+            ? 'Subscription active'
+            : `⏳ Subscription expires in ${Math.max(daysLeft, 0)} day${Math.abs(daysLeft) === 1 ? '' : 's'}`;
+        }
+        if (renewBtn) renewBtn.style.display = 'none';
+      } else {
+        if (topLine) topLine.textContent = '⚠️ Your access expired';
+        if (renewBtn) renewBtn.style.display = 'inline-flex';
+      }
+    }
+
+    function renderUnitCards(unitsData, recent) {
+      const cards = document.getElementById('units-cards');
+      if (!cards) return;
+      cards.innerHTML = '';
+
+      const progressCache = (window.CacheManager && window.CacheManager.getCache)
+        ? (window.CacheManager.getCache(window.CacheManager.CACHE_KEYS.PROGRESS) || {})
+        : {};
+
+      const unitNames = Object.keys(unitsData || {});
+      unitNames.forEach(unitName => {
+        const unitData = unitsData[unitName] || {};
+        const lessons = Object.keys(unitData).filter(k => {
+          const item = unitData[k];
+          return item && typeof item === 'object' && (item.videoURL || item.videoFile);
+        });
+        const total = lessons.length;
+        const completed = lessons.filter(k => progressCache[unitName] && progressCache[unitName][k] && progressCache[unitName][k].completed).length;
+        const percent = total > 0 ? Math.round((completed / total) * 100) : 0;
+        const title = (typeof window.getUnitDisplayTitle === 'function') ? window.getUnitDisplayTitle(unitName, unitData) : unitName;
+        const isLocked = !!(window.subscriptionState && window.subscriptionState.userType !== 'teacher' && !window.hasActiveSubscription);
+
+        const card = document.createElement('article');
+        card.className = `unit-card${isLocked ? ' locked' : ''}`;
+        card.onclick = () => {
+          if (isLocked) {
+            if (typeof window.handleLockedUnitClick === 'function') {
+              window.handleLockedUnitClick();
+            }
+            return;
+          }
+          window.goToUnit(unitName);
+        };
+
+        card.innerHTML = `
+          <div style="font-weight:700;color:${isLocked ? '#777' : '#222c5c'};">${isLocked ? '🔒 ' : ''}${title}</div>
+          <div class="mini-progress"><div style="width:${percent}%;background:${isLocked ? '#9e9e9e' : '#6c4fc1'};"></div></div>
+          <div style="margin-top:8px;font-size:12px;color:${isLocked ? '#777' : '#666'};">${completed}/${total} lessons • ${percent}%</div>
+        `;
+        cards.appendChild(card);
+      });
     }
 
     function renderHomeSection() {
-      // Stats from unitsData
-      const units = (window.unitsData) ? Object.keys(window.unitsData) : [];
-      const lessonsCount = units.reduce((acc, unitKey) => {
-        const unit = window.unitsData[unitKey] || {};
-        return acc + Object.keys(unit).filter(k => {
-          const item = unit[k];
-          return item && typeof item === 'object' && (item.videoURL || item.videoFile);
-        }).length;
-      }, 0);
-      const su = document.getElementById('stat-units');
-      const sl = document.getElementById('stat-lessons');
-      if (su) su.textContent = String(units.length);
-      if (sl) sl.textContent = String(lessonsCount);
-
-      // Recent lessons
+      const unitsData = window.unitsData || {};
       let recent = [];
       try { recent = JSON.parse(localStorage.getItem('recentLessons') || '[]'); } catch (e) {}
-      const section = document.getElementById('recent-section');
-      const list = document.getElementById('recent-list');
-      if (list) list.innerHTML = '';
-      if (recent && recent.length > 0) {
-        if (section) section.style.display = 'block';
-        recent.sort((a,b)=> (b.timestamp||0) - (a.timestamp||0));
-        recent.slice(0,8).forEach(r => {
-          const card = document.createElement('div');
-          card.className = 'recent-card';
-          card.style.cssText = 'background:#fff;border-radius:10px;box-shadow:0 2px 10px rgba(0,0,0,0.06);overflow:hidden;cursor:pointer;';
-          card.onclick = () => {
-            // Navigate to unit detail and optionally deep-link
-            window.location.href = `unitdetail.html?unit=${encodeURIComponent(r.unitId)}`;
+
+      const last = readLastOpenedLesson(recent);
+      const continueBtn = document.getElementById('continue-learning-btn');
+      const lastLine = document.getElementById('last-lesson-line');
+      const locked = !!(window.subscriptionState && window.subscriptionState.userType !== 'teacher' && !window.hasActiveSubscription);
+
+      if (last && last.unitId) {
+        const label = `Continue: ${last.unitId} - ${last.lessonKey || 'Lesson'}`;
+        if (lastLine) lastLine.textContent = label;
+        if (continueBtn) {
+          continueBtn.innerHTML = '<span class="material-icons">play_circle</span> Resume Lesson';
+          continueBtn.onclick = function() {
+            if (locked) {
+              if (typeof window.handleLockedUnitClick === 'function') {
+                window.handleLockedUnitClick();
+              }
+              return;
+            }
+            const lessonParam = last.lessonKey ? `&lesson=${encodeURIComponent(last.lessonKey)}` : '';
+            window.location.href = `unitdetail.html?unit=${encodeURIComponent(last.unitId)}${lessonParam}`;
           };
-      card.innerHTML = `
-            <div style="width:100%;height:110px;background:#f0f1f6;display:block;overflow:hidden;">
-        ${r.thumbnailURL ? `<img src="${r.thumbnailURL}" alt="thumb" loading="lazy" decoding="async" style="width:100%;height:100%;object-fit:cover;">` : ''}
-            </div>
-            <div style="padding:10px 12px;">
-              <div style="font-weight:700;color:#222c5c;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${r.title || r.lessonKey}</div>
-              <div style="font-size:12px;color:#666;">${r.unitId}</div>
-            </div>
-          `;
-          if (list) list.appendChild(card);
-        });
+        }
       } else {
-        if (section) section.style.display = 'none';
+        if (lastLine) lastLine.textContent = 'Continue: Pick a unit to start learning';
+        if (continueBtn) {
+          continueBtn.innerHTML = '<span class="material-icons">school</span> Start Learning';
+          continueBtn.onclick = function() { toggleDrawer(); };
+        }
       }
+
+      renderSubscriptionCard();
+      renderUnitCards(unitsData, recent);
 
       // Streak card
       try { renderStreakCard(recent); } catch (e) { console.warn('streak render failed', e); }
@@ -1391,6 +1543,7 @@ body.dark-mode .search-result-description {
       const streakSection = document.getElementById('streak-section');
       const title = document.getElementById('streak-title');
       const sub = document.getElementById('streak-sub');
+      const trigger = document.getElementById('engagement-trigger');
       const week = document.getElementById('streak-week');
       if (!streakSection || !title || !sub || !week) return;
 
@@ -1442,7 +1595,13 @@ body.dark-mode .search-result-description {
 
       const activeCount = days.filter(d=>d.active).length;
       title.textContent = `Current streak: ${streak} day${streak===1?'':'s'}`;
-      sub.textContent = `This week: ${activeCount}/7 days active`;
+      sub.textContent = `You studied ${activeCount} day${activeCount===1?'':'s'} this week`;
+      if (trigger) {
+        const todayActive = days[dow] && days[dow].active;
+        trigger.textContent = todayActive
+          ? 'Great work today. Keep momentum tomorrow.'
+          : 'Complete 1 lesson to keep streak';
+      }
       streakSection.style.display = 'block';
     }
   </script>

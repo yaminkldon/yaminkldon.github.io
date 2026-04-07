@@ -33,6 +33,124 @@ let currentUnit = null;
 let lessons = [];
 let openedLessonKey = null; // Add this at the top with your other globals
 let plyrPlayer = null;
+let subscriptionState = {
+  isActive: true,
+  status: 'Active',
+  plan: 'Monthly',
+  expiresAt: null,
+  daysLeft: null,
+  userType: 'student'
+};
+
+function getUnitDisplayTitle(unitName, unitData) {
+  const metadataName = unitData && typeof unitData.name === 'string' ? unitData.name.trim() : '';
+  if (metadataName) return metadataName;
+
+  const unitMatch = String(unitName).match(/unit\s*[-_]?\s*(\d+)/i);
+  if (unitMatch) {
+    return `Unit ${unitMatch[1]}: Learning Module`;
+  }
+
+  return String(unitName).replace(/[-_]/g, ' ');
+}
+
+function getSubscriptionWarningMessage() {
+  if (!window.subscriptionState || window.subscriptionState.isActive) {
+    return '';
+  }
+  return 'Subscribe to unlock';
+}
+
+function handleLockedUnitClick() {
+  const msg = getSubscriptionWarningMessage() || 'Subscribe to unlock';
+  if (typeof NotificationManager !== 'undefined') {
+    NotificationManager.showToast(msg, 'warning');
+  } else {
+    alert(msg);
+  }
+}
+
+function formatSubscriptionDate(timestamp) {
+  if (!timestamp) return 'N/A';
+  try {
+    return new Date(timestamp).toLocaleDateString(undefined, { day: '2-digit', month: 'short' });
+  } catch (e) {
+    return 'N/A';
+  }
+}
+
+function inferPlanFromDays(daysLeft) {
+  if (typeof daysLeft !== 'number' || Number.isNaN(daysLeft)) {
+    return 'Monthly';
+  }
+  if (daysLeft > 180) return 'Yearly';
+  if (daysLeft > 45) return 'Quarterly';
+  if (daysLeft > 14) return 'Monthly';
+  return 'Short-term';
+}
+
+function loadSubscriptionState() {
+  const user = firebase.auth().currentUser;
+  if (!user || !user.email) {
+    return Promise.resolve(subscriptionState);
+  }
+
+  return db.ref('users').orderByChild('email').equalTo(user.email).once('value')
+    .then(snapshot => {
+      if (!snapshot.exists()) {
+        window.subscriptionState = subscriptionState;
+        window.hasActiveSubscription = subscriptionState.isActive;
+        return subscriptionState;
+      }
+
+      const records = [];
+      snapshot.forEach(child => records.push(child.val() || {}));
+
+      const now = Date.now();
+      const primary = records[0] || {};
+      const userType = primary.type || 'student';
+      const hasTeacherRole = records.some(r => r.type === 'teacher');
+
+      if (hasTeacherRole) {
+        subscriptionState = {
+          isActive: true,
+          status: 'Active',
+          plan: 'Teacher',
+          expiresAt: null,
+          daysLeft: null,
+          userType: 'teacher'
+        };
+      } else {
+        const activeRecord = records.find(r => !r.expirationDate || now <= r.expirationDate) || null;
+        const expiry = activeRecord ? activeRecord.expirationDate : (primary.expirationDate || null);
+        const daysLeft = expiry ? Math.ceil((expiry - now) / (24 * 60 * 60 * 1000)) : null;
+        const isActive = !!activeRecord;
+        subscriptionState = {
+          isActive,
+          status: isActive ? 'Active' : 'Expired',
+          plan: inferPlanFromDays(daysLeft),
+          expiresAt: expiry,
+          daysLeft,
+          userType
+        };
+      }
+
+      window.subscriptionState = subscriptionState;
+      window.hasActiveSubscription = subscriptionState.isActive;
+      return subscriptionState;
+    })
+    .catch(error => {
+      console.error('Error loading subscription state:', error);
+      window.subscriptionState = subscriptionState;
+      window.hasActiveSubscription = subscriptionState.isActive;
+      return subscriptionState;
+    })
+    .finally(() => {
+      if (typeof window.renderHomeSection === 'function') {
+        window.renderHomeSection();
+      }
+    });
+}
 
 // Cache management
 const CacheManager = {
@@ -156,6 +274,7 @@ const CacheManager = {
 // Load units into drawer with smart caching
 function loadUnits() {
   console.log('Loading units with smart cache validation');
+  loadSubscriptionState();
   
   // First, check if we have cached data
   const cachedUnits = CacheManager.getCache(CacheManager.CACHE_KEYS.UNITS);
@@ -229,25 +348,37 @@ function displayUnits(unitsData, userProgress) {
   if (unitsData) {
     Object.keys(unitsData).forEach(unitName => {
       const unitData = unitsData[unitName];
+      const isLocked = window.subscriptionState && window.subscriptionState.userType !== 'teacher' && !window.hasActiveSubscription;
+      const displayTitle = getUnitDisplayTitle(unitName, unitData);
       
       // Calculate progress for this unit
       const progress = calculateUnitProgress(unitName, unitData, userProgress);
       
       const li = document.createElement('li');
-      li.onclick = () => goToUnit(unitName);
+      li.style.opacity = isLocked ? '0.65' : '1';
+      li.onclick = () => isLocked ? handleLockedUnitClick() : goToUnit(unitName);
       li.innerHTML = `
         <div class="unit-item">
           <div class="unit-info">
-            <div class="unit-name">${unitName}</div>
+            <div class="unit-name">${isLocked ? '🔒 ' : ''}${displayTitle}</div>
             <div class="unit-progress">
-              ${progress.completed}/${progress.total} lessons
-              ${progress.percentage > 0 ? `(${progress.percentage}%)` : ''}
+              ${progress.completed}/${progress.total} lessons • ${progress.percentage}%
+            </div>
+            <div style="height: 6px; background: #e9e5f4; border-radius: 999px; margin-top: 8px; overflow: hidden;">
+              <div style="height: 100%; width: ${progress.percentage}%; background: ${isLocked ? '#9e9e9e' : '#6c4fc1'};"></div>
             </div>
           </div>
-          <button class="unit-files-btn" onclick="event.stopPropagation(); openStudentFileViewer('${unitName}', null)" style="margin: 0%; width: 50%;">
-            <span class="material-icons">folder</span>
-            Files
-          </button>
+          ${isLocked ? `
+            <button class="unit-files-btn" onclick="event.stopPropagation(); handleLockedUnitClick()" style="margin: 0%; width: 50%; background:#9e9e9e;">
+              <span class="material-icons">lock</span>
+              Locked
+            </button>
+          ` : `
+            <button class="unit-files-btn" onclick="event.stopPropagation(); openStudentFileViewer('${unitName}', null)" style="margin: 0%; width: 50%;">
+              <span class="material-icons">folder</span>
+              Files
+            </button>
+          `}
         </div>
       `;
       
@@ -257,6 +388,10 @@ function displayUnits(unitsData, userProgress) {
 }
 
 function goToUnit(unitName) {
+  if (window.subscriptionState && window.subscriptionState.userType !== 'teacher' && !window.hasActiveSubscription) {
+    handleLockedUnitClick();
+    return;
+  }
   console.log('Navigating to unit:', unitName); // Debug log
   // Navigate to unit detail page
   localStorage.setItem('selectedUnit', unitName);
@@ -267,6 +402,7 @@ function goToUnit(unitName) {
 
 function loadUnitsWithoutProgress() {
   console.log('Loading units without progress with smart cache validation');
+  loadSubscriptionState();
   
   // Check if we have cached data
   const cachedUnits = CacheManager.getCache(CacheManager.CACHE_KEYS.UNITS);
@@ -334,17 +470,28 @@ function displayUnitsWithoutProgress(unitsData) {
   
   if (unitsData) {
     Object.keys(unitsData).forEach(unitName => {
+      const unitData = unitsData[unitName];
+      const isLocked = window.subscriptionState && window.subscriptionState.userType !== 'teacher' && !window.hasActiveSubscription;
+      const displayTitle = getUnitDisplayTitle(unitName, unitData);
       const li = document.createElement('li');
-      li.onclick = () => goToUnit(unitName);
+      li.style.opacity = isLocked ? '0.65' : '1';
+      li.onclick = () => isLocked ? handleLockedUnitClick() : goToUnit(unitName);
       li.innerHTML = `
         <div class="unit-item">
           <div class="unit-info">
-            <div class="unit-name">${unitName}</div>
+            <div class="unit-name">${isLocked ? '🔒 ' : ''}${displayTitle}</div>
           </div>
-          <button class="unit-files-btn" onclick="event.stopPropagation(); openStudentFileViewer('${unitName}', null)" style="margin: 0%; width: 50%;">
-            <span class="material-icons">folder</span>
-            Files
-          </button>
+          ${isLocked ? `
+            <button class="unit-files-btn" onclick="event.stopPropagation(); handleLockedUnitClick()" style="margin: 0%; width: 50%; background:#9e9e9e;">
+              <span class="material-icons">lock</span>
+              Locked
+            </button>
+          ` : `
+            <button class="unit-files-btn" onclick="event.stopPropagation(); openStudentFileViewer('${unitName}', null)" style="margin: 0%; width: 50%;">
+              <span class="material-icons">folder</span>
+              Files
+            </button>
+          `}
         </div>
       `;
       unitsList.appendChild(li);
@@ -501,6 +648,7 @@ window.playLessonVideo = function(videoURL, unitId, lessonKey, thumbnailURL, des
   try {
     // Record recent lesson
     const entry = { unitId: unitId || window.currentUnitId || '', lessonKey: lessonKey || window.currentLessonId || '', title: lessonKey || '', thumbnailURL: thumbnailURL || '', description: description || '', timestamp: Date.now() };
+    localStorage.setItem('lastOpenedLesson', JSON.stringify(entry));
     let arr = [];
     try { arr = JSON.parse(localStorage.getItem('recentLessons') || '[]'); } catch (e) { arr = []; }
     // De-duplicate by unitId+lessonKey
@@ -878,7 +1026,12 @@ function clearSearch() {
 
 // Open lesson from search results
 window.openLesson = function(unitName, lessonKey) {
+  if (window.subscriptionState && window.subscriptionState.userType !== 'teacher' && !window.hasActiveSubscription) {
+    handleLockedUnitClick();
+    return;
+  }
   // Store the selected unit and lesson
+  localStorage.setItem('lastOpenedLesson', JSON.stringify({ unitId: unitName, lessonKey: lessonKey, title: lessonKey, timestamp: Date.now() }));
   localStorage.setItem('selectedUnit', unitName);
   localStorage.setItem('selectedLesson', lessonKey);
   
