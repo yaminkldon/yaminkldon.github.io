@@ -11,7 +11,6 @@ const firebaseConfig = {
 };
 
 firebase.initializeApp(firebaseConfig);
-const db = firebase.database();
 
 function getDeviceId() {
   let id = localStorage.getItem('device_id');
@@ -37,7 +36,7 @@ function register() {
   const email = document.getElementById("register-email").value.trim();
   const password = document.getElementById("register-password").value.trim();
   const token = document.getElementById("register-token").value.trim();
-  const deviceId = getDeviceId();
+  getDeviceId();
 
   if (!email || !password || !token) {
     NotificationManager.showToast("Please fill all the fields");
@@ -46,80 +45,20 @@ function register() {
 
   showProgress(true);
 
-  const usersRef = db.ref('users');
-  const tokensRef = db.ref('tokens');
+  // The MySQL API reads this token in /api/auth/register.
+  localStorage.setItem('pendingRegisterToken', token);
 
-  // Check if email exists in users
-  usersRef.orderByChild('email').equalTo(email).once('value')
-    .then(snapshot => {
-      if (snapshot.exists()) {
-        showProgress(false);
-        NotificationManager.showToast("User already exists");
-      } else {
-        // Check if token exists and is valid
-        tokensRef.child(token).once('value')
-          .then(tokenSnap => {
-            if (tokenSnap.exists()) {
-              const tokenData = tokenSnap.val();
-              const duration = parseInt(tokenData.duration);
-              const used = tokenData.used === true;
-              if (!duration || isNaN(duration)) {
-                showProgress(false);
-                NotificationManager.showToast("Invalid token duration");
-                return;
-              }
-              if (used) {
-                showProgress(false);
-                NotificationManager.showToast("Token already used");
-                return;
-              }
-              // Mark token as used
-              tokensRef.child(token).child("used").set(true);
-
-              // Create user in Firebase Auth
-              firebase.auth().createUserWithEmailAndPassword(email, password)
-                .then(userCredential => {
-                  // Calculate expiration date (duration in days)
-                  const expirationDate = Date.now() + duration * 24 * 60 * 60 * 1000;
-                  const id = usersRef.push().key;
-                  const type = "student";
-
-                  // Save user in Realtime Database
-                  usersRef.child(id).set({
-                    id: id,
-                    email: email,
-                    password: password,
-                    deviceId: deviceId,
-                    token: token,
-                    type: type,
-                    expirationDate: expirationDate
-                  }, (error) => {
-                    if (error) {
-                      showProgress(false);
-                      NotificationManager.showToast("Registration failed: " + error.message);
-                    } else {
-                      // Mark token as used ONLY after successful registration
-                      tokensRef.child(token).child("used").set(true);
-                      showProgress(false);
-                      NotificationManager.showToast("Register Successful");
-                      setTimeout(() => { Navigation.goToLogin(); }, 1200);
-                    }
-                  });
-                })
-                .catch(error => {
-                  showProgress(false);
-                  NotificationManager.showToast("Registration failed: " + error.message);
-                });
-            } else {
-              showProgress(false);
-              NotificationManager.showToast("Invalid token");
-            }
-          });
-      }
-    })
-    .catch(err => {
+  firebase.auth().createUserWithEmailAndPassword(email, password)
+    .then(() => {
+      localStorage.removeItem('pendingRegisterToken');
       showProgress(false);
-      NotificationManager.showToast("Database error: " + err.message);
+      NotificationManager.showToast("Register Successful");
+      setTimeout(() => { Navigation.goToLogin(); }, 1200);
+    })
+    .catch(error => {
+      localStorage.removeItem('pendingRegisterToken');
+      showProgress(false);
+      NotificationManager.showToast("Registration failed: " + error.message);
     });
 }
 

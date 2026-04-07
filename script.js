@@ -58,6 +58,13 @@ function isFromApp() {
   }
 }
 
+function isOfficialAppOnlyEnabled() {
+  if (typeof window.isOfficialAppOnlyEnabled === 'function') {
+    return window.isOfficialAppOnlyEnabled();
+  }
+  return localStorage.getItem('debugOfficialAppOnly') === 'true';
+}
+
 function getDeviceId() {
   if (typeof window.ensureDeviceId === 'function') {
     return window.ensureDeviceId();
@@ -116,103 +123,27 @@ function showProgress(show) {
 function login() {
   const email = document.getElementById("email").value.trim();
   const password = document.getElementById("password").value.trim();
-  const deviceId = getDeviceId();
+  getDeviceId();
 
-  AuthDebug.log('Login attempt', { email, deviceId, ua: navigator.userAgent, fromApp: isFromApp() });
+  AuthDebug.log('Login attempt', { email, ua: navigator.userAgent, fromApp: isFromApp() });
 
   if (!email || !password) {
     NotificationManager.showToast("Make sure all fields are filled");
     return;
   }
 
-  // Preflight: try to check expiration with server time before signing in
-  const preflight = (async () => {
-    try {
-      const snap = await db.ref('users').orderByChild('email').equalTo(email).once('value');
-      if (snap.exists()) {
-        const now = (window.getServerNow && typeof window.getServerNow === 'function') ? window.getServerNow() : Date.now();
-        let allowedByExpiry = false;
-        snap.forEach(child => {
-          const u = child.val();
-          if (!u.expirationDate || now <= u.expirationDate) allowedByExpiry = true;
-        });
-        return allowedByExpiry;
-      }
-      // No matching DB record; allow auth to proceed so we can handle normally
-      return true;
-    } catch (e) {
-      // Likely permission denied for unauth reads; proceed to auth and handle post-check
-      return null;
-    }
-  })();
+  showProgress(true);
 
-  preflight.then((allowedByExpiry) => {
-    if (allowedByExpiry === false) {
-      NotificationManager.showToast('Account expired');
-      return; // Block signing in at all
-    }
-
-    showProgress(true);
-
-    firebase.auth().signInWithEmailAndPassword(email, password)
-    .then(userCredential => {
-      db.ref('users').orderByChild('email').equalTo(email).once('value')
-        .then(snapshot => {
-          showProgress(false);
-          if (snapshot.exists()) {
-            const records = [];
-            snapshot.forEach(child => { records.push({ key: child.key, ref: child.ref, data: child.val() }); });
-            AuthDebug.log('User records', records.map(r => ({ key: r.key, deviceId: r.data.deviceId || null, type: r.data.type, exp: r.data.expirationDate || null })));
-
-            // App-only rule for students
-            const anyStudent = records.some(r => (r.data.type === 'student'));
-            if (anyStudent && !isFromApp()) {
-              NotificationManager.showToast("Login allowed only from the official app");
-              AuthDebug.log('Denied: student not from app');
-              try { firebase.auth().signOut(); } catch (_) {}
-              return;
-            }
-
-            const localId = deviceId;
-            const anyMismatch = records.some(r => r.data.deviceId && r.data.deviceId !== localId);
-            const allEmpty = records.every(r => !r.data.deviceId);
-
-            if (anyMismatch) {
-              NotificationManager.showToast("Login failed: account bound to another device");
-              AuthDebug.log('Denied: device mismatch', { localId, deviceIds: records.map(r => r.data.deviceId || null) });
-              try { firebase.auth().signOut(); } catch (_) {}
-              return;
-            }
-
-            // If ALL records are empty deviceId, bind the first record to this device
-            if (allEmpty && records.length > 0) {
-              AuthDebug.log('Binding deviceId to first record', { key: records[0].key, localId });
-              records[0].ref.update({ deviceId: localId });
-            }
-
-            // Check expiration using server time and block login before completion
-            const now = (window.getServerNow && typeof window.getServerNow === 'function') ? window.getServerNow() : Date.now();
-            const allowedByExpiry = records.some(r => !r.data.expirationDate || now <= r.data.expirationDate);
-            if (!allowedByExpiry) {
-              NotificationManager.showToast('Account expired');
-              AuthDebug.log('Denied: expired');
-              // Cancel this login by signing out immediately and staying on login page
-              try { firebase.auth().signOut(); } catch (_) {}
-              return;
-            }
-
-            NotificationManager.showToast("Login Successful");
-            setTimeout(() => { Navigation.goToMainPage(); }, 800);
-          } else {
-            NotificationManager.showToast("User not found");
-          }
-        });
+  firebase.auth().signInWithEmailAndPassword(email, password)
+    .then(() => {
+      showProgress(false);
+      NotificationManager.showToast("Login Successful");
+      setTimeout(() => { Navigation.goToMainPage(); }, 800);
     })
     .catch(error => {
       showProgress(false);
       NotificationManager.showToast("Login failed: " + error.message);
     });
-  });
 }
 
 function goToRegister() {
@@ -239,50 +170,7 @@ document.getElementById('email').addEventListener('input', function() {
 firebase.auth().onAuthStateChanged(function(user) {
   if (user) {
     AuthDebug.log('Auth state changed: user present');
-    // Double-check user record to enforce student app-only rule even if token is present
-    const email = user.email || '';
-    db.ref('users').orderByChild('email').equalTo(email).once('value').then(snapshot => {
-      if (!snapshot.exists()) {
-        AuthDebug.log('No DB record found for email');
-        return Navigation.goToMainPage();
-      }
-      let allowed = true;
-      let deviceAllowed = true;
-      let allowedByExpiry = false;
-      const now = (window.getServerNow && typeof window.getServerNow === 'function') ? window.getServerNow() : Date.now();
-      const localDeviceId = ensureDeviceId();
-      const deviceIds = [];
-      snapshot.forEach(child => {
-        const u = child.val();
-        if ((u.type === 'student') && !isFromApp()) {
-          allowed = false;
-        }
-        if (u.deviceId && localDeviceId && u.deviceId !== localDeviceId) {
-          deviceAllowed = false;
-        }
-        if (!u.expirationDate || now <= u.expirationDate) {
-          allowedByExpiry = true;
-        }
-        deviceIds.push(u.deviceId || null);
-      });
-      AuthDebug.log('Post-login check', { localDeviceId, deviceIds, fromApp: isFromApp(), allowed, deviceAllowed, allowedByExpiry });
-      if (!allowed) {
-        NotificationManager.showToast('Access allowed only from the official app');
-        try { firebase.auth().signOut(); } catch (_) {}
-        return;
-      }
-      if (!deviceAllowed) {
-        NotificationManager.showToast('This account is already bound to another device');
-        try { firebase.auth().signOut(); } catch (_) {}
-        return;
-      }
-      if (!allowedByExpiry) {
-        NotificationManager.showToast('Account expired');
-        try { firebase.auth().signOut(); } catch (_) {}
-        return;
-      }
-      Navigation.goToMainPage();
-    }).catch(() => Navigation.goToMainPage());
+    Navigation.goToMainPage();
   }
   // Do NOT redirect to index.html again if not logged in; stay on login page
 });

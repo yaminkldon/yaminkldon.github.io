@@ -89,6 +89,17 @@ function isFromApp() {
   }
 }
 
+// Debug toggle for app-only login enforcement.
+// Disabled by default. Enable manually with:
+// localStorage.setItem('debugOfficialAppOnly', 'true')
+function isOfficialAppOnlyEnabled() {
+  return localStorage.getItem('debugOfficialAppOnly') === 'true';
+}
+
+function setOfficialAppOnlyDebug(enabled) {
+  localStorage.setItem('debugOfficialAppOnly', enabled ? 'true' : 'false');
+}
+
 // Ensure a stable device id exists (shared helper)
 function ensureDeviceId() {
   try {
@@ -913,7 +924,7 @@ async function runGlobalAuthGuard(user) {
       if (u.deviceId && localId && u.deviceId !== localId) deviceAllowed = false;
       if (!u.expirationDate || now <= u.expirationDate) allowedByExpiry = true;
     });
-    if (isStudent && !isFromApp()) {
+    if (isStudent && isOfficialAppOnlyEnabled() && !isFromApp()) {
       window.__authEnforcementInProgress = true;
       NotificationManager.showToast('Access allowed only from the official app');
       await firebase.auth().signOut();
@@ -1000,5 +1011,7 @@ window.NotificationManager = NotificationManager;
 window.AuthManager = AuthManager;
 window.SessionManager = SessionManager;
 window.isFromApp = isFromApp;
+window.isOfficialAppOnlyEnabled = isOfficialAppOnlyEnabled;
+window.setOfficialAppOnlyDebug = setOfficialAppOnlyDebug;
 window.ensureDeviceId = ensureDeviceId;
 window.getServerNow = getServerNow;
