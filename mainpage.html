@@ -1499,7 +1499,7 @@ body.dark-mode #streak-action-msg { color: #ffb74d; }
         btnSublabel.textContent = unitName ? `📚 ${unitName}` : 'Resume where you left off';
       } else {
         btnLabel.textContent = 'Start Learning';
-        btnSublabel.textContent = 'Tap the menu icon (☰) to browse units';
+        btnSublabel.textContent = 'Tap the menu icon to browse units';
       }
     }
 
@@ -1580,7 +1580,7 @@ body.dark-mode #streak-action-msg { color: #ffb74d; }
       container.style.display = 'block';
       const plan = planType || 'Monthly';
       const expString = expDate
-        ? expDate.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
+        ? expDate.toLocaleDateString(undefined, { day: '2-digit', month: 'short', year: 'numeric' })
         : 'Never';
 
       if (status === 'expired') {
@@ -1658,6 +1658,8 @@ body.dark-mode #streak-action-msg { color: #ffb74d; }
       const actionMsg = document.getElementById('streak-action-msg');
       if (!streakSection || !title || !sub || !week) return;
 
+      const MAX_STREAK_LOOKBACK_DAYS = 365;
+
       // Build a set of activity dates (YYYY-MM-DD)
       const dateKey = (t)=>{
         const d = new Date(t);
@@ -1672,7 +1674,7 @@ body.dark-mode #streak-action-msg { color: #ffb74d; }
       // Compute current streak (consecutive days ending today)
       let streak = 0;
       const today = new Date();
-      for (let i=0;i<365;i++){
+      for (let i=0;i<MAX_STREAK_LOOKBACK_DAYS;i++){
         const d = new Date();
         d.setDate(today.getDate()-i);
         const key = dateKey(d.getTime());
@@ -1711,7 +1713,7 @@ body.dark-mode #streak-action-msg { color: #ffb74d; }
       // Calculate "yesterday streak": consecutive days ending with yesterday
       // (so we can show motivation even if user hasn't studied today yet)
       let yesterdayStreak = 0;
-      for (let i = 1; i < 365; i++) {
+      for (let i = 1; i < MAX_STREAK_LOOKBACK_DAYS; i++) {
         const d = new Date();
         d.setDate(now.getDate() - i);
         const key = dateKey(d.getTime());
