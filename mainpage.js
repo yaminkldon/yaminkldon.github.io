@@ -393,7 +393,7 @@ function formatUnitName(unitName, unitData) {
 
 // Show a message when the user taps a locked unit
 function showLockedUnitMessage() {
-  if (typeof NotificationManager !== 'undefined' && NotificationManager.showToast) {
+  if (typeof NotificationManager !== 'undefined' && typeof NotificationManager.showToast === 'function') {
     NotificationManager.showToast('🔒 Subscribe to unlock this unit');
   } else {
     alert('🔒 Subscribe to unlock this unit');

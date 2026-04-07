@@ -1197,20 +1197,22 @@ body.dark-mode #streak-action-msg { color: #ffb74d; }
         Object.keys(units).forEach(unitKey => {
           const unit = units[unitKey];
           const isLocked = unit && (unit.locked === true || unit.locked === 1);
-          // Prettify name: prefer unit.title or unit.name, else format the key
-          let displayName = unit && (unit.title || unit.name) ? (unit.title || unit.name) : unitKey
-            .replace(/[-_]/g, ' ')
-            .replace(/([a-z])([A-Z])/g, '$1 $2')
-            .split(' ')
-            .map(w => w.charAt(0).toUpperCase() + w.slice(1))
-            .join(' ');
+          // Use shared helper from mainpage.js if available, else inline fallback
+          const displayName = (typeof formatUnitName === 'function')
+            ? formatUnitName(unitKey, unit)
+            : (unit && (unit.title || unit.name)) || unitKey;
           
           const li = document.createElement('li');
           if (isLocked) {
             li.className = 'locked-unit-item';
+            // Use shared helper from mainpage.js if available
             li.onclick = () => {
-              if (typeof NotificationManager !== 'undefined') {
+              if (typeof showLockedUnitMessage === 'function') {
+                showLockedUnitMessage();
+              } else if (typeof NotificationManager !== 'undefined' && typeof NotificationManager.showToast === 'function') {
                 NotificationManager.showToast('🔒 Subscribe to unlock this unit');
+              } else {
+                alert('🔒 Subscribe to unlock this unit');
               }
             };
           } else {
@@ -1497,7 +1499,7 @@ body.dark-mode #streak-action-msg { color: #ffb74d; }
         btnSublabel.textContent = unitName ? `📚 ${unitName}` : 'Resume where you left off';
       } else {
         btnLabel.textContent = 'Start Learning';
-        btnSublabel.textContent = 'Open the menu to pick a unit';
+        btnSublabel.textContent = 'Tap the menu icon (☰) to browse units';
       }
     }
 
@@ -1537,12 +1539,13 @@ body.dark-mode #streak-action-msg { color: #ffb74d; }
             if (!userData) return;
 
             const expirationDate = userData.expirationDate;
+            const planType = userData.planType || userData.plan || 'Monthly';
             const now = Date.now();
 
             if (!expirationDate) {
               if (statusIcon) statusIcon.textContent = 'verified';
               if (statusText) statusText.textContent = '✅ Subscription: Lifetime access';
-              renderSubscriptionCard(subCard, subCardInner, 'active', null, null);
+              renderSubscriptionCard(subCard, subCardInner, 'active', null, null, planType);
               return;
             }
 
@@ -1552,19 +1555,19 @@ body.dark-mode #streak-action-msg { color: #ffb74d; }
             if (daysLeft <= 0) {
               if (statusIcon) statusIcon.textContent = 'warning';
               if (statusText) statusText.textContent = '⚠️ Subscription expired — renew to continue';
-              renderSubscriptionCard(subCard, subCardInner, 'expired', expDate, daysLeft);
+              renderSubscriptionCard(subCard, subCardInner, 'expired', expDate, daysLeft, planType);
             } else if (daysLeft <= 7) {
               if (statusIcon) statusIcon.textContent = 'schedule';
               if (statusText) statusText.textContent = `⏳ Expires in ${daysLeft} day${daysLeft === 1 ? '' : 's'} — renew soon!`;
-              renderSubscriptionCard(subCard, subCardInner, 'warning', expDate, daysLeft);
+              renderSubscriptionCard(subCard, subCardInner, 'warning', expDate, daysLeft, planType);
             } else if (daysLeft <= 30) {
               if (statusIcon) statusIcon.textContent = 'schedule';
               if (statusText) statusText.textContent = `⏳ Subscription expires in ${daysLeft} days`;
-              renderSubscriptionCard(subCard, subCardInner, 'active', expDate, daysLeft);
+              renderSubscriptionCard(subCard, subCardInner, 'active', expDate, daysLeft, planType);
             } else {
               if (statusIcon) statusIcon.textContent = 'verified';
               if (statusText) statusText.textContent = `✅ Active · Expires ${expDate.toLocaleDateString()}`;
-              renderSubscriptionCard(subCard, subCardInner, 'active', expDate, daysLeft);
+              renderSubscriptionCard(subCard, subCardInner, 'active', expDate, daysLeft, planType);
             }
           })
           .catch(err => console.error('Error loading subscription data:', err));
@@ -1572,9 +1575,10 @@ body.dark-mode #streak-action-msg { color: #ffb74d; }
     }
 
     // Render subscription detail card
-    function renderSubscriptionCard(container, inner, status, expDate, daysLeft) {
+    function renderSubscriptionCard(container, inner, status, expDate, daysLeft, planType) {
       if (!container || !inner) return;
       container.style.display = 'block';
+      const plan = planType || 'Monthly';
       const expString = expDate
         ? expDate.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
         : 'Never';
@@ -1590,7 +1594,7 @@ body.dark-mode #streak-action-msg { color: #ffb74d; }
             </div>
           </div>
           <div class="sub-label" style="margin-top:10px;padding-top:10px;border-top:1px solid #ffcdd2;font-size:12px;color:#888;">
-            Plan: Monthly &nbsp;|&nbsp; Expired: ${expString}
+            Plan: ${plan} &nbsp;|&nbsp; Expired: ${expString}
           </div>`;
       } else if (status === 'warning') {
         inner.className = 'subscription-card-warning';
@@ -1603,7 +1607,7 @@ body.dark-mode #streak-action-msg { color: #ffb74d; }
             </div>
           </div>
           <div class="sub-label" style="margin-top:10px;padding-top:10px;border-top:1px solid #ffe0b2;font-size:12px;color:#888;">
-            Plan: Monthly &nbsp;|&nbsp; Expires: ${expString}
+            Plan: ${plan} &nbsp;|&nbsp; Expires: ${expString}
           </div>`;
       } else {
         inner.className = 'subscription-card-active';
@@ -1612,7 +1616,7 @@ body.dark-mode #streak-action-msg { color: #ffb74d; }
             <div>
               <div style="font-weight:600;color:#333;font-size:14px;">Subscription</div>
               <div class="sub-label" style="font-size:12px;color:#666;margin-top:2px;">
-                Plan: Monthly &nbsp;|&nbsp; Status: <span style="color:#2e7d32;font-weight:600;">Active</span>
+                Plan: ${plan} &nbsp;|&nbsp; Status: <span style="color:#2e7d32;font-weight:600;">Active</span>
               </div>
               <div class="sub-label" style="font-size:12px;color:#666;margin-top:2px;">Expires: ${expString}</div>
             </div>
@@ -1704,14 +1708,25 @@ body.dark-mode #streak-action-msg { color: #ffb74d; }
       const todayKey = dateKey(now.getTime());
       const studiedToday = activity.has(todayKey);
 
-      title.textContent = `🔥 ${streak} day streak`;
+      // Calculate "yesterday streak": consecutive days ending with yesterday
+      // (so we can show motivation even if user hasn't studied today yet)
+      let yesterdayStreak = 0;
+      for (let i = 1; i < 365; i++) {
+        const d = new Date();
+        d.setDate(now.getDate() - i);
+        const key = dateKey(d.getTime());
+        if (activity.has(key)) yesterdayStreak++; else break;
+      }
+
+      // Display streak = today's streak if studied today, otherwise yesterday's streak
+      const displayStreak = studiedToday ? streak : yesterdayStreak;
+
+      title.textContent = `🔥 ${displayStreak} day${displayStreak === 1 ? '' : 's'} streak`;
 
       // Engagement-driven sub-text
       let engagementMsg = '';
-      if (streak === 0) {
+      if (displayStreak === 0) {
         engagementMsg = 'Start today to build your streak!';
-      } else if (streak === 1 && !studiedToday) {
-        engagementMsg = '💪 Study today to keep your streak alive!';
       } else if (activeCount < 3) {
         engagementMsg = `You studied ${activeCount} day${activeCount===1?'':'s'} this week — keep going!`;
       } else if (activeCount < 7) {
@@ -1721,9 +1736,9 @@ body.dark-mode #streak-action-msg { color: #ffb74d; }
       }
       sub.textContent = engagementMsg;
 
-      // Action prompt: remind user if streak is at risk
+      // Action prompt: remind user if streak is at risk today
       if (actionMsg) {
-        if (streak > 0 && !studiedToday) {
+        if (yesterdayStreak > 0 && !studiedToday) {
           actionMsg.textContent = '⚡ Complete 1 lesson today to keep your streak!';
           actionMsg.style.display = 'block';
         } else {
