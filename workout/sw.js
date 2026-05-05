@@ -2,6 +2,7 @@ const CACHE_NAME = 'gymtracker-v1';
 const ASSETS = [
   '/workout/',
   '/workout/index.html',
+  '/workout/config.js',
   '/workout/styles.css',
   '/workout/app.js',
   '/workout/manifest.json'

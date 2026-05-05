@@ -191,264 +191,38 @@ const WEEK_DAYS_FULL = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Frid
    User: 120 kg, 181 cm, ~21 yo, 4-day Push/Pull/Rest/Legs split
 ───────────────────────────────────────────── */
 function buildDefaultData() {
-  const uid = () => Math.random().toString(36).slice(2, 10);
-
-  /* Warmup exercises (shared across days) */
-  const warmup = [
-    {
-      id: 'wu1', name: 'Treadmill Warm-Up Walk',
-      muscleGroups: ['cardio'], category: 'warmup',
-      sets: 1, reps: null, duration: '5 min', rest: 0, calories: 35,
-      instructions: 'Walk at a comfortable pace (4.5–5.5 km/h) on the treadmill at slight incline (2–4%). Keep intensity light-to-moderate — you should be able to speak in full sentences. This elevates heart rate and prepares the cardiovascular system.',
-      imageUrl: '', videoUrl: '', notes: ''
-    },
-    {
-      id: 'wu2', name: 'Shoulder Circles',
-      muscleGroups: ['shoulders', 'warmup'], category: 'warmup',
-      sets: 2, reps: '10 each direction', duration: null, rest: 0, calories: 2,
-      instructions: 'Stand tall. Roll both shoulders forward in large circles 10 times, then backward 10 times. Keep movement slow and controlled, gradually increasing range of motion.',
-      imageUrl: '', videoUrl: '', notes: ''
-    },
-    {
-      id: 'wu3', name: 'Chest Opener Stretch',
-      muscleGroups: ['chest', 'warmup'], category: 'warmup',
-      sets: 2, reps: '15 reps', duration: null, rest: 0, calories: 2,
-      instructions: 'Hold arms out to sides at shoulder height. Squeeze shoulder blades together bringing arms back, then bring them forward and cross them in front of chest. 15 controlled reps. (Band Pull-Aparts work great here.)',
-      imageUrl: '', videoUrl: '', notes: ''
-    },
-    {
-      id: 'wu4', name: 'Hip Hinge (Bodyweight)',
-      muscleGroups: ['legs', 'warmup'], category: 'warmup',
-      sets: 2, reps: '10 reps', duration: null, rest: 0, calories: 3,
-      instructions: 'Stand hip-width apart. Push hips back while keeping back straight and slight knee bend — like a deadlift without weight. Feel the stretch in your hamstrings. Drive hips forward to return. Key: maintain neutral spine.',
-      imageUrl: '', videoUrl: '', notes: ''
-    },
-    {
-      id: 'wu5', name: 'Hip Rotation',
-      muscleGroups: ['legs', 'warmup'], category: 'warmup',
-      sets: 1, reps: '10 each direction', duration: null, rest: 0, calories: 2,
-      instructions: 'Stand with hands on hips (or hold a rack for balance). Draw large circles with your hips — 10 clockwise, then 10 counter-clockwise. Opens the hip joint and warms the lower back.',
-      imageUrl: '', videoUrl: '', notes: ''
-    },
-    {
-      id: 'wu6', name: 'Glute Bridge',
-      muscleGroups: ['glutes', 'warmup'], category: 'warmup',
-      sets: 2, reps: '10 reps', duration: null, rest: 15, calories: 4,
-      instructions: 'Lie on back with knees bent, feet flat on floor. Drive through heels to lift hips until body forms a straight line from knees to shoulders. Squeeze glutes at the top. Lower slowly. Critical for activating glutes before lower-body and compound lifts.',
-      imageUrl: '', videoUrl: '', notes: ''
-    },
-    {
-      id: 'wu7', name: 'Scapular Push-Ups',
-      muscleGroups: ['back', 'warmup'], category: 'warmup',
-      sets: 2, reps: '10 reps', duration: null, rest: 15, calories: 4,
-      instructions: 'Start in a push-up position (arms locked). Without bending elbows, let shoulder blades pinch together (chest drops slightly), then push them apart (back rounds slightly). This warms up the serratus anterior and scapular stabilizers — important for all pressing/pulling.',
-      imageUrl: '', videoUrl: '', notes: ''
-    },
-  ];
-
-  /* Leg-day extra warmup */
-  const legWarmupExtra = [
-    {
-      id: 'wu8', name: 'Leg Swings (Front/Back)',
-      muscleGroups: ['legs', 'warmup'], category: 'warmup',
-      sets: 1, reps: '10 each leg', duration: null, rest: 0, calories: 3,
-      instructions: 'Hold a rack or wall for balance. Swing one leg forward and backward in a controlled pendulum motion, gradually increasing range. 10 swings per leg. Mobilises the hip flexors and hamstrings.',
-      imageUrl: '', videoUrl: '', notes: ''
-    },
-    {
-      id: 'wu9', name: 'Bodyweight Squat',
-      muscleGroups: ['legs', 'warmup'], category: 'warmup',
-      sets: 1, reps: '12 reps', duration: null, rest: 0, calories: 6,
-      instructions: 'Feet shoulder-width apart. Squat down keeping chest up, knees tracking toes, weight in heels. Go to parallel or below. Rise back up squeezing glutes. These are warm-up reps — focus on form, not speed.',
-      imageUrl: '', videoUrl: '', notes: ''
-    },
-  ];
-
-  /* Push exercises */
-  const pushExercises = [
-    ...warmup,
-    {
-      id: 'p1', name: 'Chest Press (Machine or Barbell)',
-      muscleGroups: ['chest', 'triceps', 'shoulders'], category: 'push',
-      sets: 3, reps: '10-12', duration: null, rest: 90, calories: 55,
-      instructions: `PRIMARY MOVEMENT — Chest Press\n\n1. Set up with back flat against pad, feet on floor.\n2. Grip handles/bar slightly wider than shoulder-width.\n3. Inhale and unrack/grip. Lower the weight slowly (2–3 sec) until elbows reach 90°.\n4. Exhale and press explosively to full extension — don't lock out hard.\n5. Maintain wrist alignment with forearms throughout.\n\nTIP: Focus on squeezing the pecs, not just moving weight. Warm up with 2 lighter sets first.`,
-      imageUrl: '', videoUrl: 'https://www.youtube.com/watch?v=rT7DgCr-3pg', notes: 'Lead exercise — do 2 warm-up sets at 40% & 70% of working weight before 3 working sets'
-    },
-    {
-      id: 'p2', name: 'Incline Dumbbell Press',
-      muscleGroups: ['chest', 'shoulders'], category: 'push',
-      sets: 3, reps: '10-12', duration: null, rest: 90, calories: 50,
-      instructions: `Incline DB Press — Upper Chest Focus\n\n1. Set bench to 30–45° incline.\n2. Hold dumbbells at chest level, palms facing forward.\n3. Press up and slightly inward — dumbbells nearly touch at top.\n4. Lower with control (2 sec down).\n5. Don't let shoulders roll forward at bottom of movement.\n\nTIP: 30° targets upper chest more than 45°. Use a spotter if going heavy.`,
-      imageUrl: '', videoUrl: '', notes: ''
-    },
-    {
-      id: 'p3', name: 'Shoulder Press (Dumbbell or Machine)',
-      muscleGroups: ['shoulders', 'triceps'], category: 'push',
-      sets: 3, reps: '10-12', duration: null, rest: 90, calories: 48,
-      instructions: `Shoulder Press\n\n1. Sit upright on bench (back supported).\n2. Hold weights at ear level, elbows at 90°.\n3. Press overhead in a slight arc — don't lock out.\n4. Lower slowly back to start.\n5. Keep core braced — avoid arching lower back.\n\nTIP: Don't flare elbows too far out — keep at ~45° forward of body to protect rotator cuff.`,
-      imageUrl: '', videoUrl: '', notes: ''
-    },
-    {
-      id: 'p4', name: 'Triceps Pushdown (Cable)',
-      muscleGroups: ['triceps'], category: 'push',
-      sets: 3, reps: '10-12', duration: null, rest: 75, calories: 35,
-      instructions: `Triceps Pushdown\n\n1. Set cable to high pulley with rope or V-bar attachment.\n2. Stand close, elbows tucked at sides.\n3. Push handles down until arms are fully extended.\n4. Slowly return to 90° — keep upper arms stationary.\n5. Squeeze triceps hard at the bottom.\n\nTIP: Elbows stay fixed — don't let them drift forward. Weight is secondary to form.`,
-      imageUrl: '', videoUrl: '', notes: ''
-    },
-    {
-      id: 'p5', name: 'Post-Workout Cardio — Treadmill LISS',
-      muscleGroups: ['cardio'], category: 'cardio',
-      sets: 1, reps: null, duration: '25 min', rest: 0, calories: 300,
-      instructions: `LISS Cardio (Low Intensity Steady State)\n\nSpeed: 4.5–5.5 km/h | Incline: 4–8%\nRPE: 5–6/10 — slightly breathless but can talk\n\nCalorie estimate for 120 kg: 250–350 kcal in 25 min\n\nWeeks 1–2: 20 min\nWeeks 3–4: 25 min\nWeeks 5–6: 30 min\nWeeks 7–8: 30–35 min\n\nAlternative: Stationary bike 25 min (220–320 kcal)`,
-      imageUrl: '', videoUrl: '', notes: 'Adjust duration each week — see progression notes'
-    }
-  ];
-
-  /* Pull exercises */
-  const pullExercises = [
-    ...warmup,
-    {
-      id: 'q1', name: 'Lat Pulldown',
-      muscleGroups: ['back', 'biceps'], category: 'pull',
-      sets: 3, reps: '10-12', duration: null, rest: 90, calories: 50,
-      instructions: `Lat Pulldown\n\n1. Sit at machine with thighs under pads. Grip bar slightly wider than shoulders.\n2. Lean back slightly (~15°) and pull bar to upper chest.\n3. Lead with elbows — drive them down and back.\n4. Squeeze lats at bottom. Slowly return to full stretch.\n5. Don't use momentum — control the weight.\n\nTIP: Wide grip targets lats; close neutral grip also hits biceps more.`,
-      imageUrl: '', videoUrl: 'https://www.youtube.com/watch?v=CAwf7n6Luuc', notes: '2 warm-up sets before working sets'
-    },
-    {
-      id: 'q2', name: 'Seated Cable Row',
-      muscleGroups: ['back', 'biceps'], category: 'pull',
-      sets: 3, reps: '10-12', duration: null, rest: 90, calories: 52,
-      instructions: `Seated Row\n\n1. Sit with slight forward lean at start. Pull handles to lower chest/abdomen.\n2. Squeeze shoulder blades together at the end of the pull.\n3. Return slowly with control — feel the stretch in your lats.\n4. Don't round the lower back or use a rocking motion.\n\nTIP: Close neutral-grip attachment emphasises mid-back (rhomboids + traps).`,
-      imageUrl: '', videoUrl: '', notes: ''
-    },
-    {
-      id: 'q3', name: 'Biceps Curl (Dumbbell)',
-      muscleGroups: ['biceps'], category: 'pull',
-      sets: 3, reps: '10-12', duration: null, rest: 75, calories: 32,
-      instructions: `Dumbbell Biceps Curl\n\n1. Stand with dumbbells at sides, palms forward.\n2. Curl both arms up toward shoulders — squeeze at top.\n3. Lower slowly (3 sec eccentric) to full stretch.\n4. Keep elbows pinned to sides — no swinging.\n\nTIP: Supinate (twist) wrists as you curl for better biceps activation. Consider alternating arms for core stability.`,
-      imageUrl: '', videoUrl: '', notes: ''
-    },
-    {
-      id: 'q4', name: 'Face Pull (Cable)',
-      muscleGroups: ['shoulders', 'back'], category: 'pull',
-      sets: 3, reps: '12-15', duration: null, rest: 60, calories: 28,
-      instructions: `Face Pull — Rear Delt & Rotator Cuff\n\n1. Set cable to face height with rope attachment.\n2. Pull rope toward face, separating hands at the end — elbows flare out.\n3. Hold for 1 second at the fully pulled position.\n4. Return slowly.\n\nTIP: Use lighter weight with perfect form. This is a shoulder health exercise — critical for long-term pressing strength.`,
-      imageUrl: '', videoUrl: '', notes: 'Light weight, focus on technique — great for shoulder health'
-    },
-    {
-      id: 'q5', name: 'Post-Workout Cardio — Stationary Bike',
-      muscleGroups: ['cardio'], category: 'cardio',
-      sets: 1, reps: null, duration: '25 min', rest: 0, calories: 260,
-      instructions: `Stationary Bike — Easy on Joints\n\nResistance: moderate | Cadence: 75–90 rpm\nRPE: 5–6/10\n\nCalorie estimate for 120 kg: 220–330 kcal in 25 min\n\nAlternative: Elliptical 25 min (~300 kcal)\n\nProgression: same as Push day cardio`,
-      imageUrl: '', videoUrl: '', notes: ''
-    }
-  ];
-
-  /* Legs exercises */
-  const legsExercises = [
-    ...warmup,
-    ...legWarmupExtra,
-    {
-      id: 'l1', name: 'Leg Press',
-      muscleGroups: ['legs', 'glutes'], category: 'legs',
-      sets: 3, reps: '10-12', duration: null, rest: 120, calories: 72,
-      instructions: `Leg Press\n\n1. Set feet shoulder-width on platform, toes slightly out.\n2. Lower platform until knees reach ~90° (or slightly below parallel).\n3. Press through heels back to near lockout — don't fully lock knees.\n4. Keep lower back pressed to the pad throughout.\n\nTIP: Don't let knees cave inward. Wider stance targets glutes; narrower targets quads.`,
-      imageUrl: '', videoUrl: 'https://www.youtube.com/watch?v=IZxyjW7MPJQ', notes: '2–3 warm-up sets. Heavy compound — rest fully between sets'
-    },
-    {
-      id: 'l2', name: 'Barbell Squat',
-      muscleGroups: ['legs', 'glutes', 'core'], category: 'legs',
-      sets: 3, reps: '10-12', duration: null, rest: 120, calories: 85,
-      instructions: `Barbell Back Squat\n\n1. Bar rests on upper traps (high bar) or rear delts (low bar).\n2. Feet shoulder-to-hip width, toes out 15–30°.\n3. Brace core hard. Descend with chest up — break parallel if possible.\n4. Drive through heels to stand — push knees out.\n5. Take a full breath before each rep (Valsalva).\n\nTIP: At 120 kg bodyweight, going to parallel is excellent. Don't sacrifice form for depth.`,
-      imageUrl: '', videoUrl: '', notes: 'Most demanding exercise — prioritise form over weight'
-    },
-    {
-      id: 'l3', name: 'Plank',
-      muscleGroups: ['core'], category: 'legs',
-      sets: 3, reps: null, duration: '30 sec', rest: 60, calories: 12,
-      instructions: `Plank — Core Stability\n\n1. Elbows directly below shoulders.\n2. Body forms a straight line from head to heels.\n3. Squeeze glutes and abs — don't let hips sag or rise.\n4. Breathe steadily.\n\nProgression:\n- Week 1–2: 30 sec\n- Week 3–4: 40 sec\n- Week 5–6: 50 sec\n- Week 7–8: 60 sec`,
-      imageUrl: '', videoUrl: '', notes: 'Increase hold time each week'
-    },
-    {
-      id: 'l4', name: 'Post-Workout Walk — Easy',
-      muscleGroups: ['cardio'], category: 'cardio',
-      sets: 1, reps: null, duration: '10-15 min', rest: 0, calories: 165,
-      instructions: `Easy Walk After Leg Day\n\nSpeed: 3.5–4.5 km/h | No incline\nRPE: 3–4/10 — very easy\n\nCalorie estimate for 120 kg: 120–200 kcal in 15 min\n\nWhy easy? Your legs are already fatigued from squats and leg press. Light movement promotes blood flow and recovery.`,
-      imageUrl: '', videoUrl: '', notes: 'Keep very light — legs will be tired'
-    }
-  ];
-
-  /* Rest/Cardio day */
-  const restExercises = [
-    {
-      id: 'r1', name: 'Light Walk (Outdoor or Treadmill)',
-      muscleGroups: ['cardio'], category: 'cardio',
-      sets: 1, reps: null, duration: '25-35 min', rest: 0, calories: 380,
-      instructions: `Active Recovery Walk\n\nPace: comfortable, conversational (3.5–5 km/h)\nNo incline needed today.\n\nCalorie estimate for 120 kg:\n- 25 min: ~280 kcal\n- 30 min: ~335 kcal\n- 35 min: ~390 kcal\n\nGoal: Move your body, get fresh air, promote recovery. Don't push hard — this is a rest day.`,
-      imageUrl: '', videoUrl: '', notes: ''
-    },
-    {
-      id: 'r2', name: 'Stationary Bike (Optional)',
-      muscleGroups: ['cardio'], category: 'cardio',
-      sets: 1, reps: null, duration: '25-30 min', rest: 0, calories: 320,
-      instructions: `Stationary Bike — Rest Day Option\n\nResistance: light to moderate\nRPE: 4–5/10\n\nCalorie estimate for 120 kg: 250–380 kcal\n\nChoose this over walking if weather is bad or joints feel sore.`,
-      imageUrl: '', videoUrl: '', notes: 'Choose either walk or bike, not both'
-    },
-    {
-      id: 'r3', name: 'Stretching & Foam Rolling',
-      muscleGroups: ['full body'], category: 'rest',
-      sets: 1, reps: null, duration: '10-15 min', rest: 0, calories: 30,
-      instructions: `Recovery Stretching\n\nFocus areas based on previous days:\n- After Push day: chest doorway stretch, tricep stretch\n- After Pull day: lat side stretch, bicep wall stretch\n- After Legs day: hip flexor lunge stretch, hamstring stretch, quad stretch\n\nFoam roll each major muscle group 30–60 seconds.\nNever stretch to pain — only to comfortable tension.`,
-      imageUrl: '', videoUrl: '', notes: 'Highly recommended — improves recovery'
-    }
-  ];
-
-  /* Build days */
   const days = [
     {
-      id: 'day_push', name: 'Push Day — Chest & Triceps',
-      type: 'push', weekDayIndex: 1, // Monday
-      exercises: pushExercises.map(e => e.id),
-      notes: 'Focus on chest contraction. Warm up sets before heavy compounds.'
+      id: 'day_push', name: 'Push Day — ExerciseDB Picks',
+      type: 'push', weekDayIndex: 1,
+      exercises: [],
+      notes: 'Add ready-to-use push exercises from ExerciseDB one by one.'
     },
     {
-      id: 'day_pull', name: 'Pull Day — Back & Biceps',
-      type: 'pull', weekDayIndex: 2, // Tuesday
-      exercises: pullExercises.map(e => e.id),
-      notes: 'Squeeze back muscles on every rep. Don\'t ego-lift on rows.'
+      id: 'day_pull', name: 'Pull Day — ExerciseDB Picks',
+      type: 'pull', weekDayIndex: 2,
+      exercises: [],
+      notes: 'Add ready-to-use pull exercises from ExerciseDB one by one.'
     },
     {
-      id: 'day_rest', name: 'Rest / Light Cardio',
-      type: 'rest', weekDayIndex: 3, // Wednesday
-      exercises: restExercises.map(e => e.id),
-      notes: 'Active recovery day. Keep intensity very low.'
+      id: 'day_rest', name: 'Recovery Day',
+      type: 'rest', weekDayIndex: 3,
+      exercises: [],
+      notes: 'Browse ExerciseDB recovery, mobility, and cardio options.'
     },
     {
-      id: 'day_legs', name: 'Legs & Core',
-      type: 'legs', weekDayIndex: 4, // Thursday
-      exercises: legsExercises.map(e => e.id),
-      notes: 'Most demanding day. Rest 2 min between heavy sets.'
+      id: 'day_legs', name: 'Legs & Core — ExerciseDB Picks',
+      type: 'legs', weekDayIndex: 4,
+      exercises: [],
+      notes: 'Add legs, core, and conditioning exercises from ExerciseDB one by one.'
     },
   ];
-
-  /* Build exercise library (unique) */
-  const allExercises = [
-    ...warmup,
-    ...legWarmupExtra,
-    ...pushExercises.filter(e => !warmup.find(w => w.id === e.id)),
-    ...pullExercises.filter(e => !warmup.find(w => w.id === e.id)),
-    ...legsExercises.filter(e => !warmup.find(w => w.id === e.id) && !legWarmupExtra.find(w => w.id === e.id)),
-    ...restExercises,
-  ];
-
-  const exerciseMap = {};
-  allExercises.forEach(e => { exerciseMap[e.id] = e; });
 
   const plan = {
     id: 'plan_default',
-    name: '4-Day Push/Pull/Rest/Legs',
+    name: 'ExerciseDB Starter Plan',
     days: days.map(d => d.id),
-    description: 'Classic 4-day split with warmup, cardio, and progressive overload. Tailored for 120 kg / 181 cm at 21 years old.',
+    description: 'Empty starter plan designed for adding ExerciseDB exercises one by one.',
     createdAt: new Date().toISOString(),
     isDefault: true,
   };
@@ -456,7 +230,7 @@ function buildDefaultData() {
   return {
     plans: { [plan.id]: plan },
     days: Object.fromEntries(days.map(d => [d.id, d])),
-    exercises: exerciseMap,
+    exercises: {},
     activePlanId: plan.id,
   };
 }
@@ -1092,6 +866,33 @@ function getDateForWeekOffset(offset, dayOfWeek) {
   return d;
 }
 
+function getSuggestedExerciseFilters(type) {
+  switch (type) {
+    case 'push': return ['chest', 'shoulders', 'triceps'];
+    case 'pull': return ['back', 'biceps'];
+    case 'legs': return ['legs', 'glutes', 'core'];
+    case 'rest': return ['cardio', 'stretching', 'waist'];
+    default: return ['full body'];
+  }
+}
+
+function getExerciseSuggestionsForDay(day, limit = 6) {
+  if (!day) return [];
+  const filters = getSuggestedExerciseFilters(day.type);
+  const picked = new Set();
+  const suggestions = [];
+
+  filters.forEach(filter => {
+    ExerciseDB.search('', filter).forEach(ex => {
+      if (!ex || picked.has(ex.id) || suggestions.length >= limit) return;
+      picked.add(ex.id);
+      suggestions.push(ex);
+    });
+  });
+
+  return suggestions;
+}
+
 /* ─────────────────────────────────────────────
    RENDER HELPERS
 ───────────────────────────────────────────── */
@@ -1105,7 +906,9 @@ function renderExListItem(ex, index, prog, dayId, isFromDay) {
   const isCurrent = prog && prog.currentIndex === index && !prog.done;
   const numClass = isDone ? 'done' : (isCurrent ? 'current' : '');
   const numContent = isDone ? '' : (index + 1);
-  const setsReps = ex.duration ? formatDuration(ex.duration) : `${ex.sets}×${ex.reps}`;
+  const setsReps = ex.duration
+    ? formatDuration(ex.duration)
+    : ((ex.sets && ex.reps) ? `${ex.sets}×${ex.reps}` : [ex.bodyPart, ex.target, ex.equipment].filter(Boolean).join(' · ') || 'ExerciseDB');
   const calLabel = ex.calories ? `<span class="cal-badge">${ex.calories * (ex.sets || 1)} kcal</span>` : '';
 
   return `
@@ -1388,6 +1191,31 @@ function renderDay(params) {
     });
   }
   html += `</div>`;
+
+  if (day.exercises.length === 0) {
+    const suggestions = getExerciseSuggestionsForDay(day, 6);
+    if (suggestions.length > 0) {
+      html += `<div class="page-section">
+        <div class="section-title">ExerciseDB Suggestions</div>
+        <div class="card ex-list">`;
+      suggestions.forEach((ex, i) => {
+        const meta = [ex.bodyPart, ex.target, ex.equipment].filter(Boolean).join(' · ');
+        html += `<div class="ex-list-item card-pressable" onclick="App.addExToDay('${esc(dayId)}','${esc(ex.id)}')">
+          <div class="ex-num">${i + 1}</div>
+          <div class="ex-info">
+            <div class="ex-info-name">${esc(ex.name)}</div>
+            <div class="ex-info-sub">
+              <span>${esc(meta || 'ExerciseDB')}</span>
+              ${ex.gifUrl ? `<span>Video + photo</span>` : ''}
+            </div>
+          </div>
+          <span class="wdc-type type-custom" style="margin-right:8px">Add</span>
+          ${chevronRight()}
+        </div>`;
+      });
+      html += `</div></div>`;
+    }
+  }
 
   /* Action buttons */
   html += `<div class="btn-row" style="margin-top:12px">
