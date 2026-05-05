@@ -18,27 +18,21 @@ const PROGRESS_KEY = 'gymtracker_progress_v2';
 const SETTINGS_KEY = 'gymtracker_settings_v2';
 const USERS_KEY = 'gymtracker_users';
 const SESSION_KEY = 'gymtracker_session';
+const WORKOUT_CONFIG = window.__WORKOUT_CONFIG__ || {};
+const WORKOUT_API_BASE = String(WORKOUT_CONFIG.apiBase || window.WORKOUT_API_BASE || `${window.location.origin}/api`).replace(/\/+$/, '');
+const WORKOUT_AUTH_ROOT = 'workout/auth/users';
+const WORKOUT_DATA_ROOT = 'workout/data/users';
+const EXERCISEDB_API_BASE = String(WORKOUT_CONFIG.exerciseDbApiBase || 'https://exercisedb.p.rapidapi.com').replace(/\/+$/, '');
+const EXERCISEDB_API_HOST = String(WORKOUT_CONFIG.exerciseDbHost || 'exercisedb.p.rapidapi.com');
+const EXERCISEDB_API_KEY = String(WORKOUT_CONFIG.exerciseDbKey || window.EXERCISEDB_RAPIDAPI_KEY || '');
 
 /* ─────────────────────────────────────────────
-   AUTH (multi-user, username + PIN)
+   AUTH (remote users + local session)
 ───────────────────────────────────────────── */
 const Auth = {
   _users: null,
   _currentUser: null,
 
-  _getUsers() {
-    if (this._users) return this._users;
-    try { this._users = JSON.parse(localStorage.getItem(USERS_KEY) || '[]'); }
-    catch { this._users = []; }
-    return this._users;
-  },
-
-  _saveUsers(users) {
-    this._users = users;
-    localStorage.setItem(USERS_KEY, JSON.stringify(users));
-  },
-
-  /* Simple deterministic hash — sufficient for client-side PIN obfuscation */
   _hashPin(pin) {
     let h = 0x9e3779b9;
     const s = 'gt_salt_2024_' + pin;
@@ -49,53 +43,122 @@ const Auth = {
     return (h >>> 0).toString(16).padStart(8, '0');
   },
 
+  async _loadRemoteUsers() {
+    try {
+      const remote = await RemoteStore.read(WORKOUT_AUTH_ROOT);
+      this._remoteAvailable = true;
+      if (!remote) return [];
+      return Object.values(remote).filter(Boolean);
+    } catch {
+      this._remoteAvailable = false;
+      return [];
+    }
+  },
+
+  _loadLegacyUsers() {
+    try {
+      return JSON.parse(localStorage.getItem(USERS_KEY) || '[]');
+    } catch {
+      return [];
+    }
+  },
+
+  async _migrateLegacyUser(user) {
+    if (!user || !user.id) return;
+    const legacyDb = localStorage.getItem(`${STORAGE_KEY}_u_${user.id}`);
+    const legacyProgress = localStorage.getItem(`${PROGRESS_KEY}_u_${user.id}`);
+    const legacySettings = localStorage.getItem(`${SETTINGS_KEY}_u_${user.id}`);
+
+    await RemoteStore.write(`${WORKOUT_AUTH_ROOT}/${user.id}`, 'set', user);
+
+    if (legacyDb) {
+      try {
+        await RemoteStore.write(`${WORKOUT_DATA_ROOT}/${user.id}/db`, 'set', JSON.parse(legacyDb));
+      } catch {}
+    }
+    if (legacyProgress) {
+      try {
+        await RemoteStore.write(`${WORKOUT_DATA_ROOT}/${user.id}/progress`, 'set', JSON.parse(legacyProgress));
+      } catch {}
+    }
+    if (legacySettings) {
+      try {
+        await RemoteStore.write(`${WORKOUT_DATA_ROOT}/${user.id}/settings`, 'set', JSON.parse(legacySettings));
+      } catch {}
+    }
+  },
+
+  async bootstrap() {
+    const remoteUsers = await this._loadRemoteUsers();
+    const legacyUsers = this._loadLegacyUsers();
+    this._users = remoteUsers.length ? remoteUsers : legacyUsers;
+
+    if (this._remoteAvailable !== false && !remoteUsers.length && legacyUsers.length) {
+      await Promise.all(legacyUsers.map(user => this._migrateLegacyUser(user)));
+      this._users = legacyUsers;
+    }
+
+    const sessionId = localStorage.getItem(SESSION_KEY);
+    this._currentUser = this._users.find(user => user.id === sessionId) || null;
+    return this._currentUser;
+  },
+
   currentUser() {
     if (this._currentUser) return this._currentUser;
-    try {
-      const sessionId = localStorage.getItem(SESSION_KEY);
-      if (!sessionId) return null;
-      const users = this._getUsers();
-      this._currentUser = users.find(u => u.id === sessionId) || null;
-    } catch { this._currentUser = null; }
+    const sessionId = localStorage.getItem(SESSION_KEY);
+    if (!sessionId || !this._users) return null;
+    this._currentUser = this._users.find(user => user.id === sessionId) || null;
     return this._currentUser;
   },
 
   isLoggedIn() { return !!this.currentUser(); },
 
-  /* Returns namespaced key for current user, falls back to base key */
   storageKey(base) {
     const user = this.currentUser();
     return user ? `${base}_u_${user.id}` : base;
   },
 
-  listUsers() { return this._getUsers(); },
+  listUsers() {
+    return this._users || [];
+  },
 
-  signup(username, pin) {
+  async signup(username, pin) {
     const trimmed = username.trim();
     if (trimmed.length < 2) return { error: 'Username must be at least 2 characters' };
     if (!/^\d{4,8}$/.test(pin)) return { error: 'PIN must be 4–8 digits' };
-    const users = this._getUsers();
-    if (users.find(u => u.username.toLowerCase() === trimmed.toLowerCase()))
+
+    const users = this._users || await this._loadRemoteUsers();
+    if (users.find(user => user.username.toLowerCase() === trimmed.toLowerCase())) {
       return { error: 'Username already taken' };
+    }
+
     const user = {
       id: 'u_' + Math.random().toString(36).slice(2, 10),
       username: trimmed,
       pinHash: this._hashPin(pin),
-      createdAt: new Date().toISOString()
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
     };
-    users.push(user);
-    this._saveUsers(users);
+
+    try {
+      await RemoteStore.write(`${WORKOUT_AUTH_ROOT}/${user.id}`, 'set', user);
+    } catch {
+      const legacyUsers = this._loadLegacyUsers();
+      localStorage.setItem(USERS_KEY, JSON.stringify([...legacyUsers, user]));
+    }
+    this._users = [...users, user];
     this._currentUser = user;
     localStorage.setItem(SESSION_KEY, user.id);
     return { user };
   },
 
-  login(username, pin) {
-    const users = this._getUsers();
+  async login(username, pin) {
+    const users = this._users || await this._loadRemoteUsers();
     const user = users.find(u => u.username.toLowerCase() === username.trim().toLowerCase());
     if (!user) return { error: 'User not found' };
     if (user.pinHash !== this._hashPin(pin)) return { error: 'Incorrect PIN' };
     this._currentUser = user;
+    this._users = users;
     localStorage.setItem(SESSION_KEY, user.id);
     return { user };
   },
@@ -398,22 +461,279 @@ function buildDefaultData() {
   };
 }
 
+function deepClone(value) {
+  return value ? JSON.parse(JSON.stringify(value)) : value;
+}
+
+function normalizeText(value) {
+  return String(value || '')
+    .toLowerCase()
+    .replace(/\(.*?\)/g, ' ')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim();
+}
+
+function uniqueList(values) {
+  return Array.from(new Set((values || []).map(value => String(value || '').trim().toLowerCase()).filter(Boolean)));
+}
+
+const RemoteStore = {
+  async request(route, body) {
+    const response = await fetch(`${WORKOUT_API_BASE}/db/${route}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body || {})
+    });
+    if (!response.ok) {
+      const text = await response.text().catch(() => '');
+      throw new Error(text || `Request failed: ${response.status}`);
+    }
+    return response.json();
+  },
+
+  async read(path, query = null) {
+    const result = await this.request('read', { path, query });
+    return result.value ?? null;
+  },
+
+  async write(path, mode, value = null) {
+    const result = await this.request('write', { path, mode, value });
+    return result.value ?? null;
+  }
+};
+
+const ExerciseDB = {
+  _catalog: null,
+  _catalogById: null,
+  _catalogByName: null,
+
+  async loadCatalog(force = false) {
+    if (this._catalog && !force) return this._catalog;
+    try {
+      const response = await fetch(`${EXERCISEDB_API_BASE}/exercises`, {
+        headers: EXERCISEDB_API_KEY ? {
+          'X-RapidAPI-Key': EXERCISEDB_API_KEY,
+          'X-RapidAPI-Host': EXERCISEDB_API_HOST,
+        } : {
+          'X-RapidAPI-Host': EXERCISEDB_API_HOST,
+        },
+      });
+      if (!response.ok) throw new Error(`ExerciseDB request failed: ${response.status}`);
+      const data = await response.json();
+      this._catalog = Array.isArray(data) ? data : [];
+    } catch {
+      this._catalog = [];
+    }
+
+    this._catalogById = new Map();
+    this._catalogByName = new Map();
+    this._catalog.forEach(ex => {
+      if (!ex) return;
+      const id = String(ex.id || '').trim();
+      const name = normalizeText(ex.name);
+      if (id) this._catalogById.set(id, ex);
+      if (name && !this._catalogByName.has(name)) this._catalogByName.set(name, ex);
+    });
+    return this._catalog;
+  },
+
+  getCatalog() {
+    return this._catalog || [];
+  },
+
+  getById(id) {
+    if (!id) return null;
+    return this._catalogById?.get(String(id)) || null;
+  },
+
+  resolveMatch(exercise) {
+    if (!exercise) return null;
+    const direct = this.getById(exercise.apiId || exercise.remoteId || exercise.exdbId || exercise.id);
+    if (direct) return direct;
+
+    const normalizedName = normalizeText(exercise.name);
+    if (!normalizedName) return null;
+
+    const aliases = {
+      'chest press machine or barbell': ['machine chest press', 'chest press', 'bench press'],
+      'incline dumbbell press': ['incline dumbbell press', 'incline press'],
+      'shoulder press dumbbell or machine': ['shoulder press', 'machine shoulder press'],
+      'triceps pushdown cable': ['triceps pushdown', 'cable pushdown'],
+      'post workout cardio treadmill liss': ['treadmill walking', 'walking treadmill', 'cardio walk'],
+      'lat pulldown': ['lat pulldown'],
+      'seated cable row': ['seated cable row', 'cable row'],
+      'biceps curl dumbbell': ['dumbbell bicep curl', 'biceps curl'],
+      'face pull cable': ['face pull'],
+      'post workout cardio stationary bike': ['stationary bike', 'bike'],
+      'leg press': ['leg press'],
+      'barbell squat': ['barbell squat', 'back squat', 'squat'],
+      'plank': ['plank'],
+      'post workout walk easy': ['walking', 'easy walk'],
+      'light walk outdoor or treadmill': ['walking', 'treadmill walking'],
+      'stationary bike optional': ['stationary bike', 'bike'],
+      'stretching foam rolling': ['stretching', 'foam rolling'],
+      'treadmill warm up walk': ['walking', 'treadmill walking'],
+      'shoulder circles': ['shoulder circles'],
+      'chest opener stretch': ['chest stretch', 'pec stretch'],
+      'hip hinge bodyweight': ['hip hinge', 'good morning'],
+      'hip rotation': ['hip rotation'],
+      'glute bridge': ['glute bridge'],
+      'scapular push ups': ['scapular push up'],
+      'leg swings front back': ['leg swing'],
+      'bodyweight squat': ['bodyweight squat'],
+    };
+
+    const candidates = aliases[normalizedName] || [normalizedName];
+    for (const candidate of candidates) {
+      const exercise = this._catalogByName?.get(normalizeText(candidate));
+      if (exercise) return exercise;
+    }
+
+    const tokens = normalizedName.split(' ').filter(token => token.length > 2 && !['and', 'or', 'the', 'with', 'from', 'for', 'easy', 'cable', 'machine', 'dumbbell', 'barbell'].includes(token));
+    if (!tokens.length) return null;
+
+    const scored = this.getCatalog()
+      .map(ex => {
+        const haystack = normalizeText(ex.name);
+        const score = tokens.reduce((sum, token) => sum + (haystack.includes(token) ? 1 : 0), 0);
+        return { ex, score };
+      })
+      .filter(item => item.score > 0)
+      .sort((a, b) => b.score - a.score);
+    return scored[0]?.ex || null;
+  },
+
+  enrichExercise(exercise) {
+    if (!exercise) return null;
+    const remote = this.resolveMatch(exercise);
+    if (!remote) {
+      return {
+        ...exercise,
+        source: exercise.source || 'custom',
+        images: Array.isArray(exercise.images) ? exercise.images : (exercise.imageUrl ? [exercise.imageUrl] : []),
+      };
+    }
+
+    const mergedMuscles = uniqueList([
+      ...(exercise.muscleGroups || []),
+      remote.bodyPart,
+      remote.target,
+      remote.equipment,
+      ...(remote.secondaryMuscles || []),
+    ]);
+
+    const mergedImages = uniqueList([
+      ...(Array.isArray(exercise.images) ? exercise.images : []),
+      exercise.imageUrl,
+      remote.gifUrl,
+    ]).map(url => String(url).trim()).filter(Boolean);
+
+    return {
+      ...exercise,
+      name: remote.name || exercise.name,
+      apiId: String(remote.id || exercise.apiId || exercise.id || ''),
+      bodyPart: remote.bodyPart || exercise.bodyPart || '',
+      target: remote.target || exercise.target || '',
+      equipment: remote.equipment || exercise.equipment || '',
+      secondaryMuscles: Array.isArray(remote.secondaryMuscles) ? remote.secondaryMuscles : (exercise.secondaryMuscles || []),
+      instructions: Array.isArray(remote.instructions) && remote.instructions.length
+        ? remote.instructions.join('\n')
+        : (remote.instructions || exercise.instructions || ''),
+      images: mergedImages,
+      imageUrl: mergedImages[0] || '',
+      videoUrl: exercise.videoUrl || remote.videoUrl || '',
+      source: 'ExerciseDB',
+      muscleGroups: mergedMuscles,
+    };
+  },
+
+  hydrateData(data) {
+    if (!data || !data.exercises) return data;
+    Object.keys(data.exercises).forEach(id => {
+      data.exercises[id] = this.enrichExercise({ ...data.exercises[id], id }) || data.exercises[id];
+    });
+    return data;
+  },
+
+  getCombinedExercises(customExercises = []) {
+    const catalog = this.getCatalog().map(ex => ({
+      ...ex,
+      id: String(ex.id),
+      source: 'ExerciseDB',
+      sourceUrl: `${EXERCISEDB_API_BASE}/exercises/exercise/${encodeURIComponent(ex.name)}`,
+      images: ex.gifUrl ? [ex.gifUrl] : [],
+      imageUrl: ex.gifUrl || '',
+      muscleGroups: uniqueList([ex.bodyPart, ex.target, ex.equipment, ...(ex.secondaryMuscles || [])]),
+    }));
+    const combined = [...catalog, ...customExercises];
+    const byId = new Map();
+    combined.forEach(ex => {
+      if (!ex || !ex.id) return;
+      byId.set(String(ex.id), ex);
+    });
+    return Array.from(byId.values());
+  },
+
+  search(query, filter = 'all') {
+    const q = normalizeText(query);
+    return this.getCombinedExercises().filter(ex => {
+      const filterMatch = filter === 'all' || [ex.bodyPart, ex.target, ex.equipment, ...(ex.secondaryMuscles || []), ...(ex.muscleGroups || [])]
+        .map(normalizeText)
+        .includes(normalizeText(filter));
+      const haystack = normalizeText([
+        ex.name,
+        ex.bodyPart,
+        ex.target,
+        ex.equipment,
+        ...(ex.secondaryMuscles || []),
+        ex.instructions,
+      ].join(' '));
+      return filterMatch && (!q || haystack.includes(q));
+    });
+  },
+
+  getLibraryFilters() {
+    const values = new Set();
+    this.getCatalog().forEach(ex => {
+      [ex.bodyPart, ex.target, ex.equipment, ...(ex.secondaryMuscles || [])].forEach(value => {
+        const normalized = normalizeText(value);
+        if (normalized) values.add(normalized);
+      });
+    });
+    return Array.from(values).sort((a, b) => a.localeCompare(b));
+  }
+};
+
 /* ─────────────────────────────────────────────
-   DATABASE (localStorage)
+   DATABASE (remote per-user data + local cache)
 ───────────────────────────────────────────── */
 const DB = {
   data: null,
 
-  load() {
+  async load() {
+    await ExerciseDB.loadCatalog();
+    const user = Auth.currentUser();
+    if (!user) {
+      this.data = buildDefaultData();
+      ExerciseDB.hydrateData(this.data);
+      return this.data;
+    }
+
+    const legacyRaw = localStorage.getItem(Auth.storageKey(STORAGE_KEY));
     try {
-      const raw = localStorage.getItem(Auth.storageKey(STORAGE_KEY));
-      this.data = raw ? JSON.parse(raw) : null;
-    } catch { this.data = null; }
+      this.data = await RemoteStore.read(`${WORKOUT_DATA_ROOT}/${user.id}/db`);
+    } catch {
+      this.data = null;
+    }
+
+    if (!this.data && legacyRaw) {
+      try { this.data = JSON.parse(legacyRaw); } catch { this.data = null; }
+    }
+
     if (!this.data) {
       this.data = buildDefaultData();
-      this.save();
     }
-    /* Migrate legacy imageUrl → images array */
+
     if (this.data && this.data.exercises) {
       Object.values(this.data.exercises).forEach(ex => {
         if (!ex.images || !Array.isArray(ex.images)) {
@@ -421,11 +741,24 @@ const DB = {
         }
       });
     }
+
+    ExerciseDB.hydrateData(this.data);
+    await this.save();
+    return this.data;
   },
 
-  save() {
-    try { localStorage.setItem(Auth.storageKey(STORAGE_KEY), JSON.stringify(this.data)); }
-    catch (e) { App.toast('Storage full — export your data!', 'warn'); }
+  async save() {
+    const user = Auth.currentUser();
+    if (!user) return;
+    try {
+      await RemoteStore.write(`${WORKOUT_DATA_ROOT}/${user.id}/db`, 'set', this.data);
+    } catch {
+      try {
+        localStorage.setItem(Auth.storageKey(STORAGE_KEY), JSON.stringify(this.data));
+      } catch {
+        App.toast('Storage unavailable — export your data', 'warn');
+      }
+    }
   },
 
   /* ── Plans ── */
@@ -464,8 +797,12 @@ const DB = {
   deleteDay(id) { delete this.data.days[id]; this.save(); },
 
   /* ── Exercises ── */
-  getExercise(id) { return this.data.exercises[id] || null; },
-  getAllExercises() { return Object.values(this.data.exercises); },
+  getExercise(id) {
+    return this.data.exercises[id] || ExerciseDB.getById(id) || null;
+  },
+  getAllExercises() {
+    return ExerciseDB.getCombinedExercises(Object.values(this.data.exercises));
+  },
 
   saveExercise(ex) {
     if (!ex.id) ex.id = 'ex_' + Math.random().toString(36).slice(2, 8);
@@ -484,29 +821,46 @@ const DB = {
     if (!parsed.plans || !parsed.days || !parsed.exercises) throw new Error('Invalid data format');
     const { plans, days, exercises, activePlanId } = parsed;
     this.data = { plans, days, exercises, activePlanId: activePlanId || Object.keys(plans)[0] };
+    ExerciseDB.hydrateData(this.data);
     this.save();
   },
-  reset() {
-    localStorage.removeItem(Auth.storageKey(STORAGE_KEY));
-    localStorage.removeItem(Auth.storageKey(PROGRESS_KEY));
-    this.load();
+  async reset() {
+    this.data = buildDefaultData();
+    ExerciseDB.hydrateData(this.data);
+    await this.save();
   }
 };
 
 /* ─────────────────────────────────────────────
-   PROGRESS (localStorage, per-day tracking)
+   PROGRESS (remote per-user tracking)
 ───────────────────────────────────────────── */
 const Progress = {
   _data: null,
 
-  load() {
-    try { this._data = JSON.parse(localStorage.getItem(Auth.storageKey(PROGRESS_KEY)) || '{}'); }
-    catch { this._data = {}; }
+  async load() {
+    const user = Auth.currentUser();
+    if (!user) {
+      this._data = {};
+      return this._data;
+    }
+    const legacyRaw = localStorage.getItem(Auth.storageKey(PROGRESS_KEY));
+    try {
+      this._data = await RemoteStore.read(`${WORKOUT_DATA_ROOT}/${user.id}/progress`) || {};
+    } catch {
+      try { this._data = legacyRaw ? JSON.parse(legacyRaw) : {}; }
+      catch { this._data = {}; }
+    }
+    return this._data;
   },
 
-  save() {
-    try { localStorage.setItem(Auth.storageKey(PROGRESS_KEY), JSON.stringify(this._data)); }
-    catch {}
+  async save() {
+    const user = Auth.currentUser();
+    if (!user) return;
+    try { await RemoteStore.write(`${WORKOUT_DATA_ROOT}/${user.id}/progress`, 'set', this._data); }
+    catch {
+      try { localStorage.setItem(Auth.storageKey(PROGRESS_KEY), JSON.stringify(this._data)); }
+      catch {}
+    }
   },
 
   todayKey() { return new Date().toISOString().slice(0, 10); },
@@ -560,14 +914,41 @@ const Progress = {
 ───────────────────────────────────────────── */
 const Settings = {
   defaults: { weight: 120, height: 181, age: 21, weightUnit: 'kg' },
+  _data: null,
 
-  load() {
-    try { return { ...this.defaults, ...JSON.parse(localStorage.getItem(Auth.storageKey(SETTINGS_KEY)) || '{}') }; }
-    catch { return { ...this.defaults }; }
+  async load() {
+    const user = Auth.currentUser();
+    if (!user) {
+      this._data = { ...this.defaults };
+      return this._data;
+    }
+    const legacyRaw = localStorage.getItem(Auth.storageKey(SETTINGS_KEY));
+    try {
+      this._data = { ...this.defaults, ...(await RemoteStore.read(`${WORKOUT_DATA_ROOT}/${user.id}/settings`) || {}) };
+    } catch {
+      try {
+        this._data = { ...this.defaults, ...(legacyRaw ? JSON.parse(legacyRaw) : {}) };
+      } catch {
+        this._data = { ...this.defaults };
+      }
+    }
+    return this._data;
   },
 
-  save(settings) {
-    localStorage.setItem(Auth.storageKey(SETTINGS_KEY), JSON.stringify({ ...this.load(), ...settings }));
+  get() {
+    return { ...this.defaults, ...(this._data || {}) };
+  },
+
+  async save(settings) {
+    const user = Auth.currentUser();
+    this._data = { ...this.get(), ...settings };
+    if (!user) return this._data;
+    try {
+      await RemoteStore.write(`${WORKOUT_DATA_ROOT}/${user.id}/settings`, 'set', this._data);
+    } catch {
+      localStorage.setItem(Auth.storageKey(SETTINGS_KEY), JSON.stringify(this._data));
+    }
+    return this._data;
   }
 };
 
@@ -1029,6 +1410,9 @@ function renderExerciseDetail(params) {
   const setsLabel = ex.duration ? formatDuration(ex.duration) : `${ex.sets}`;
   const repsLabel = ex.duration ? '—' : (ex.reps || '—');
   const ytId = youtubeId(ex.videoUrl);
+  const mediaImages = Array.isArray(ex.images) && ex.images.length > 0
+    ? ex.images
+    : (ex.imageUrl ? [ex.imageUrl] : []);
   const typeInfo = getTypeInfo(ex.category);
 
   let html = `<div class="ex-detail-hero">
@@ -1045,6 +1429,18 @@ function renderExerciseDetail(params) {
     <div class="ex-stat-box"><div class="ex-stat-val">${ex.rest || 0}s</div><div class="ex-stat-lbl">Rest</div></div>
     <div class="ex-stat-box"><div class="ex-stat-val">${ex.calories || 0}</div><div class="ex-stat-lbl">kcal/set</div></div>
   </div>`;
+
+  if (ex.bodyPart || ex.target || ex.equipment || (ex.secondaryMuscles && ex.secondaryMuscles.length)) {
+    html += `<div class="page-section">
+      <div class="section-title">ExerciseDB Details</div>
+      <div class="card" style="padding:12px 14px;display:grid;gap:10px">
+        ${ex.bodyPart ? `<div><strong>Body part:</strong> ${esc(ex.bodyPart)}</div>` : ''}
+        ${ex.target ? `<div><strong>Target:</strong> ${esc(ex.target)}</div>` : ''}
+        ${ex.equipment ? `<div><strong>Equipment:</strong> ${esc(ex.equipment)}</div>` : ''}
+        ${ex.secondaryMuscles && ex.secondaryMuscles.length ? `<div><strong>Secondary muscles:</strong> ${esc(ex.secondaryMuscles.join(', '))}</div>` : ''}
+      </div>
+    </div>`;
+  }
 
   /* Set tracker (if part of a day workout) */
   if (dayId) {
@@ -1074,21 +1470,18 @@ function renderExerciseDetail(params) {
   }
 
   /* Media */
-  const images = Array.isArray(ex.images) && ex.images.length > 0
-    ? ex.images
-    : (ex.imageUrl ? [ex.imageUrl] : []);
-  const hasMedia = images.length > 0 || ytId;
+  const hasMedia = mediaImages.length > 0 || ytId;
   if (hasMedia) {
     html += `<div class="ex-media"><h4>Media</h4>`;
-    if (images.length > 0) {
+    if (mediaImages.length > 0) {
       html += `<div class="ex-images-grid">`;
-      images.forEach(url => {
+      mediaImages.forEach(url => {
         if (url) html += `<img class="ex-image" src="${esc(url)}" alt="${esc(ex.name)}" onerror="this.style.display='none'" loading="lazy">`;
       });
       html += `</div>`;
     }
     if (ytId) {
-      html += `<div class="ex-video-wrap" style="margin-top:${images.length?'10px':'0'}">
+      html += `<div class="ex-video-wrap" style="margin-top:${mediaImages.length?'10px':'0'}">
         <iframe src="https://www.youtube.com/embed/${ytId}?rel=0" allowfullscreen title="${esc(ex.name)}"></iframe>
       </div>`;
     }
@@ -1121,7 +1514,7 @@ let libSearch = '';
 
 function renderLibrary() {
   const exercises = DB.getAllExercises();
-  const chips = ['all', ...MUSCLE_GROUPS];
+  const chips = ['all', ...ExerciseDB.getLibraryFilters()];
 
   let html = `<div class="search-bar">
     <input class="search-input" type="search" placeholder="Search exercises…" 
@@ -1138,11 +1531,19 @@ function renderLibrary() {
   /* Filter */
   let filtered = exercises;
   if (libFilter !== 'all') {
-    filtered = filtered.filter(e => (e.muscleGroups || []).includes(libFilter) || e.category === libFilter);
+    filtered = filtered.filter(e => {
+      const fields = [e.category, e.bodyPart, e.target, e.equipment, ...(e.secondaryMuscles || []), ...(e.muscleGroups || [])];
+      return fields.map(value => normalizeText(value)).includes(normalizeText(libFilter));
+    });
   }
   if (libSearch) {
     const q = libSearch.toLowerCase();
-    filtered = filtered.filter(e => e.name.toLowerCase().includes(q) || (e.muscleGroups || []).join(' ').includes(q));
+    filtered = filtered.filter(e => {
+      const haystack = [e.name, e.category, e.bodyPart, e.target, e.equipment, ...(e.secondaryMuscles || []), ...(e.muscleGroups || []), e.instructions]
+        .join(' ')
+        .toLowerCase();
+      return haystack.includes(q);
+    });
   }
 
   if (filtered.length === 0) {
@@ -1155,7 +1556,7 @@ function renderLibrary() {
     /* Group by category */
     const groups = {};
     filtered.forEach(e => {
-      const g = e.category || 'custom';
+      const g = e.bodyPart || e.category || 'custom';
       if (!groups[g]) groups[g] = [];
       groups[g].push(e);
     });
@@ -1254,7 +1655,7 @@ function renderPlans() {
    VIEW: SETTINGS
 ───────────────────────────────────────────── */
 function renderSettings() {
-  const s = Settings.load();
+  const s = Settings.get();
   const user = Auth.currentUser();
   return `
   <div class="user-stats-grid">
@@ -1537,7 +1938,7 @@ function renderPlanEditorModal(planId) {
    PROFILE EDITOR MODAL
 ───────────────────────────────────────────── */
 function renderProfileModal() {
-  const s = Settings.load();
+  const s = Settings.get();
   return `
   <div class="modal-header">
     <h3>Edit Profile</h3>
@@ -1667,17 +2068,19 @@ function renderAuthScreen(mode = 'login') {
 const App = {
   currentView: 'dashboard',
 
-  init() {
+  async init() {
+    await Auth.bootstrap();
     if (!Auth.isLoggedIn()) {
       this._showAuthScreen('login');
       return;
     }
-    this._bootApp();
+    await this._bootApp();
   },
 
-  _bootApp() {
-    DB.load();
-    Progress.load();
+  async _bootApp() {
+    await DB.load();
+    await Progress.load();
+    await Settings.load();
     Timer.init();
     this._setupNav();
     this._setupBackBtn();
@@ -1705,7 +2108,7 @@ const App = {
     }, 150);
   },
 
-  loginUser() {
+  async loginUser() {
     const username = (document.getElementById('auth-username')?.value || '').trim();
     const pin = document.getElementById('auth-pin')?.value || '';
     const errEl = document.getElementById('auth-error');
@@ -1714,17 +2117,17 @@ const App = {
       errEl.classList.remove('hidden');
       return;
     }
-    const result = Auth.login(username, pin);
+    const result = await Auth.login(username, pin);
     if (result.error) {
       errEl.textContent = result.error;
       errEl.classList.remove('hidden');
       return;
     }
     errEl.classList.add('hidden');
-    this._bootApp();
+    await this._bootApp();
   },
 
-  signupUser() {
+  async signupUser() {
     const username = (document.getElementById('auth-username')?.value || '').trim();
     const pin = document.getElementById('auth-pin')?.value || '';
     const pin2 = document.getElementById('auth-pin2')?.value || '';
@@ -1734,17 +2137,17 @@ const App = {
       errEl.classList.remove('hidden');
       return;
     }
-    const result = Auth.signup(username, pin);
+    const result = await Auth.signup(username, pin);
     if (result.error) {
       errEl.textContent = result.error;
       errEl.classList.remove('hidden');
       return;
     }
     errEl.classList.add('hidden');
-    this._bootApp();
+    await this._bootApp();
   },
 
-  logout() {
+  async logout() {
     if (!confirm('Log out? Your data is saved and will be here when you return.')) return;
     Auth.logout();
     /* Reset module state */
@@ -2092,12 +2495,12 @@ const App = {
     this.showModal(renderProfileModal());
   },
 
-  saveProfile() {
+  async saveProfile() {
     const weight = parseInt(document.getElementById('prof-weight').value);
     const height = parseInt(document.getElementById('prof-height').value);
     const age = parseInt(document.getElementById('prof-age').value);
     if (!weight || !height || !age) { this.toast('Please fill all fields', 'error'); return; }
-    Settings.save({ weight, height, age });
+    await Settings.save({ weight, height, age });
     this.closeModal();
     this.toast('✅ Profile saved', 'success');
     this.renderView('settings');
@@ -2166,9 +2569,9 @@ const App = {
     } catch { this.toast('❌ Plan too large for URL sharing — use Export instead', 'error'); }
   },
 
-  confirmReset() {
+  async confirmReset() {
     if (!confirm('Reset ALL data? This will restore the default plan and cannot be undone.')) return;
-    DB.reset();
+    await DB.reset();
     this.toast('✅ Data reset to defaults', 'success');
     this.renderView('dashboard');
   },
