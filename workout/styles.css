@@ -1084,3 +1084,115 @@ body {
 
 /* Safe-area padding for content at very bottom */
 .bottom-safe { padding-bottom: calc(8px + env(safe-area-inset-bottom, 0px)); }
+
+/* ============================================================
+   AUTH SCREEN
+   ============================================================ */
+.auth-screen {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100dvh;
+  min-height: 100vh;
+  padding: 24px 20px;
+  background: var(--bg);
+  overflow-y: auto;
+}
+.auth-logo {
+  font-size: 64px;
+  margin-bottom: 10px;
+  line-height: 1;
+}
+.auth-title {
+  font-size: 28px;
+  font-weight: 800;
+  color: var(--text);
+  margin-bottom: 4px;
+  letter-spacing: -0.5px;
+}
+.auth-sub {
+  font-size: 14px;
+  color: var(--text-secondary);
+  margin-bottom: 28px;
+  text-align: center;
+}
+.auth-card {
+  background: var(--card);
+  border-radius: var(--radius-lg);
+  padding: 22px 20px 20px;
+  width: 100%;
+  max-width: 360px;
+  box-shadow: var(--shadow);
+  margin-bottom: 16px;
+}
+.auth-error {
+  background: var(--danger-light);
+  color: var(--danger);
+  border-radius: var(--radius-sm);
+  padding: 8px 12px;
+  font-size: 13px;
+  margin-top: 8px;
+  text-align: center;
+}
+.auth-error.hidden { display: none; }
+.auth-switch-btn {
+  background: none;
+  border: none;
+  color: var(--primary);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 10px 16px;
+  text-align: center;
+}
+.auth-switch-label {
+  font-size: 12px;
+  color: var(--text-muted);
+  text-align: center;
+  margin-bottom: 8px;
+}
+.auth-users-list {
+  text-align: center;
+  margin-bottom: 8px;
+}
+.auth-user-pill {
+  display: inline-block;
+  background: var(--card);
+  border: 1px solid var(--border-light);
+  border-radius: 99px;
+  padding: 6px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  cursor: pointer;
+  margin: 4px;
+  transition: background var(--transition);
+}
+.auth-user-pill:active { background: var(--card-hover); }
+
+/* ============================================================
+   MULTI-IMAGE GRID (exercise detail)
+   ============================================================ */
+.ex-images-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.ex-images-grid .ex-image {
+  width: 100%;
+  border-radius: var(--radius);
+  object-fit: cover;
+  max-height: 280px;
+  background: var(--border);
+}
+
+/* ============================================================
+   FORM LABEL HINT
+   ============================================================ */
+.form-label-hint {
+  font-weight: 400;
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-left: 4px;
+}

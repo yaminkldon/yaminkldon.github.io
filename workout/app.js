@@ -16,6 +16,95 @@
 const STORAGE_KEY = 'gymtracker_v2';
 const PROGRESS_KEY = 'gymtracker_progress_v2';
 const SETTINGS_KEY = 'gymtracker_settings_v2';
+const USERS_KEY = 'gymtracker_users';
+const SESSION_KEY = 'gymtracker_session';
+
+/* ─────────────────────────────────────────────
+   AUTH (multi-user, username + PIN)
+───────────────────────────────────────────── */
+const Auth = {
+  _users: null,
+  _currentUser: null,
+
+  _getUsers() {
+    if (this._users) return this._users;
+    try { this._users = JSON.parse(localStorage.getItem(USERS_KEY) || '[]'); }
+    catch { this._users = []; }
+    return this._users;
+  },
+
+  _saveUsers(users) {
+    this._users = users;
+    localStorage.setItem(USERS_KEY, JSON.stringify(users));
+  },
+
+  /* Simple deterministic hash — sufficient for client-side PIN obfuscation */
+  _hashPin(pin) {
+    let h = 0x9e3779b9;
+    const s = 'gt_salt_2024_' + pin;
+    for (let i = 0; i < s.length; i++) {
+      h = Math.imul(h ^ s.charCodeAt(i), 0x9e3779b9);
+      h ^= h >>> 16;
+    }
+    return (h >>> 0).toString(16).padStart(8, '0');
+  },
+
+  currentUser() {
+    if (this._currentUser) return this._currentUser;
+    try {
+      const sessionId = localStorage.getItem(SESSION_KEY);
+      if (!sessionId) return null;
+      const users = this._getUsers();
+      this._currentUser = users.find(u => u.id === sessionId) || null;
+    } catch { this._currentUser = null; }
+    return this._currentUser;
+  },
+
+  isLoggedIn() { return !!this.currentUser(); },
+
+  /* Returns namespaced key for current user, falls back to base key */
+  storageKey(base) {
+    const user = this.currentUser();
+    return user ? `${base}_u_${user.id}` : base;
+  },
+
+  listUsers() { return this._getUsers(); },
+
+  signup(username, pin) {
+    const trimmed = username.trim();
+    if (trimmed.length < 2) return { error: 'Username must be at least 2 characters' };
+    if (!/^\d{4,8}$/.test(pin)) return { error: 'PIN must be 4–8 digits' };
+    const users = this._getUsers();
+    if (users.find(u => u.username.toLowerCase() === trimmed.toLowerCase()))
+      return { error: 'Username already taken' };
+    const user = {
+      id: 'u_' + Math.random().toString(36).slice(2, 10),
+      username: trimmed,
+      pinHash: this._hashPin(pin),
+      createdAt: new Date().toISOString()
+    };
+    users.push(user);
+    this._saveUsers(users);
+    this._currentUser = user;
+    localStorage.setItem(SESSION_KEY, user.id);
+    return { user };
+  },
+
+  login(username, pin) {
+    const users = this._getUsers();
+    const user = users.find(u => u.username.toLowerCase() === username.trim().toLowerCase());
+    if (!user) return { error: 'User not found' };
+    if (user.pinHash !== this._hashPin(pin)) return { error: 'Incorrect PIN' };
+    this._currentUser = user;
+    localStorage.setItem(SESSION_KEY, user.id);
+    return { user };
+  },
+
+  logout() {
+    this._currentUser = null;
+    localStorage.removeItem(SESSION_KEY);
+  }
+};
 
 const DAY_TYPES = {
   push:   { label: 'Push', color: 'type-push' },
@@ -317,17 +406,25 @@ const DB = {
 
   load() {
     try {
-      const raw = localStorage.getItem(STORAGE_KEY);
+      const raw = localStorage.getItem(Auth.storageKey(STORAGE_KEY));
       this.data = raw ? JSON.parse(raw) : null;
     } catch { this.data = null; }
     if (!this.data) {
       this.data = buildDefaultData();
       this.save();
     }
+    /* Migrate legacy imageUrl → images array */
+    if (this.data && this.data.exercises) {
+      Object.values(this.data.exercises).forEach(ex => {
+        if (!ex.images || !Array.isArray(ex.images)) {
+          ex.images = ex.imageUrl ? [ex.imageUrl] : [];
+        }
+      });
+    }
   },
 
   save() {
-    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(this.data)); }
+    try { localStorage.setItem(Auth.storageKey(STORAGE_KEY), JSON.stringify(this.data)); }
     catch (e) { App.toast('Storage full — export your data!', 'warn'); }
   },
 
@@ -390,8 +487,8 @@ const DB = {
     this.save();
   },
   reset() {
-    localStorage.removeItem(STORAGE_KEY);
-    localStorage.removeItem(PROGRESS_KEY);
+    localStorage.removeItem(Auth.storageKey(STORAGE_KEY));
+    localStorage.removeItem(Auth.storageKey(PROGRESS_KEY));
     this.load();
   }
 };
@@ -403,12 +500,12 @@ const Progress = {
   _data: null,
 
   load() {
-    try { this._data = JSON.parse(localStorage.getItem(PROGRESS_KEY) || '{}'); }
+    try { this._data = JSON.parse(localStorage.getItem(Auth.storageKey(PROGRESS_KEY)) || '{}'); }
     catch { this._data = {}; }
   },
 
   save() {
-    try { localStorage.setItem(PROGRESS_KEY, JSON.stringify(this._data)); }
+    try { localStorage.setItem(Auth.storageKey(PROGRESS_KEY), JSON.stringify(this._data)); }
     catch {}
   },
 
@@ -465,12 +562,12 @@ const Settings = {
   defaults: { weight: 120, height: 181, age: 21, weightUnit: 'kg' },
 
   load() {
-    try { return { ...this.defaults, ...JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}') }; }
+    try { return { ...this.defaults, ...JSON.parse(localStorage.getItem(Auth.storageKey(SETTINGS_KEY)) || '{}') }; }
     catch { return { ...this.defaults }; }
   },
 
   save(settings) {
-    localStorage.setItem(SETTINGS_KEY, JSON.stringify({ ...this.load(), ...settings }));
+    localStorage.setItem(Auth.storageKey(SETTINGS_KEY), JSON.stringify({ ...this.load(), ...settings }));
   }
 };
 
@@ -977,14 +1074,21 @@ function renderExerciseDetail(params) {
   }
 
   /* Media */
-  const hasMedia = ex.imageUrl || ytId;
+  const images = Array.isArray(ex.images) && ex.images.length > 0
+    ? ex.images
+    : (ex.imageUrl ? [ex.imageUrl] : []);
+  const hasMedia = images.length > 0 || ytId;
   if (hasMedia) {
     html += `<div class="ex-media"><h4>Media</h4>`;
-    if (ex.imageUrl) {
-      html += `<img class="ex-image" src="${esc(ex.imageUrl)}" alt="${esc(ex.name)}" onerror="this.style.display='none'" loading="lazy">`;
+    if (images.length > 0) {
+      html += `<div class="ex-images-grid">`;
+      images.forEach(url => {
+        if (url) html += `<img class="ex-image" src="${esc(url)}" alt="${esc(ex.name)}" onerror="this.style.display='none'" loading="lazy">`;
+      });
+      html += `</div>`;
     }
     if (ytId) {
-      html += `<div class="ex-video-wrap" style="margin-top:${ex.imageUrl?'10px':'0'}">
+      html += `<div class="ex-video-wrap" style="margin-top:${images.length?'10px':'0'}">
         <iframe src="https://www.youtube.com/embed/${ytId}?rel=0" allowfullscreen title="${esc(ex.name)}"></iframe>
       </div>`;
     }
@@ -1151,6 +1255,7 @@ function renderPlans() {
 ───────────────────────────────────────────── */
 function renderSettings() {
   const s = Settings.load();
+  const user = Auth.currentUser();
   return `
   <div class="user-stats-grid">
     <div class="user-stat-box">
@@ -1168,10 +1273,31 @@ function renderSettings() {
   </div>
 
   <div class="settings-section">
+    <div class="section-title">Account</div>
+    <div class="settings-card">
+      <div class="settings-row">
+        <div class="settings-row-icon icon-green">👤</div>
+        <div class="settings-row-text">
+          <div class="settings-row-label">Logged in as</div>
+          <div class="settings-row-sub">${esc(user ? user.username : 'Guest')}</div>
+        </div>
+      </div>
+      <div class="settings-row" onclick="App.logout()">
+        <div class="settings-row-icon icon-red">🚪</div>
+        <div class="settings-row-text">
+          <div class="settings-row-label text-danger">Log Out</div>
+          <div class="settings-row-sub">Switch to another account</div>
+        </div>
+        ${chevronRight()}
+      </div>
+    </div>
+  </div>
+
+  <div class="settings-section">
     <div class="section-title">Profile</div>
     <div class="settings-card">
       <div class="settings-row" onclick="App.editProfile()">
-        <div class="settings-row-icon icon-blue">👤</div>
+        <div class="settings-row-icon icon-blue">📝</div>
         <div class="settings-row-text">
           <div class="settings-row-label">Edit Profile</div>
           <div class="settings-row-sub">Weight, height, age</div>
@@ -1228,7 +1354,7 @@ function renderSettings() {
   <div class="settings-section">
     <div class="settings-card" style="padding:14px 16px">
       <div style="font-size:14px;font-weight:600;margin-bottom:4px">GymTracker 💪</div>
-      <div class="text-secondary text-small">Personal workout tracker · v2.0<br>Works offline · No account required</div>
+      <div class="text-secondary text-small">Personal workout tracker · v2.1<br>Works offline · Multi-user support</div>
     </div>
   </div>
   <div class="spacer-16 bottom-safe"></div>`;
@@ -1298,8 +1424,8 @@ function renderExerciseEditorModal(exId, dayId) {
       <textarea class="form-textarea" id="ex-instructions" rows="4" placeholder="How to perform this exercise…">${esc(ex?.instructions||'')}</textarea>
     </div>
     <div class="form-group">
-      <label class="form-label">Image URL</label>
-      <input class="form-input" id="ex-image" type="url" placeholder="https://…" value="${esc(ex?.imageUrl||'')}" />
+      <label class="form-label">Photo URLs <span class="form-label-hint">(one per line — paste image links)</span></label>
+      <textarea class="form-textarea" id="ex-images" rows="3" placeholder="https://example.com/photo1.jpg&#10;https://example.com/photo2.jpg">${esc((Array.isArray(ex?.images) && ex.images.length ? ex.images : (ex?.imageUrl ? [ex.imageUrl] : [])).join('\n'))}</textarea>
     </div>
     <div class="form-group">
       <label class="form-label">YouTube / Video URL</label>
@@ -1475,20 +1601,156 @@ function renderAddExToDayModal(dayId) {
 }
 
 /* ─────────────────────────────────────────────
+   AUTH SCREENS
+───────────────────────────────────────────── */
+function renderAuthScreen(mode = 'login') {
+  const users = Auth.listUsers();
+  const hasUsers = users.length > 0;
+
+  if (mode === 'signup') {
+    return `
+    <div class="auth-screen">
+      <div class="auth-logo">💪</div>
+      <h1 class="auth-title">GymTracker</h1>
+      <p class="auth-sub">Create your account</p>
+      <div class="auth-card">
+        <div class="form-group">
+          <label class="form-label">Username</label>
+          <input class="form-input" id="auth-username" placeholder="Choose a username" autocomplete="username" autocorrect="off" autocapitalize="none" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">PIN <span class="form-label-hint">(4–8 digits)</span></label>
+          <input class="form-input" id="auth-pin" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="8" placeholder="••••" autocomplete="new-password" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Confirm PIN</label>
+          <input class="form-input" id="auth-pin2" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="8" placeholder="••••" autocomplete="new-password" />
+        </div>
+        <div id="auth-error" class="auth-error hidden"></div>
+        <button class="btn-primary full-width" style="margin-top:8px" onclick="App.signupUser()">Create Account</button>
+      </div>
+      ${hasUsers ? `<button class="auth-switch-btn" onclick="App._showAuthScreen('login')">← Back to Login</button>` : ''}
+    </div>`;
+  }
+
+  /* Login mode */
+  return `
+  <div class="auth-screen">
+    <div class="auth-logo">💪</div>
+    <h1 class="auth-title">GymTracker</h1>
+    <p class="auth-sub">Your personal workout tracker</p>
+    <div class="auth-card">
+      <div class="form-group">
+        <label class="form-label">Username</label>
+        <input class="form-input" id="auth-username" placeholder="Enter username" autocomplete="username" autocorrect="off" autocapitalize="none" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">PIN</label>
+        <input class="form-input" id="auth-pin" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="8" placeholder="••••" autocomplete="current-password"
+          onkeydown="if(event.key==='Enter')App.loginUser()" />
+      </div>
+      <div id="auth-error" class="auth-error hidden"></div>
+      <button class="btn-primary full-width" style="margin-top:8px" onclick="App.loginUser()">Log In</button>
+    </div>
+    ${hasUsers && users.length > 1 ? `
+    <div class="auth-users-list">
+      <p class="auth-switch-label">Or pick an account:</p>
+      ${users.map(u => `<button class="auth-user-pill" onclick="document.getElementById('auth-username').value='${esc(u.username)}';document.getElementById('auth-pin').focus()">${esc(u.username)}</button>`).join('')}
+    </div>` : ''}
+    <button class="auth-switch-btn" onclick="App._showAuthScreen('signup')">New here? Create account →</button>
+  </div>`;
+}
+
+/* ─────────────────────────────────────────────
    MAIN APP
 ───────────────────────────────────────────── */
 const App = {
   currentView: 'dashboard',
 
   init() {
+    if (!Auth.isLoggedIn()) {
+      this._showAuthScreen('login');
+      return;
+    }
+    this._bootApp();
+  },
+
+  _bootApp() {
     DB.load();
     Progress.load();
     Timer.init();
     this._setupNav();
     this._setupBackBtn();
     this._checkShareLink();
+    /* Show username in header */
+    const user = Auth.currentUser();
+    if (user) {
+      const titleEl = document.getElementById('page-title');
+      if (titleEl) titleEl.textContent = 'Dashboard';
+    }
+    document.getElementById('bottom-nav').style.display = '';
+    document.getElementById('app-header').style.display = '';
     this.renderView('dashboard');
     this._registerSW();
+  },
+
+  _showAuthScreen(mode = 'login') {
+    document.getElementById('bottom-nav').style.display = 'none';
+    document.getElementById('app-header').style.display = 'none';
+    document.getElementById('app-main').innerHTML = renderAuthScreen(mode);
+    /* auto-focus first input */
+    setTimeout(() => {
+      const inp = document.querySelector('.auth-card input');
+      if (inp) inp.focus();
+    }, 150);
+  },
+
+  loginUser() {
+    const username = (document.getElementById('auth-username')?.value || '').trim();
+    const pin = document.getElementById('auth-pin')?.value || '';
+    const errEl = document.getElementById('auth-error');
+    if (!username || !pin) {
+      errEl.textContent = 'Please enter username and PIN';
+      errEl.classList.remove('hidden');
+      return;
+    }
+    const result = Auth.login(username, pin);
+    if (result.error) {
+      errEl.textContent = result.error;
+      errEl.classList.remove('hidden');
+      return;
+    }
+    errEl.classList.add('hidden');
+    this._bootApp();
+  },
+
+  signupUser() {
+    const username = (document.getElementById('auth-username')?.value || '').trim();
+    const pin = document.getElementById('auth-pin')?.value || '';
+    const pin2 = document.getElementById('auth-pin2')?.value || '';
+    const errEl = document.getElementById('auth-error');
+    if (pin !== pin2) {
+      errEl.textContent = 'PINs do not match';
+      errEl.classList.remove('hidden');
+      return;
+    }
+    const result = Auth.signup(username, pin);
+    if (result.error) {
+      errEl.textContent = result.error;
+      errEl.classList.remove('hidden');
+      return;
+    }
+    errEl.classList.add('hidden');
+    this._bootApp();
+  },
+
+  logout() {
+    if (!confirm('Log out? Your data is saved and will be here when you return.')) return;
+    Auth.logout();
+    /* Reset module state */
+    DB.data = null;
+    Progress._data = null;
+    this._showAuthScreen('login');
   },
 
   _registerSW() {
@@ -1615,10 +1877,12 @@ const App = {
       rest: parseInt(document.getElementById('ex-rest').value) || 0,
       calories: parseInt(document.getElementById('ex-calories').value) || 0,
       instructions: document.getElementById('ex-instructions').value.trim(),
-      imageUrl: document.getElementById('ex-image').value.trim(),
+      images: document.getElementById('ex-images').value.split('\n').map(s => s.trim()).filter(Boolean),
+      imageUrl: '', /* kept for backward compat — filled below */
       videoUrl: document.getElementById('ex-video').value.trim(),
       notes: document.getElementById('ex-notes').value.trim(),
     };
+    ex.imageUrl = ex.images[0] || '';
 
     const saved = DB.saveExercise(ex);
 
